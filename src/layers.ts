@@ -150,11 +150,16 @@ const base = (kind: LayerKind, name: string): Base => ({
   ink: null,
 });
 
+/* What a fresh text layer says. Exported because the artboard checks against it:
+ * a layer still carrying it is a placeholder, so opening the caret selects it
+ * all and the first keystroke replaces it. */
+export const TEXT_PLACEHOLDER = "Double-click to edit";
+
 export function newText(partial: Partial<TextLayer> = {}): TextLayer {
   return {
     ...(base("text", "Text") as Base & { kind: "text" }),
     kind: "text",
-    text: "Double-click to edit",
+    text: TEXT_PLACEHOLDER,
     face: "display",
     w: 0.6,
     size: 0.075,

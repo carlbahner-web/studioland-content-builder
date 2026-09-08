@@ -63,6 +63,9 @@ export type LayerDrawOpts = {
   scale: number;
   /** Ink to use where a text layer asked for the ground's opposite. */
   defaultInk: string;
+  /** One layer to leave undrawn - see RenderOpts.hide. It still reports its
+   *  region, so it stays selectable while it is being typed into. */
+  hide?: string | null;
 };
 
 const styleOf = (l: TextLayer): TextStyle => {
@@ -133,6 +136,11 @@ export function drawLayers(
 
   for (const l of layers) {
     if (l.hidden) continue;
+    if (l.id === opts.hide) {
+      const box = layerBox(ctx, size, l, assets);
+      if (box) regions.push({ id: l.id, label: l.name, ...box, rotation: l.rotation });
+      continue;
+    }
     const box = layerBox(ctx, size, l, assets);
     if (!box) continue;
     const { cx, cy, w, h } = box;

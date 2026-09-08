@@ -568,3 +568,27 @@ button.primary:disabled { opacity: 0.4; cursor: default; }
 .adder .row { margin-top: 8px; }
 .panel .adder input.side { flex: 0 1 82px; text-align: center; }
 .adder .by { opacity: 0.45; font-size: 12px; }
+
+/* ---- typing on the artboard ----
+   A real textarea, laid over the artboard in the layer's own face and size.
+   Everything that makes text input work - selection, the system keyboard,
+   autocorrect, IME composition, accessibility - comes free from using the real
+   control, and every one would have had to be reimplemented badly on a
+   canvas-drawn caret. It is invisible apart from the letters and the caret. */
+.board .caret {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  overflow: hidden;
+  resize: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  transform-origin: center center;
+  /* The drawn text has no shadow, so neither can this - it would move when the
+     edit finished. The dotted rule instead says "this is being typed into". */
+  box-shadow: 0 0 0 1px rgba(252, 247, 232, 0.55), 0 0 0 2px rgba(44, 44, 42, 0.35);
+}

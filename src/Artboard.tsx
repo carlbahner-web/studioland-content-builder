@@ -27,6 +27,8 @@ import { FPS, type InkMode } from "./boil.ts";
 import { saveFile } from "./save.ts";
 import { encodeMp4 } from "./video.ts";
 import { snapBox, snapTargets, snapThreshold, type Box, type Guide } from "./snap.ts";
+import { TEXT_PLACEHOLDER } from "./layers.ts";
+import { FIRST_BASELINE } from "./render.ts";
 import {
   drawSocialAd,
   hitRegion,
@@ -60,6 +62,32 @@ export type Manipulator = {
   extent: (id: string) => { w: number; h: number | null } | null;
   setExtent: (id: string, w: number, h: number) => void;
   locked: (id: string) => boolean;
+  /* Everything it takes to put a caret on an element, or null where typing on
+   * the artboard is not offered. The template's headline and supporting line
+   * are null on purpose: their size is chosen by fitting them to a zone, so a
+   * caret would need the autofit re-run per keystroke to sit in the right
+   * place, and the panel field is honest about what is actually happening. */
+  editable: (id: string) => TextEdit | null;
+  setText: (id: string, value: string) => void;
+};
+
+/** Metrics in ARTBOARD pixels; the caller scales them to the display. */
+export type TextEdit = {
+  text: string;
+  /** A CSS font-family that resolves - the faces are registered on document.fonts. */
+  family: string;
+  size: number;
+  lineHeight: number;
+  tracking: number;
+  align: "left" | "center" | "right";
+  caps: boolean;
+  color: string;
+  /** The box the text wraps to. */
+  w: number;
+  rotation: number;
+  /** Centre, as a fraction of the artboard. */
+  x: number;
+  y: number;
 };
 
 type HandleId = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w" | "rot";
@@ -116,6 +144,28 @@ function handleOffset(h: HandleId, w: number, h2: number): { x: number; y: numbe
 }
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
+
+/* How far the caret's first line has to be pushed down to sit where the canvas
+ * would have drawn it.
+ *
+ * The canvas puts a baseline at FIRST_BASELINE of the way down its line box.
+ * CSS instead splits the leading evenly above and below the glyphs, so with a
+ * tight display face the two land within a pixel of each other and with the
+ * body face's 1.82 leading they are a quarter of an em apart - which reads as
+ * the text jumping the moment the caret closes. Measuring the font rather than
+ * assuming its proportions is what makes this exact for all three faces. */
+const scratch =
+  typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
+
+function baselineShift(family: string, fontPx: number, linePx: number): number {
+  if (!scratch) return 0;
+  scratch.font = `${fontPx}px "${family}", sans-serif`;
+  const m = scratch.measureText("Hxg");
+  const ascent = m.fontBoundingBoxAscent ?? fontPx * 0.8;
+  const descent = m.fontBoundingBoxDescent ?? fontPx * 0.2;
+  const css = (linePx - (ascent + descent)) / 2 + ascent;
+  return Math.max(0, FIRST_BASELINE * linePx - css);
+}
 
 /** A point in the element's own frame, given its centre and rotation. */
 function toLocal(px: number, py: number, cx: number, cy: number, deg: number) {
@@ -264,6 +314,14 @@ export function Artboard({
   );
   /** Displayed size, for turning screen distances into artboard ones. */
   const [view, setView] = useState({ w: 0, h: 0 });
+  /* The layer being typed into, if any. A real <textarea> laid over the
+     artboard in the layer's own face, size, colour and alignment - not a
+     canvas-drawn caret. Text selection, the system keyboard, autocorrect, IME
+     composition and every accessibility affordance come free that way, and
+     every one of them would have had to be reimplemented badly otherwise. */
+  const [editing, setEditing] = useState<string | null>(null);
+  const ta = useRef<HTMLTextAreaElement>(null);
+  const edit = editing ? manip.editable(editing) : null;
 
   /* --------------------------------------------------------------- the art */
 
@@ -273,7 +331,7 @@ export function Artboard({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (!animate) {
-      regions.current = drawSocialAd(ctx, size, colorway, content, assets, { ink });
+      regions.current = drawSocialAd(ctx, size, colorway, content, assets, { ink, hide: editing });
       onRegions(regions.current);
       return;
     }
@@ -290,7 +348,7 @@ export function Artboard({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [size, colorway, content, assets, animate, curtain, ink, onRegions]);
+  }, [size, colorway, content, assets, animate, curtain, ink, onRegions, editing]);
 
   /* ------------------------------------------------------------ the chrome */
   /* The overlay effect is declared AFTER the draw effect on purpose: effects
@@ -429,6 +487,68 @@ export function Artboard({
     }
   }, [selection, guides, view, size, content, manip, marquee]);
 
+  /* The box is sized to its own content and then centred on that height, so
+     the caret grows symmetrically the way the drawn text does. Anchoring the
+     top instead would drift half a line out of place for every line added.
+     Measuring means letting the height go auto and reading scrollHeight, which
+     is a DOM write React knows nothing about - so `height` and `top` are set
+     here rather than through the style prop, and React is not given a second
+     opinion on them. Sharing the property does not work: React only writes when
+     the value it last rendered changed, so once the measured height settles it
+     stops writing and the `auto` left behind from measuring is what sticks. */
+  useLayoutEffect(() => {
+    const el = ta.current;
+    if (!el || !edit || !view.w) return;
+    const k = view.w / size.w;
+
+    // Push the first line down to where the canvas would have put its baseline.
+    const pad = baselineShift(edit.family, edit.size * k, edit.lineHeight * k);
+    el.style.paddingTop = `${pad}px`;
+    el.style.height = "auto";
+    const h = el.scrollHeight;
+    el.style.height = `${h}px`;
+    /* The TEXT is what has to be centred on the layer, not the box - so the
+       padding is discounted from the centring exactly as it was added to the
+       height. */
+    el.style.top = `${edit.y * view.h - h / 2 - pad / 2}px`;
+
+    /* Horizontally the two disagree about what is centred on the layer, and the
+       canvas is the one that has to win because it is what exports. It centres
+       the INK - the width the letters actually run to - which is what makes a
+       selection box hug a short centred line instead of a stretch of empty
+       artboard. A textarea can only centre its BOX. So the box is placed to put
+       its text where the canvas puts it, while keeping the full measure width
+       so the wrap still breaks in the same places. */
+    const measure = edit.w * k;
+    const ink = (regions.current.find((r) => r.id === editing)?.w ?? edit.w) * k;
+    const cx = edit.x * view.w;
+    el.style.width = `${measure}px`;
+    el.style.left = `${
+      edit.align === "left"
+        ? cx - ink / 2
+        : edit.align === "right"
+          ? cx + ink / 2 - measure
+          : cx - measure / 2
+    }px`;
+  }, [edit?.text, edit?.size, edit?.w, edit?.x, edit?.y, edit?.align, view.w, view.h, editing, edit, size.w]);
+
+  useEffect(() => {
+    const el = ta.current;
+    if (!el || !edit) return;
+    el.focus();
+    /* A layer that still says what it was born saying is a placeholder, so
+       select it - the first thing you type should replace it. Anything you have
+       already written gets a caret at the end instead. */
+    if (edit.text === TEXT_PLACEHOLDER) el.select();
+    else el.setSelectionRange(el.value.length, el.value.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
+
+  // Nothing to type into any more - a format switch, an undo that removed it.
+  useEffect(() => {
+    if (editing && !manip.editable(editing)) setEditing(null);
+  }, [editing, manip]);
+
   /* ------------------------------------------------------------- pointers */
 
   const toArtboard = (e: { clientX: number; clientY: number; currentTarget: HTMLCanvasElement }) => {
@@ -465,6 +585,9 @@ export function Artboard({
   };
 
   const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Pressing anywhere on the artboard ends the edit. The change is already
+    // committed on every keystroke, so there is nothing to save here.
+    if (editing) setEditing(null);
     const { px, py } = toArtboard(e);
     const selected = lone();
     const handle = handleUnder(px, py);
@@ -688,7 +811,12 @@ export function Artboard({
   const onDouble = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const { px, py } = toArtboard(e);
     const hit = hitRegion(regions.current.filter((r) => !manip.locked(r.id)), px, py);
-    if (hit) onEdit(hit.id);
+    if (!hit) return;
+    onSelect([hit.id]);
+    // A caret on the artboard where the element can carry one; otherwise the
+    // panel field, which is what onEdit does.
+    if (manip.editable(hit.id)) setEditing(hit.id);
+    else onEdit(hit.id);
   };
 
   /* -------------------------------------------------------------- exports */
@@ -777,6 +905,39 @@ export function Artboard({
           onPointerCancel={onUp}
           onDoubleClick={onDouble}
         />
+        {edit && view.w > 0 && (
+          /* Laid out in ARTBOARD units scaled to the display, from the same
+             numbers the canvas draws with, so what you type sits exactly where
+             it will be drawn. `text-transform` does the caps: it is a display
+             rule, so the stored text keeps whatever case you typed and turning
+             All caps off later gives it back. */
+          <textarea
+            ref={ta}
+            className="caret"
+            value={edit.text}
+            spellCheck={false}
+            onChange={(e) => manip.setText(editing!, e.target.value)}
+            onBlur={() => setEditing(null)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") setEditing(null);
+            }}
+            style={{
+              /* Geometry is deliberately absent - left, width, top, height and
+                 the padding all belong to the layout effect above, which has to
+                 write them directly in order to measure. React owns the
+                 typography; the effect owns the box. */
+              transform: `rotate(${edit.rotation}deg)`,
+              fontFamily: `"${edit.family}", sans-serif`,
+              fontSize: edit.size * (view.w / size.w),
+              lineHeight: `${edit.lineHeight * (view.w / size.w)}px`,
+              letterSpacing: `${edit.tracking * (view.w / size.w)}px`,
+              textAlign: edit.align,
+              textTransform: edit.caps ? "uppercase" : "none",
+              color: edit.color,
+            }}
+          />
+        )}
       </div>
     </figure>
   );

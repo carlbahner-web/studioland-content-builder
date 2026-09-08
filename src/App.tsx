@@ -31,6 +31,7 @@ import {
   newImage,
   newShape,
   newText,
+  faceOf,
   reorderLayer,
   updateLayer,
   FACES,
@@ -516,6 +517,35 @@ export default function App() {
         else if (l.kind === "shape") patchLayer(id, { w, h }, `size:${id}`);
       },
       locked: (id) => findLayer(content.layers, id)?.locked === true,
+      /* Only text LAYERS can be typed into on the artboard, and the reason is
+         not squeamishness: a layer's size is a number you set, so a caret can
+         be placed at exactly the size the canvas draws. The template's headline
+         and supporting line are FITTED to a zone, so their size changes as you
+         type - a caret would need the autofit re-run per keystroke to stay
+         where the letters are, and would still jump every time the fit stepped.
+         The panel field is honest about what is happening there. */
+      editable: (id) => {
+        const l = findLayer(content.layers, id);
+        if (!l || l.kind !== "text" || l.locked) return null;
+        const face = faceOf(l.face);
+        const short = Math.min(format.w, format.h);
+        const px = l.size * short;
+        return {
+          text: l.text,
+          family: face.family,
+          size: px,
+          lineHeight: px * face.lineHeight,
+          tracking: px * face.tracking,
+          align: l.align,
+          caps: l.caps,
+          color: PALETTE[l.color] ?? PALETTE.offwhite,
+          w: l.w * short,
+          rotation: l.rotation,
+          x: l.x,
+          y: l.y,
+        };
+      },
+      setText: (id, value) => patchLayer(id, { text: value }, `text:${id}`),
     }),
     [content, format, patchLayer, setTransform],
   );

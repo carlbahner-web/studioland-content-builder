@@ -165,6 +165,11 @@ export type RenderOpts = {
   /** off | still | live. See boil.ts - a still is one held phase, not "no boil". */
   ink?: InkMode;
   curtain?: boolean;
+  /* One layer to leave undrawn. Used while its text is being typed on the
+   * artboard, so the canvas copy and the caret do not sit on top of each other.
+   * The export path never sets it - it is an editing state, not a property of
+   * the design. */
+  hide?: string | null;
 };
 
 export function drawSocialAd(
@@ -175,7 +180,7 @@ export function drawSocialAd(
   assets: Assets,
   opts: RenderOpts = {},
 ): Region[] {
-  const { frame = null, ink: inkMode = "still", curtain = true } = opts;
+  const { frame = null, ink: inkMode = "still", curtain = true, hide = null } = opts;
   const { w, h } = size;
   const S = stageScale(w, h);
   const regions: Region[] = [];
@@ -427,6 +432,7 @@ export function drawSocialAd(
       frame,
       scale: S,
       defaultInk: ink,
+      hide,
     }),
   );
 

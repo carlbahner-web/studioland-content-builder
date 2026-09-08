@@ -239,6 +239,14 @@ export type DrawTextOpts = {
   align?: CanvasTextAlign;
 };
 
+/* Where the first baseline sits inside its line box, as a fraction of the line
+ * height. Exported because the artboard has to place a real <textarea> over the
+ * same text and CSS puts its baseline somewhere else entirely - it centres the
+ * glyphs in the line box, which at the body face's 1.82 leading is a quarter of
+ * an em away from this. Without agreeing on one number, a block of body copy
+ * visibly hops the moment you stop typing. */
+export const FIRST_BASELINE = 0.78;
+
 /** Draw fitted lines from a top-left (or top-centre) origin. */
 export function drawLines(
   ctx: CanvasRenderingContext2D,
@@ -255,7 +263,7 @@ export function drawLines(
   ctx.miterLimit = 2;
   fitted.lines.forEach((line, i) => {
     // Sit the first line's baseline inside the box rather than on its top edge.
-    const by = y + fitted.lineHeight * (i + 0.78);
+    const by = y + fitted.lineHeight * (i + FIRST_BASELINE);
     if (opts.outline) {
       ctx.strokeStyle = opts.outline;
       ctx.lineWidth = fitted.size * (opts.outlineWidth ?? 0.06);
