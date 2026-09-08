@@ -46,21 +46,29 @@ import {
  * its size outright - and the difference genuinely matters to everything else.
  * It does not matter here. A handle drag is "this element is now this big", and
  * these accessors are where that sentence is translated. */
+/* Every setter takes an optional history TAG, and it identifies the GESTURE
+ * rather than the element - which is the whole point of it being a parameter.
+ * Undo coalesces consecutive edits carrying the same tag, so tagging by element
+ * works for a single drag and falls apart the moment a drag touches more than
+ * one: two elements moving together emit "drag:A", "drag:B", "drag:A", ... and
+ * because each push has a different tag from the one before it, none of them
+ * fold. A two-element drag was recording dozens of undo steps. One tag for the
+ * whole gesture makes any drag one step, however many things it moves. */
 export type Manipulator = {
   /** Fractional centre, falling back to where the last draw put it. */
   pos: (id: string, fallback: { x: number; y: number }) => { x: number; y: number };
-  setPos: (id: string, x: number, y: number) => void;
+  setPos: (id: string, x: number, y: number, tag?: string) => void;
   /** One number that sizes the element proportionally. */
   scale: (id: string) => number;
-  setScale: (id: string, v: number) => void;
+  setScale: (id: string, v: number, tag?: string) => void;
   rot: (id: string) => number;
-  setRot: (id: string, deg: number) => void;
+  setRot: (id: string, deg: number, tag?: string) => void;
   /* Independent extents, for the elements that have them: a shape has a width
    * and a height, a text box has a width it wraps to and a height it works out
    * for itself. null means corners only - an image's aspect is the artwork's,
    * and stretching it is not a thing this tool offers. */
   extent: (id: string) => { w: number; h: number | null } | null;
-  setExtent: (id: string, w: number, h: number) => void;
+  setExtent: (id: string, w: number, h: number, tag?: string) => void;
   locked: (id: string) => boolean;
   /* Everything it takes to put a caret on an element, or null where typing on
    * the artboard is not offered. The template's headline and supporting line
@@ -235,6 +243,7 @@ type Gesture =
      element snapping somewhere different. */
   | {
       kind: "move";
+      tag: string;
       ids: string[];
       from: Record<string, { x: number; y: number }>;
       /** Pointer at grab time, in artboard fractions. */
@@ -245,11 +254,30 @@ type Gesture =
       u0: { x0: number; y0: number; x1: number; y1: number };
       spun: boolean;
     }
+  /* Scaling or turning a whole selection at once, about its own centre.
+     Every element's position AND size are taken at grab time and derived from
+     the one factor, so the group scales as a rigid arrangement: the spacing
+     between things grows with the things, which is what makes it a resize of
+     the composition rather than of each piece separately. */
+  | {
+      kind: "group";
+      tag: string;
+      mode: "scale" | "rot";
+      ids: string[];
+      /** The group's centre at grab time, in artboard pixels. */
+      cx: number;
+      cy: number;
+      from: Record<string, { x: number; y: number; scale: number; rot: number }>;
+      /** Pointer distance and angle from that centre at grab time. */
+      d0: number;
+      a0: number;
+    }
   /* Dragging from empty artboard sweeps out a selection. `add` is set when
      shift was held, so a marquee can extend a selection rather than replace it. */
   | { kind: "marquee"; x0: number; y0: number; x1: number; y1: number; add: string[] }
   | {
       kind: "handle";
+      tag: string;
       id: string;
       handle: HandleId;
       /** The element as it was at grab time - every gesture is measured from
@@ -308,6 +336,9 @@ export function Artboard({
      second copy of that maths is how the two drift apart. */
   const regions = useRef<Region[]>([]);
   const gesture = useRef<Gesture | null>(null);
+  /** One tag per gesture, so a drag is one undo step whatever it moves. */
+  const gestureTag = useRef(0);
+  const newTag = (kind: string) => `${kind}:${++gestureTag.current}`;
   /** The sweep rectangle while one is being dragged, in artboard pixels. */
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(
     null,
@@ -437,10 +468,41 @@ export function Artboard({
       g.restore();
     }
 
-    // The group's extent, so you can see what a nudge or an align will act on.
+    const dot = (x: number, y: number) => {
+      g.beginPath();
+      g.arc(x, y, HANDLE_R * px, 0, Math.PI * 2);
+      g.fillStyle = "#fcf7e8";
+      g.fill();
+      g.strokeStyle = "#2C2C2A";
+      g.lineWidth = 1.5 * px;
+      g.stroke();
+    };
+
+    /* The group's own box, with corner handles. CORNERS ONLY, and that is the
+       whole ruling: a uniform scale about the centre is unambiguous - the
+       arrangement grows, everything keeps its proportions - while a side handle
+       would have to mean stretching text and photographs out of shape, which is
+       never what "make these bigger" meant. */
     if (chosen.length > 1) {
       const u = unionBox(chosen);
       twoTone(() => g.strokeRect(u.x0, u.y0, u.x1 - u.x0, u.y1 - u.y0), "#3A6168", [7, 5]);
+      const box = { w: u.x1 - u.x0, h: u.y1 - u.y0 };
+      const cx = (u.x0 + u.x1) / 2;
+      const cy = (u.y0 + u.y1) / 2;
+      if (chosen.some((r) => !manip.locked(r.id))) {
+        for (const h of handlesFor(box, null, px)) {
+          const o = handleOffset(h, box.w, box.h);
+          dot(cx + o.x, cy + o.y);
+        }
+        const gap = ROT_GAP * px;
+        twoTone(() => {
+          g.beginPath();
+          g.moveTo(cx, u.y0);
+          g.lineTo(cx, u.y0 - gap);
+          g.stroke();
+        }, "#2C2C2A");
+        dot(cx, u.y0 - gap);
+      }
     }
 
     const r = chosen.length === 1 ? chosen[0] : null;
@@ -448,15 +510,6 @@ export function Artboard({
       g.save();
       g.translate(r.cx, r.cy);
       g.rotate(rad(r.rotation ?? 0));
-      const dot = (x: number, y: number) => {
-        g.beginPath();
-        g.arc(x, y, HANDLE_R * px, 0, Math.PI * 2);
-        g.fillStyle = "#fcf7e8";
-        g.fill();
-        g.strokeStyle = "#2C2C2A";
-        g.lineWidth = 1.5 * px;
-        g.stroke();
-      };
       // Exactly the handles the hit test will accept - drawing one that cannot
       // be grabbed is worse than not drawing it.
       for (const h of handlesFor(r, manip.extent(r.id), px)) {
@@ -565,6 +618,35 @@ export function Artboard({
   /* Handles belong to a LONE selection - see the overlay for why. */
   const lone = (): string | null => (selection.length === 1 ? selection[0] : null);
 
+  /** The group's box when several things are selected and any of them can move. */
+  const groupBox = () => {
+    if (selection.length < 2) return null;
+    const chosen = regions.current.filter((r) => selection.includes(r.id));
+    if (chosen.length < 2 || !chosen.some((r) => !manip.locked(r.id))) return null;
+    const u = unionBox(chosen);
+    return {
+      cx: (u.x0 + u.x1) / 2,
+      cy: (u.y0 + u.y1) / 2,
+      w: u.x1 - u.x0,
+      h: u.y1 - u.y0,
+      top: u.y0,
+    };
+  };
+
+  /** A group handle under the point: its corners, or the rotate stalk. */
+  const groupHandleUnder = (px: number, py: number): HandleId | null => {
+    const b = groupBox();
+    if (!b) return null;
+    const reach = GRAB_R * unit();
+    if (Math.hypot(px - b.cx, py - (b.top - ROT_GAP * unit())) <= reach) return "rot";
+    // The union box is axis-aligned by construction, so no local frame is needed.
+    for (const h of handlesFor(b, null, unit())) {
+      const o = handleOffset(h, b.w, b.h);
+      if (Math.hypot(px - (b.cx + o.x), py - (b.cy + o.y)) <= reach) return h;
+    }
+    return null;
+  };
+
   const handleUnder = (px: number, py: number): HandleId | null => {
     const selected = lone();
     if (!selected) return null;
@@ -590,12 +672,40 @@ export function Artboard({
     if (editing) setEditing(null);
     const { px, py } = toArtboard(e);
     const selected = lone();
+
+    const group = groupHandleUnder(px, py);
+    if (group) {
+      const b = groupBox()!;
+      const from: Record<string, { x: number; y: number; scale: number; rot: number }> = {};
+      for (const id of selection) {
+        if (manip.locked(id)) continue;
+        const r = regions.current.find((x) => x.id === id);
+        if (!r) continue;
+        const at = manip.pos(id, { x: r.cx / size.w, y: r.cy / size.h });
+        from[id] = { x: at.x, y: at.y, scale: manip.scale(id), rot: manip.rot(id) };
+      }
+      gesture.current = {
+        kind: "group",
+        tag: newTag("group"),
+        mode: group === "rot" ? "rot" : "scale",
+        ids: Object.keys(from),
+        cx: b.cx,
+        cy: b.cy,
+        from,
+        d0: Math.hypot(px - b.cx, py - b.cy),
+        a0: Math.atan2(py - b.cy, px - b.cx),
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
     const handle = handleUnder(px, py);
     if (handle && selected) {
       const r = regions.current.find((x) => x.id === selected)!;
       const local = toLocal(px, py, r.cx, r.cy, r.rotation ?? 0);
       gesture.current = {
         kind: "handle",
+        tag: newTag("handle"),
         id: selected,
         handle,
         box: { ...r },
@@ -660,6 +770,7 @@ export function Artboard({
     const mine = regions.current.filter((r) => next.includes(r.id));
     gesture.current = {
       kind: "move",
+      tag: newTag("move"),
       ids: next,
       from,
       px0: px / size.w,
@@ -679,6 +790,9 @@ export function Artboard({
      otherwise a box turned 90 degrees offers a cursor at right angles to the
      edge it would move. */
   const cursorFor = (px: number, py: number): string => {
+    const grp = groupHandleUnder(px, py);
+    if (grp === "rot") return "grab";
+    if (grp) return grp === "nw" || grp === "se" ? "nwse-resize" : "nesw-resize";
     const h = handleUnder(px, py);
     if (h === "rot") return "grab";
     if (h) {
@@ -698,6 +812,47 @@ export function Artboard({
     if (!g) {
       const want = cursorFor(px, py);
       if (e.currentTarget.style.cursor !== want) e.currentTarget.style.cursor = want;
+      return;
+    }
+
+    if (g.kind === "group") {
+      /* Everything is derived from the values recorded at grab time, so a long
+         drag cannot compound rounding, and letting go and grabbing again picks
+         up exactly where it left off. */
+      if (g.mode === "scale") {
+        if (g.d0 < 1) return;
+        const factor = Math.max(0.05, Math.hypot(px - g.cx, py - g.cy) / g.d0);
+        for (const id of g.ids) {
+          const f = g.from[id];
+          // The POSITION scales about the centre as well as the size - that is
+          // what keeps the arrangement rigid instead of piling everything up.
+          manip.setPos(
+            id,
+            (g.cx + (f.x * size.w - g.cx) * factor) / size.w,
+            (g.cy + (f.y * size.h - g.cy) * factor) / size.h,
+            g.tag,
+          );
+          manip.setScale(id, Math.max(0.01, f.scale * factor), g.tag);
+        }
+        return;
+      }
+      let delta = Math.atan2(py - g.cy, px - g.cx) - g.a0;
+      if (e.shiftKey) delta = (Math.round(((delta * 180) / Math.PI) / 15) * 15 * Math.PI) / 180;
+      const cos = Math.cos(delta);
+      const sin = Math.sin(delta);
+      for (const id of g.ids) {
+        const f = g.from[id];
+        // Each element turns on its own axis AND orbits the group's centre.
+        const dx = f.x * size.w - g.cx;
+        const dy = f.y * size.h - g.cy;
+        manip.setPos(
+          id,
+          (g.cx + dx * cos - dy * sin) / size.w,
+          (g.cy + dx * sin + dy * cos) / size.h,
+          g.tag,
+        );
+        manip.setRot(id, Math.round((f.rot + (delta * 180) / Math.PI) * 10) / 10, g.tag);
+      }
       return;
     }
 
@@ -740,7 +895,7 @@ export function Artboard({
 
       for (const id of g.ids) {
         const at = g.from[id];
-        if (at) manip.setPos(id, at.x + dx, at.y + dy);
+        if (at) manip.setPos(id, at.x + dx, at.y + dy, g.tag);
       }
       return;
     }
@@ -754,7 +909,7 @@ export function Artboard({
       let deg = g.rot0 + ((a1 - a0) * 180) / Math.PI;
       // Shift gives the fifteens, which is where anything deliberate lands.
       if (e.shiftKey) deg = Math.round(deg / 15) * 15;
-      manip.setRot(g.id, Math.round(deg * 10) / 10);
+      manip.setRot(g.id, Math.round(deg * 10) / 10, g.tag);
       return;
     }
 
@@ -770,6 +925,7 @@ export function Artboard({
         g.id,
         horizontal ? ext.w * factor : ext.w,
         horizontal ? (ext.h ?? 0) : (ext.h ?? 0) * factor,
+        g.tag,
       );
       return;
     }
@@ -780,7 +936,7 @@ export function Artboard({
     const d0 = Math.hypot(g.lx0, g.ly0);
     const d1 = Math.hypot(local.x, local.y);
     if (d0 < 1) return;
-    manip.setScale(g.id, Math.max(0.01, g.scale0 * (d1 / d0)));
+    manip.setScale(g.id, Math.max(0.01, g.scale0 * (d1 / d0)), g.tag);
   };
 
   const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {

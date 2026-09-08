@@ -461,18 +461,19 @@ export default function App() {
         const tr = content.transforms[id] ?? {};
         return { x: tr.x ?? fallback.x, y: tr.y ?? fallback.y };
       },
-      setPos: (id, x, y) => {
-        if (findLayer(content.layers, id)) patchLayer(id, { x, y }, `drag:${id}`);
-        else setTransform(id, { x, y }, `drag:${id}`);
+      setPos: (id, x, y, tag) => {
+        const t = tag ?? `drag:${id}`;
+        if (findLayer(content.layers, id)) patchLayer(id, { x, y }, t);
+        else setTransform(id, { x, y }, t);
       },
       scale: (id) => {
         const l = findLayer(content.layers, id);
         if (!l) return content.transforms[id]?.scale ?? 1;
         return l.kind === "text" ? l.size : l.w;
       },
-      setScale: (id, v) => {
+      setScale: (id, v, gestureTag) => {
         const l = findLayer(content.layers, id);
-        const tag = `size:${id}`;
+        const tag = gestureTag ?? `size:${id}`;
         /* The wordmark has a floor. The bible sets a minimum size "so the
            arrow-I signpost stops reading", and it is enforced HERE rather than
            on the slider because a corner handle is now another way to get
@@ -502,9 +503,10 @@ export default function App() {
         const l = findLayer(content.layers, id);
         return l ? l.rotation : (content.transforms[id]?.rotation ?? 0);
       },
-      setRot: (id, deg) => {
-        if (findLayer(content.layers, id)) patchLayer(id, { rotation: deg }, `rot:${id}`);
-        else setTransform(id, { rotation: deg }, `rot:${id}`);
+      setRot: (id, deg, tag) => {
+        const t = tag ?? `rot:${id}`;
+        if (findLayer(content.layers, id)) patchLayer(id, { rotation: deg }, t);
+        else setTransform(id, { rotation: deg }, t);
       },
       extent: (id) => {
         const l = findLayer(content.layers, id);
@@ -519,12 +521,13 @@ export default function App() {
         if (l.kind === "image" && l.frameH !== null) return { w: l.w, h: l.frameH };
         return null;
       },
-      setExtent: (id, w, h) => {
+      setExtent: (id, w, h, tag) => {
         const l = findLayer(content.layers, id);
         if (!l) return;
-        if (l.kind === "text") patchLayer(id, { w }, `size:${id}`);
-        else if (l.kind === "shape") patchLayer(id, { w, h }, `size:${id}`);
-        else if (l.kind === "image") patchLayer(id, { w, frameH: h }, `size:${id}`);
+        const t = tag ?? `size:${id}`;
+        if (l.kind === "text") patchLayer(id, { w }, t);
+        else if (l.kind === "shape") patchLayer(id, { w, h }, t);
+        else if (l.kind === "image") patchLayer(id, { w, frameH: h }, t);
       },
       locked: (id) => findLayer(content.layers, id)?.locked === true,
       /* Only text LAYERS can be typed into on the artboard, and the reason is
