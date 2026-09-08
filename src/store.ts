@@ -15,7 +15,17 @@
 import { COLORWAYS, FORMATS, type Colorway, type Format } from "./brand.ts";
 import { kvDelete, kvGet, kvKeys, kvSet } from "./kv.ts";
 import type { InkMode } from "./boil.ts";
-import type { SocialAdContent, Sticker } from "./templates/socialAd.ts";
+import type { SocialAdContent } from "./templates/socialAd.ts";
+import {
+  LAYER_COLORS,
+  newImage,
+  newShape,
+  newText,
+  SHAPES,
+  type Face,
+  type Layer,
+  type ShapeKind,
+} from "./layers.ts";
 
 const DRAFT_KEY = "draft";
 const DESIGN_PREFIX = "design:";
@@ -55,21 +65,116 @@ const str = (v: unknown, fallback: string): string => (typeof v === "string" ? v
 const num = (v: unknown, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) ? v : fallback;
 
-function hydrateSticker(raw: unknown): Sticker | null {
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+const inkOrNull = (v: unknown): InkMode | null =>
+  v === "off" || v === "still" || v === "live" ? v : null;
+
+const oneOf = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
+  allowed.includes(v as T) ? (v as T) : fallback;
+
+/* One layer, checked field by field.
+ *
+ * The kind decides which shape the rest has to be, and an unrecognised kind is
+ * dropped rather than guessed at: a half-understood layer that draws as
+ * something else is worse than one that is gone, because you cannot tell it
+ * happened. Everything else falls back, and positions and sizes are CLAMPED
+ * rather than rejected - a layer dragged off the artboard by an older build
+ * should come back grabbable, not vanish. */
+function hydrateLayer(raw: unknown): Layer | null {
   if (!isObj(raw)) return null;
-  const name = str(raw.name, "");
   const id = str(raw.id, "");
-  if (!name || !id) return null;
-  return {
+  if (!id) return null;
+  const common = {
     id,
-    name,
-    // Clamped rather than rejected: a sticker dragged off-canvas in an older
-    // build should come back reachable, not vanish.
-    x: Math.min(1.5, Math.max(-0.5, num(raw.x, 0.5))),
-    y: Math.min(1.5, Math.max(-0.5, num(raw.y, 0.5))),
-    scale: Math.min(2, Math.max(0.01, num(raw.scale, 0.24))),
-    rotation: num(raw.rotation, 0),
+    name: str(raw.name, "Layer"),
+    x: clamp(num(raw.x, 0.5), -0.5, 1.5),
+    y: clamp(num(raw.y, 0.5), -0.5, 1.5),
+    rotation: clamp(num(raw.rotation, 0), -360, 360),
+    opacity: clamp(num(raw.opacity, 1), 0, 1),
+    hidden: raw.hidden === true,
+    locked: raw.locked === true,
+    ink: inkOrNull(raw.ink),
   };
+
+  if (raw.kind === "text") {
+    return newText({
+      ...common,
+      text: str(raw.text, ""),
+      face: oneOf<Face>(raw.face, ["display", "narrow", "body"], "display"),
+      w: clamp(num(raw.w, 0.6), 0.02, 4),
+      size: clamp(num(raw.size, 0.075), 0.005, 1),
+      align: oneOf(raw.align, ["left", "center", "right"] as const, "left"),
+      color: oneOf(raw.color, LAYER_COLORS, "offwhite"),
+      outline: LAYER_COLORS.includes(raw.outline as never) ? (raw.outline as never) : null,
+      caps: raw.caps !== false,
+      balance: raw.balance === true,
+    });
+  }
+
+  if (raw.kind === "shape") {
+    return newShape(
+      oneOf<ShapeKind>(raw.shape, SHAPES.map((s) => s.key), "rect"),
+      {
+        ...common,
+        w: clamp(num(raw.w, 0.3), 0.005, 4),
+        h: clamp(num(raw.h, 0.3), 0.001, 4),
+        fill: LAYER_COLORS.includes(raw.fill as never) ? (raw.fill as never) : null,
+        stroke: LAYER_COLORS.includes(raw.stroke as never) ? (raw.stroke as never) : null,
+        strokeWidth: clamp(num(raw.strokeWidth, 0.006), 0, 0.2),
+        radius: clamp(num(raw.radius, 0), 0, 0.5),
+        label: str(raw.label, ""),
+      },
+    );
+  }
+
+  if (raw.kind === "image") {
+    const name = str(raw.name, "");
+    if (!name) return null;
+    return newImage(name, raw.src === "upload" ? "upload" : "library", {
+      ...common,
+      name,
+      w: clamp(num(raw.w, 0.24), 0.005, 4),
+      flipX: raw.flipX === true,
+      flipY: raw.flipY === true,
+    });
+  }
+
+  return null;
+}
+
+/* Designs written before layers existed carried `stickers`, which were image
+ * layers in all but name: same relative placement, same short-edge sizing. So
+ * they are converted rather than dropped - `scale` was what is now `w`, and
+ * nothing else has to change. A design saved last quarter still opens. */
+function migrateStickers(raw: unknown): Layer[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Layer[] = [];
+  for (const s of raw) {
+    if (!isObj(s)) continue;
+    const name = str(s.name, "");
+    const id = str(s.id, "");
+    if (!name || !id) continue;
+    out.push(
+      newImage(name, "library", {
+        id,
+        name,
+        x: clamp(num(s.x, 0.5), -0.5, 1.5),
+        y: clamp(num(s.y, 0.5), -0.5, 1.5),
+        w: clamp(num(s.scale, 0.24), 0.005, 4),
+        rotation: clamp(num(s.rotation, 0), -360, 360),
+      }),
+    );
+  }
+  return out;
+}
+
+function hydrateLayers(raw: unknown, legacyStickers: unknown, fallback: Layer[]): Layer[] {
+  if (Array.isArray(raw)) {
+    return raw.map(hydrateLayer).filter((l): l is Layer => l !== null);
+  }
+  if (Array.isArray(legacyStickers)) return migrateStickers(legacyStickers);
+  return fallback;
 }
 
 export function hydrateContent(raw: unknown, base: SocialAdContent): SocialAdContent {
@@ -80,9 +185,7 @@ export function hydrateContent(raw: unknown, base: SocialAdContent): SocialAdCon
     body: str(raw.body, base.body),
     cta: str(raw.cta, base.cta),
     buzz: buzz as SocialAdContent["buzz"],
-    stickers: Array.isArray(raw.stickers)
-      ? raw.stickers.map(hydrateSticker).filter((s): s is Sticker => s !== null)
-      : base.stickers,
+    layers: hydrateLayers(raw.layers, raw.stickers, base.layers),
     transforms: hydrateTransforms(raw.transforms, raw.nudges, raw.scales),
     inkOverrides: hydrateInk(raw.inkOverrides),
   };
@@ -99,7 +202,6 @@ function hydrateTransforms(
   legacyScales: unknown,
 ): SocialAdContent["transforms"] {
   const out: SocialAdContent["transforms"] = {};
-  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   if (isObj(raw)) {
     for (const [id, v] of Object.entries(raw)) {
       if (!isObj(v)) continue;
@@ -144,8 +246,8 @@ function hydratePartial(raw: unknown): Partial<SocialAdContent> {
     out.transforms = hydrateTransforms(raw.transforms, raw.nudges, raw.scales);
   }
   if (isObj(raw.inkOverrides)) out.inkOverrides = hydrateInk(raw.inkOverrides);
-  if (Array.isArray(raw.stickers)) {
-    out.stickers = raw.stickers.map(hydrateSticker).filter((s): s is Sticker => s !== null);
+  if (Array.isArray(raw.layers) || Array.isArray(raw.stickers)) {
+    out.layers = hydrateLayers(raw.layers, raw.stickers, []);
   }
   return out;
 }
@@ -184,17 +286,29 @@ export function hydrate(raw: unknown, base: SocialAdContent): Restored | null {
   };
 }
 
-/** Every artwork file name a design refers to, across shared and overrides. */
+/* Every piece of artwork a design refers to, across shared and every override.
+ *
+ * WHICH LIBRARY it came from is carried through rather than inferred from the
+ * name, because the two fail differently and the panel has to say which: a
+ * folder image is missing until the folder is reconnected, and an upload is
+ * missing because it is not in this browser - a design opened on the phone that
+ * was made at the desk. Guessing from the name would collapse those into one
+ * unhelpful "could not be found". */
+export type ArtworkRef = { name: string; src: "library" | "upload" };
+
 export function artworkNames(
   shared: SocialAdContent,
   overrides: Record<string, Partial<SocialAdContent>>,
-): string[] {
-  const names = new Set<string>();
-  for (const s of shared.stickers) names.add(s.name);
-  for (const patch of Object.values(overrides)) {
-    for (const s of patch.stickers ?? []) names.add(s.name);
-  }
-  return [...names];
+): ArtworkRef[] {
+  const seen = new Map<string, ArtworkRef>();
+  const collect = (layers: Layer[] | undefined) => {
+    for (const l of layers ?? []) {
+      if (l.kind === "image" && !seen.has(l.name)) seen.set(l.name, { name: l.name, src: l.src });
+    }
+  };
+  collect(shared.layers);
+  for (const patch of Object.values(overrides)) collect(patch.layers);
+  return [...seen.values()];
 }
 
 /* ---------------------------------------------------------------- storage */
@@ -258,7 +372,7 @@ export type Preset = {
   updated: number;
   transforms: SocialAdContent["transforms"];
   inkOverrides: SocialAdContent["inkOverrides"];
-  stickers: Sticker[];
+  layers: Layer[];
   buzz: SocialAdContent["buzz"];
   colorway: string;
   ink: InkMode;
@@ -274,7 +388,7 @@ export function hydratePreset(raw: unknown): Omit<Preset, "version" | "name" | "
     body: "",
     cta: "",
     buzz: "wave",
-    stickers: [],
+    layers: [],
     transforms: {},
     inkOverrides: {},
   });
@@ -282,7 +396,7 @@ export function hydratePreset(raw: unknown): Omit<Preset, "version" | "name" | "
   return {
     transforms: partial.transforms,
     inkOverrides: partial.inkOverrides,
-    stickers: partial.stickers,
+    layers: partial.layers,
     buzz: partial.buzz,
     colorway: COLORWAYS.find((c) => c.key === raw.colorway)?.key ?? COLORWAYS[0].key,
     ink: (["off", "still", "live"].includes(ink) ? ink : "still") as InkMode,

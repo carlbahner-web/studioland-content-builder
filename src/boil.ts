@@ -34,6 +34,10 @@ export function boilPhase(frame: number): number {
  * never inline a number at a call site. */
 export const BOIL = {
   starburst: 1.7,
+  /* A drawn shape you placed yourself. Below the starburst's, because a badge
+   * is a hero element and a rule under a word is one of the "big calm shapes"
+   * the bible wants kept gentle. */
+  shape: 1.2,
   curtain: 0.22,
   /** Print misregistration for live bitmap art, in design units. */
   misreg: 2.6,

@@ -40,29 +40,10 @@ import {
   silhouetteOf,
   type TextStyle,
 } from "../render.ts";
+import { drawLayers, type LayerAssets } from "../drawLayers.ts";
+import type { Layer } from "../layers.ts";
 
-/* Your own artwork, placed on the ad.
- *
- * Position and size are stored as FRACTIONS of the artboard, never pixels. That
- * is what lets one placement mean something at all four sizes: an arrow put
- * beside the headline in the square lands beside the headline in the story too.
- * Pixel coordinates would pin it to one aspect ratio and make the other three
- * wrong, which would undo the entire point of the tool. */
-export type Sticker = {
-  id: string;
-  /** File name in the connected folder. */
-  name: string;
-  /** Centre, as a fraction of width and height. */
-  x: number;
-  y: number;
-  /** Width, as a fraction of the artboard's SHORT edge - so it reads the same
-   *  size in a square and a story rather than stretching with the long edge. */
-  scale: number;
-  /** Degrees, clockwise. */
-  rotation: number;
-};
-
-/* Ids for the things the layout places itself. Stickers use their own id. */
+/* Ids for the things the layout places itself. A layer uses its own id. */
 export const PLACED = ["headline", "body", "cta", "buzz", "wordmark"] as const;
 export type PlacedId = (typeof PLACED)[number];
 
@@ -71,7 +52,9 @@ export type SocialAdContent = {
   body: string;
   cta: string;
   buzz: BuzzPose;
-  stickers: Sticker[];
+  /* What you added, over what the template composed. Drawn bottom to top in
+   * this order, above the design and below the grain. See layers.ts. */
+  layers: Layer[];
   /* Where each element actually sits. Every field is optional and every one
    * that is absent falls back to what the layout chose for this format.
    *
@@ -123,43 +106,9 @@ export type Region = {
 export type Assets = {
   buzz: Partial<Record<BuzzPose, HTMLImageElement>>;
   wordmark: { cream: HTMLImageElement; charcoal: HTMLImageElement };
-  /** Decoded library images, by file name. Missing ones are skipped. */
-  stickers: Record<string, HTMLImageElement>;
+  /** Decoded images for image layers, by name. Missing ones are skipped. */
+  images: LayerAssets;
 };
-
-/** A sticker's box on a given artboard, in device pixels. */
-export function stickerBox(
-  size: Format,
-  s: Sticker,
-  img: HTMLImageElement,
-): { cx: number; cy: number; w: number; h: number } {
-  const w = Math.min(size.w, size.h) * s.scale;
-  return { cx: s.x * size.w, cy: s.y * size.h, w, h: (img.height / img.width) * w };
-}
-
-/** Topmost sticker under a point, or null. Used for dragging on a preview. */
-export function hitSticker(
-  size: Format,
-  stickers: Sticker[],
-  images: Record<string, HTMLImageElement>,
-  px: number,
-  py: number,
-): Sticker | null {
-  for (let i = stickers.length - 1; i >= 0; i--) {
-    const s = stickers[i];
-    const img = images[s.name];
-    if (!img) continue;
-    const { cx, cy, w, h } = stickerBox(size, s, img);
-    // Into the sticker's own space, so a rotated one is hit where it looks.
-    const a = (-s.rotation * Math.PI) / 180;
-    const dx = px - cx;
-    const dy = py - cy;
-    const lx = dx * Math.cos(a) - dy * Math.sin(a);
-    const ly = dx * Math.sin(a) + dy * Math.cos(a);
-    if (Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2) return s;
-  }
-  return null;
-}
 
 const DISPLAY: TextStyle = {
   family: "DWFairfield",
@@ -471,30 +420,15 @@ export function drawSocialAd(
     setInk(0);
   }
 
-  /* --- your own artwork, over the design and under the paper -------------- */
-  for (const s of content.stickers) {
-    const img = assets.stickers[s.name];
-    if (!img) continue;
-    const { cx, cy, w: sw, h: sh } = stickerBox(size, s, img);
-    regions.push({ id: s.id, label: s.name, cx, cy, w: sw, h: sh, rotation: s.rotation });
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate((s.rotation * Math.PI) / 180);
-    if (useInk(s.id)) {
-      // Same treatment as BUZZ: drawn artwork never warps, so the ink edge
-      // comes from a misregistered silhouette behind it.
-      const sil = silhouetteOf(img, PALETTE.charcoal);
-      const { dx, dy } = misregOffset(S);
-      if (sil) {
-        ctx.globalAlpha = 0.75;
-        ctx.drawImage(sil, -sw / 2 + dx, -sh / 2 + dy, sw, sh);
-        ctx.globalAlpha = 1;
-      }
-    }
-    setInk(0);
-    ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
-    ctx.restore();
-  }
+  /* --- your own layers, over the design and under the paper --------------- */
+  regions.push(
+    ...drawLayers(ctx, size, content.layers, assets.images, {
+      ink: inkMode,
+      frame,
+      scale: S,
+      defaultInk: ink,
+    }),
+  );
 
   /* --- the paper, over everything ---------------------------------------- */
   drawGrain(ctx, w, h);

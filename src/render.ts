@@ -196,6 +196,40 @@ export function fitText(
   return best;
 }
 
+/* Lay text out AT A GIVEN SIZE, wrapping to a width - the free text box's
+ * counterpart to fitText.
+ *
+ * fitText answers "how big can this be in the space the layout left", which is
+ * what a template slot needs. A layer is not in a slot: you chose its size and
+ * its width, so the size is honoured and the height is whatever the wrap comes
+ * to. Balancing is offered rather than assumed, because on a box you sized
+ * yourself an even rag is a preference and not a rescue.
+ */
+export function layoutText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  style: TextStyle,
+  maxW: number,
+  size: number,
+  balance = false,
+): FittedText {
+  const body = style.caps ? text.toUpperCase() : text;
+  applyFont(ctx, style, size);
+  const lines = balance ? balancedWrap(ctx, body, maxW) : wrapAt(ctx, body, maxW);
+  const lineHeight = size * style.lineHeight;
+  return { lines, size, lineHeight, height: lineHeight * lines.length };
+}
+
+/** The widest line, at the size the text was laid out. */
+export function measureLines(
+  ctx: CanvasRenderingContext2D,
+  fitted: FittedText,
+  style: TextStyle,
+): number {
+  applyFont(ctx, style, fitted.size);
+  return Math.max(0, ...fitted.lines.map((l) => ctx.measureText(l).width));
+}
+
 export type DrawTextOpts = {
   fill: string;
   /** Outline color, or null for none. */
@@ -320,6 +354,68 @@ export function drawStarburst(
     ctx.fillText(line, cx, cy + oy + fitted.size * 0.34);
   });
   ctx.restore();
+}
+
+/* ------------------------------------------------------------------ shapes */
+
+/* Every path below is built from moveTo/lineTo/arc ONLY, and that is not an
+ * accident. Those are the calls the boil's context proxy overrides, so a shape
+ * drawn this way boils - it is linework, and linework in this brand is drawn by
+ * hand. Reaching for the canvas's own `roundRect` or `ellipse` would emit a path
+ * the proxy never sees, and the shape would come out machine-perfect while
+ * everything beside it wobbled. */
+
+/** A rectangle, optionally with rounded corners, as a boilable path. */
+export function rectPath(
+  path: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius = 0,
+): void {
+  const r = Math.max(0, Math.min(radius, Math.min(w, h) / 2));
+  path.beginPath();
+  if (r <= 0) {
+    path.moveTo(x, y);
+    path.lineTo(x + w, y);
+    path.lineTo(x + w, y + h);
+    path.lineTo(x, y + h);
+    path.closePath();
+    return;
+  }
+  const HALF = Math.PI / 2;
+  path.moveTo(x + r, y);
+  path.lineTo(x + w - r, y);
+  path.arc(x + w - r, y + r, r, -HALF, 0);
+  path.lineTo(x + w, y + h - r);
+  path.arc(x + w - r, y + h - r, r, 0, HALF);
+  path.lineTo(x + r, y + h);
+  path.arc(x + r, y + h - r, r, HALF, Math.PI);
+  path.lineTo(x, y + r);
+  path.arc(x + r, y + r, r, Math.PI, Math.PI + HALF);
+  path.closePath();
+}
+
+/** An ellipse as a boilable path. Sampled rather than drawn with `ellipse`,
+ *  which the boil's proxy does not intercept - see above. */
+export function ellipsePath(
+  path: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+): void {
+  const steps = 72;
+  path.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * Math.PI * 2;
+    const px = cx + Math.cos(a) * rx;
+    const py = cy + Math.sin(a) * ry;
+    if (i === 0) path.moveTo(px, py);
+    else path.lineTo(px, py);
+  }
+  path.closePath();
 }
 
 /** Draw an image scaled to a box height, anchored by its bottom edge. */

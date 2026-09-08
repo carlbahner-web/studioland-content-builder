@@ -112,7 +112,7 @@ export async function listLibrary(): Promise<LibraryItem[]> {
 
 const decoded = new Map<string, HTMLImageElement>();
 
-function imageFromBlob(blob: Blob): Promise<HTMLImageElement> {
+export function imageFromBlob(blob: Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const img = new Image();
