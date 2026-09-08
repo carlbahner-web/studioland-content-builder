@@ -46,7 +46,7 @@ fast test suite, builds, and publishes to
 
 > https://carlbahner-web.github.io/studioland-content-builder/
 
-on every push to `main` or to a `claude/**` branch. The offline single-file copy
+on every push to `main`. The offline single-file copy
 is published alongside it at `…/content-builder.html`, so the thing you can save
 to a phone and open with no network comes from the same place as the live one
 rather than being passed around as an attachment.
@@ -58,9 +58,21 @@ default token is refused it ("Resource not accessible by integration"), so the
 step is gone and the click stays. Until it is flipped, every run builds and
 tests cleanly and then fails at `deploy`.
 
-If `deploy` is refused after that, it is **Settings → Environments →
-github-pages**, whose deployment branch rule can be limited to the default
-branch — widen it to allow `claude/**`.
+**Pick the option, not a branch.** That dropdown offers *Deploy from a branch*
+and *GitHub Actions*, and choosing the first one — then `main` from the branch
+picker it reveals — looks like the right answer and is not. It starts GitHub's
+legacy Jekyll pipeline (a `pages-build-deployment` workflow appears in Actions,
+which is how you can tell from the outside), publishes the repo root as-is, and
+refuses this workflow's deployments. The repo root holds the *unbuilt* Vite
+`index.html`, whose `<script src="/src/main.tsx">` no browser can run: the
+result is a live, public, blank page and a `deploy` job that fails in one second
+without being assigned a runner.
+
+That one-second, no-runner, no-log failure is always the same thing — the
+`github-pages` environment rejecting the deployment before it starts, either
+because the source is a branch or because **Settings → Environments →
+github-pages** limits deployments to `main`. Deploying from `main`, as this
+workflow now does, stays on the right side of both.
 
 A project site is served from a subdirectory, not from the root, so `BASE_PATH`
 in the workflow feeds `vite.config.ts` and every built URL carries the prefix.

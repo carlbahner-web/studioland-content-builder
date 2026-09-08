@@ -22,10 +22,15 @@ name: Pages
 
 on:
   push:
-    # main is the real one. The claude/** branches are here because this is a
-    # one-person repo where the work happens on a branch and waiting for a merge
-    # to see it on a phone is the whole friction this removes. Last push wins.
-    branches: [main, "claude/**"]
+    # main only. The claude/** branches were here so work could be seen on a
+    # phone without waiting for a merge, and that cost more than it bought:
+    # deployments are gated by the github-pages environment, whose branch policy
+    # refuses anything but main - the deploy job is rejected before a runner is
+    # even assigned, so it fails in a second with no log to explain itself. The
+    # gate could be widened instead, but last-push-wins across branches means a
+    # half-finished experiment silently replaces the live site, and there is one
+    # live site. Use `npm run dev`, or dispatch this by hand from a branch.
+    branches: [main]
   workflow_dispatch:
 
 # Pages needs to write its own deployment; nothing else does.
