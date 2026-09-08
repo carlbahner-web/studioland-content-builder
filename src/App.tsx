@@ -31,7 +31,6 @@ import {
   newImage,
   newShape,
   newText,
-  removeLayer,
   reorderLayer,
   updateLayer,
   FACES,
@@ -83,6 +82,13 @@ import {
   uploadThumb,
   type UploadItem,
 } from "./uploads.ts";
+import {
+  customKey,
+  formatProblem,
+  isCustom,
+  loadFormats,
+  saveFormats,
+} from "./formats.ts";
 import "./studio.css";
 
 const DEFAULT_CONTENT: SocialAdContent = {
@@ -233,6 +239,17 @@ function Swatches({
 const COARSE =
   typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
 
+/* One element aligns to the artboard; several align to each other. Same six
+ * buttons either way - see alignTo. */
+const ALIGNS = [
+  ["left", "⇤", "Align left"],
+  ["cx", "↔", "Centre across"],
+  ["right", "⇥", "Align right"],
+  ["top", "⇡", "Align top"],
+  ["cy", "↕", "Centre down"],
+  ["bottom", "⇣", "Align bottom"],
+] as const;
+
 const LABELS: Record<string, string> = {
   headline: "Headline",
   body: "Supporting line",
@@ -253,6 +270,12 @@ export default function App() {
 
   const [format, setFormat] = useState<Format>(FORMATS[0]);
   const [scope, setScope] = useState<"all" | "format">("all");
+  /* The built-in sizes plus any you added. Kept in state rather than read off
+     the constant because the list is no longer fixed - see formats.ts. */
+  const [custom, setCustom] = useState<Format[]>([]);
+  const formats = useMemo(() => [...FORMATS, ...custom], [custom]);
+  const [newSize, setNewSize] = useState({ label: "", w: "1080", h: "1080" });
+  const [sizeError, setSizeError] = useState<string | null>(null);
 
   const colorway: Colorway = COLORWAYS.find((c) => c.key === doc.colorway) ?? COLORWAYS[0];
   const content = useMemo(() => contentOf(doc, format.key), [doc, format.key]);
@@ -266,7 +289,16 @@ export default function App() {
   const [folder, setFolder] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [libError, setLibError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  /* SELECTION is a list. Most of the panel is written for a lone selection -
+     an inspector for six different things at once is a worse control than a
+     handful of group actions - so `selected` is the one-element case and the
+     multi case gets its own short section. */
+  const [selection, setSelection] = useState<string[]>([]);
+  const selected = selection.length === 1 ? selection[0] : null;
+  const setSelected = useCallback(
+    (id: string | null) => setSelection(id ? [id] : []),
+    [],
+  );
   const [regions, setRegions] = useState<Region[]>([]);
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [presets, setPresets] = useState<SavedPreset[]>([]);
@@ -342,26 +374,36 @@ export default function App() {
     [edit],
   );
 
-  const dropLayer = useCallback(
-    (id: string) => {
-      edit("layers", (ls) => removeLayer(ls, id));
-      setSelected((s) => (s === id ? null : s));
+  /* Both of these take a LIST and land as ONE undo step, because "duplicate
+     these four" and "delete these four" are each one thing you did. Looping a
+     single-item helper would record four steps and make cmd-Z take four presses
+     to put back what one press made. */
+  const duplicateMany = useCallback(
+    (ids: string[]) => {
+      const made: string[] = [];
+      edit("layers", (ls) => {
+        let next = ls;
+        for (const id of ids) {
+          const r = duplicateLayer(next, id);
+          next = r.layers;
+          if (r.id) made.push(r.id);
+        }
+        return next;
+      });
+      if (made.length) setSelection(made);
     },
     [edit],
   );
 
-  const duplicateNow = useCallback(
-    (id: string) => {
-      let made: string | null = null;
-      edit("layers", (ls) => {
-        const r = duplicateLayer(ls, id);
-        made = r.id;
-        return r.layers;
-      });
-      if (made) setSelected(made);
+  const dropMany = useCallback(
+    (ids: string[]) => {
+      edit("layers", (ls) => ls.filter((l) => !ids.includes(l.id)));
+      setSelection((s) => s.filter((id) => !ids.includes(id)));
     },
     [edit],
   );
+
+  const dropLayer = useCallback((id: string) => dropMany([id]), [dropMany]);
 
   const restack = useCallback(
     (id: string, delta: number) => edit("layers", (ls) => reorderLayer(ls, id, delta)),
@@ -565,12 +607,26 @@ export default function App() {
      the draft in the same tick the page opened, which is the classic way an
      autosave feature eats the thing it was added to protect. */
   useEffect(() => {
-    loadDraft()
-      .then((raw) => {
-        const d = hydrate(raw, DEFAULT_CONTENT);
+    /* Custom sizes are loaded FIRST and the draft is hydrated against them.
+       hydrate() drops overrides for formats it does not recognise, so reading
+       the draft before the sizes are known would silently throw away the
+       per-format work on every custom size in it. */
+    (async () => {
+      let known = FORMATS;
+      try {
+        const mine = await loadFormats();
+        setCustom(mine);
+        known = [...FORMATS, ...mine];
+      } catch {
+        /* no custom sizes is a fine state to open in */
+      }
+      try {
+        const d = hydrate(await loadDraft(), DEFAULT_CONTENT, known);
         if (d) applyDesign(d);
-      })
-      .finally(() => setRestored(true));
+      } finally {
+        setRestored(true);
+      }
+    })();
     listDesigns().then(setDesigns).catch(() => {});
     listPresets().then(setPresets).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -612,38 +668,47 @@ export default function App() {
         doRedo();
         return;
       }
-      if (!selected) return;
-      const layer = findLayer(content.layers, selected);
+      /* Select-all sits ABOVE the "nothing selected" guard, because an empty
+         selection is exactly the state you press it in. */
+      if (meta && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelection(regions.filter((r) => !manip.locked(r.id)).map((r) => r.id));
+        return;
+      }
+
+      if (!selection.length) return;
+      /* Every shortcut below acts on the WHOLE selection. The layer-only ones
+         quietly skip the template's five rather than refusing outright, so
+         cmd-D on a mixed selection duplicates what can be duplicated instead of
+         doing nothing and leaving you to work out why. */
+      const layers = selection
+        .map((id) => findLayer(content.layers, id))
+        .filter((l): l is NonNullable<typeof l> => l !== null && !l.locked);
 
       if (e.key === "Escape") {
-        setSelected(null);
+        setSelection([]);
         return;
       }
       if (meta && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        if (layer) duplicateNow(selected);
+        if (layers.length) duplicateMany(layers.map((l) => l.id));
         return;
       }
       if (e.key === "Delete" || e.key === "Backspace") {
         // Only layers are deletable. The template's five are part of the
         // composition - the way to be rid of one is to empty its text.
-        if (layer && !layer.locked) {
+        if (layers.length) {
           e.preventDefault();
-          dropLayer(selected);
+          dropMany(layers.map((l) => l.id));
         }
         return;
       }
-      if (meta && e.key === "]") {
+      if (meta && (e.key === "]" || e.key === "[")) {
         e.preventDefault();
-        if (layer) restack(selected, e.shiftKey ? Infinity : 1);
+        const by = e.key === "]" ? 1 : -1;
+        for (const l of layers) restack(l.id, e.shiftKey ? by * Infinity : by);
         return;
       }
-      if (meta && e.key === "[") {
-        e.preventDefault();
-        if (layer) restack(selected, e.shiftKey ? -Infinity : -1);
-        return;
-      }
-
       const arrows: Record<string, [number, number]> = {
         ArrowLeft: [-1, 0],
         ArrowRight: [1, 0],
@@ -652,26 +717,24 @@ export default function App() {
       };
       const dir = arrows[e.key];
       if (!dir) return;
-      if (layer?.locked) return;
       e.preventDefault();
       // One artboard pixel, ten with shift. Nudging in artboard pixels rather
       // than screen ones means the same keypress means the same thing whatever
       // the preview happens to be scaled to.
       const step = e.shiftKey ? 10 : 1;
-      const here = regions.find((r) => r.id === selected);
-      const at = manip.pos(selected, {
-        x: (here?.cx ?? format.w / 2) / format.w,
-        y: (here?.cy ?? format.h / 2) / format.h,
-      });
-      manip.setPos(
-        selected,
-        at.x + (dir[0] * step) / format.w,
-        at.y + (dir[1] * step) / format.h,
-      );
+      for (const id of selection) {
+        if (manip.locked(id)) continue;
+        const here = regions.find((r) => r.id === id);
+        const at = manip.pos(id, {
+          x: (here?.cx ?? format.w / 2) / format.w,
+          y: (here?.cy ?? format.h / 2) / format.h,
+        });
+        manip.setPos(id, at.x + (dir[0] * step) / format.w, at.y + (dir[1] * step) / format.h);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, content, regions, format, manip, doUndo, doRedo, duplicateNow, dropLayer, restack]);
+  }, [selection, content, regions, format, manip, doUndo, doRedo, duplicateMany, dropMany, restack]);
 
   /* ---------------------------------------------------------- the library */
 
@@ -762,7 +825,8 @@ export default function App() {
     window.setTimeout(() => setSaveNote(null), 2500);
   };
 
-  const doLoad = async (id: string) => applyDesign(hydrate(await loadDesign(id), DEFAULT_CONTENT));
+  const doLoad = async (id: string) =>
+    applyDesign(hydrate(await loadDesign(id), DEFAULT_CONTENT, formats));
 
   const savePresetNow = async () => {
     const name = presetName.trim() || `${format.label} arrangement`;
@@ -816,6 +880,46 @@ export default function App() {
     void attachArtwork({ ...doc.shared, layers: pr.layers }, doc.overrides);
   };
 
+  const addSize = () => {
+    const w = Number(newSize.w);
+    const h = Number(newSize.h);
+    const bad = formatProblem(newSize.label, w, h);
+    setSizeError(bad);
+    if (bad) return;
+    const made: Format = {
+      key: customKey(),
+      label: newSize.label.trim(),
+      where: "Custom size",
+      w: Math.round(w),
+      h: Math.round(h),
+    };
+    const next = [...custom, made];
+    setCustom(next);
+    void saveFormats(next);
+    setNewSize({ label: "", w: "1080", h: "1080" });
+    // Switch to it: you added a size because you want to work in it.
+    setFormat(made);
+  };
+
+  /* Removing a size also removes the per-format work done in it, because
+     hydrate() will not recognise the key next time either. That is the right
+     call for a deliberate delete - the alternative is a ghost override on a
+     format nobody can select - but it is worth doing loudly rather than
+     silently, so the overrides go now rather than at the next page load. */
+  const removeSize = (f: Format) => {
+    const next = custom.filter((c) => c.key !== f.key);
+    setCustom(next);
+    void saveFormats(next);
+    if (format.key === f.key) setFormat(FORMATS[0]);
+    if (doc.overrides[f.key]) {
+      commit((d) => {
+        const overrides = { ...d.overrides };
+        delete overrides[f.key];
+        return { ...d, overrides };
+      });
+    }
+  };
+
   const removePreset = async (id: string) => {
     await deletePreset(id);
     setPresets(await listPresets());
@@ -860,27 +964,70 @@ export default function App() {
       return { ...d, overrides };
     });
 
-  /* Centring needs the element's WIDTH, which only the last draw knows - so it
-     works off the reported region rather than off a second copy of the layout
-     maths. The margin matches the template's own. */
+  /* Aligning needs each element's WIDTH, which only the last draw knows - so it
+     works off the reported regions rather than a second copy of the layout
+     maths, the same rule hit-testing follows.
+
+     WHAT IT ALIGNS TO depends on how many things are selected, which is the
+     convention every design tool uses and the only one that is useful: one
+     element has nothing to align to but the artboard, and several have each
+     other. Aligning a group of six to the artboard's left margin would stack
+     them all on top of each other, which is never what "align left" means when
+     you have six things selected. */
   const alignTo = (edge: "left" | "cx" | "right" | "top" | "cy" | "bottom") => {
-    if (!selected || !selectedRegion) return;
+    const chosen = regions.filter((r) => selection.includes(r.id) && !manip.locked(r.id));
+    if (!chosen.length) return;
     const m = Math.min(format.w, format.h) * 0.075;
-    const at = manip.pos(selected, {
-      x: selectedRegion.cx / format.w,
-      y: selectedRegion.cy / format.h,
+
+    let bounds: { x0: number; y0: number; x1: number; y1: number };
+    if (chosen.length === 1) {
+      bounds = { x0: m, y0: m, x1: format.w - m, y1: format.h - m };
+    } else {
+      bounds = {
+        x0: Math.min(...chosen.map((r) => r.cx - r.w / 2)),
+        y0: Math.min(...chosen.map((r) => r.cy - r.h / 2)),
+        x1: Math.max(...chosen.map((r) => r.cx + r.w / 2)),
+        y1: Math.max(...chosen.map((r) => r.cy + r.h / 2)),
+      };
+    }
+
+    for (const r of chosen) {
+      const at = manip.pos(r.id, { x: r.cx / format.w, y: r.cy / format.h });
+      const next = { ...at };
+      if (edge === "left") next.x = (bounds.x0 + r.w / 2) / format.w;
+      if (edge === "right") next.x = (bounds.x1 - r.w / 2) / format.w;
+      if (edge === "cx") next.x = chosen.length === 1 ? 0.5 : (bounds.x0 + bounds.x1) / 2 / format.w;
+      if (edge === "top") next.y = (bounds.y0 + r.h / 2) / format.h;
+      if (edge === "bottom") next.y = (bounds.y1 - r.h / 2) / format.h;
+      if (edge === "cy") next.y = chosen.length === 1 ? 0.5 : (bounds.y0 + bounds.y1) / 2 / format.h;
+      manip.setPos(r.id, next.x, next.y);
+    }
+  };
+
+  /* Even spacing, by CENTRE rather than by gap.
+     Gap-spacing is what you want when the things are the same size and what
+     surprises you when they are not: three items of different widths spaced by
+     gap have centres that are not evenly spaced, which is usually the thing the
+     eye was actually asking for. Centre-spacing is the unambiguous one, and the
+     outermost two never move - they define the run. */
+  const distribute = (axis: "x" | "y") => {
+    const chosen = regions
+      .filter((r) => selection.includes(r.id) && !manip.locked(r.id))
+      .sort((a, b) => (axis === "x" ? a.cx - b.cx : a.cy - b.cy));
+    if (chosen.length < 3) return;
+    const first = axis === "x" ? chosen[0].cx : chosen[0].cy;
+    const last = axis === "x" ? chosen[chosen.length - 1].cx : chosen[chosen.length - 1].cy;
+    const step = (last - first) / (chosen.length - 1);
+    chosen.forEach((r, i) => {
+      if (i === 0 || i === chosen.length - 1) return;
+      const at = manip.pos(r.id, { x: r.cx / format.w, y: r.cy / format.h });
+      const target = first + step * i;
+      manip.setPos(
+        r.id,
+        axis === "x" ? target / format.w : at.x,
+        axis === "y" ? target / format.h : at.y,
+      );
     });
-    const half = { x: selectedRegion.w / 2 / format.w, y: selectedRegion.h / 2 / format.h };
-    const mx = m / format.w;
-    const my = m / format.h;
-    const next = { ...at };
-    if (edge === "left") next.x = mx + half.x;
-    if (edge === "cx") next.x = 0.5;
-    if (edge === "right") next.x = 1 - mx - half.x;
-    if (edge === "top") next.y = my + half.y;
-    if (edge === "cy") next.y = 0.5;
-    if (edge === "bottom") next.y = 1 - my - half.y;
-    manip.setPos(selected, next.x, next.y);
   };
 
   if (error) return <div className="boot-msg">Could not load brand assets: {error}</div>;
@@ -954,6 +1101,56 @@ export default function App() {
           way, they just start where the layout put them.
         </p>
 
+        {selection.length > 1 && (
+          <>
+            <h2>
+              {selection.length} selected
+              <button type="button" className="undo" title="Deselect (esc)" onClick={() => setSelection([])}>
+                done
+              </button>
+            </h2>
+            <div className="aligns">
+              {ALIGNS.map(([edge, glyph, title]) => (
+                <button key={edge} type="button" className="ghost" title={title} onClick={() => alignTo(edge)}>
+                  {glyph}
+                </button>
+              ))}
+            </div>
+            {selection.length > 2 && (
+              <div className="row">
+                <button type="button" className="ghost" onClick={() => distribute("x")}>
+                  Space across
+                </button>
+                <button type="button" className="ghost" onClick={() => distribute("y")}>
+                  Space down
+                </button>
+              </div>
+            )}
+            <div className="row">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => duplicateMany(selection.filter((id) => findLayer(content.layers, id)))}
+              >
+                Duplicate
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => dropMany(selection.filter((id) => findLayer(content.layers, id)))}
+              >
+                Delete
+              </button>
+            </div>
+            <p className="hint">
+              Align and spacing work on the selection&rsquo;s own bounds when there is more than one
+              thing in it &mdash; aligning six things to the artboard&rsquo;s left margin would stack
+              them on top of each other. Duplicate and delete skip the template&rsquo;s five, which
+              are part of the composition rather than things you added.
+            </p>
+          </>
+        )}
+
         {selected && (
           <>
             <h2>
@@ -971,16 +1168,7 @@ export default function App() {
             </h2>
 
             <div className="aligns">
-              {(
-                [
-                  ["left", "⇤", "Align left"],
-                  ["cx", "↔", "Centre across"],
-                  ["right", "⇥", "Align right"],
-                  ["top", "⇡", "Align top"],
-                  ["cy", "↕", "Centre down"],
-                  ["bottom", "⇣", "Align bottom"],
-                ] as const
-              ).map(([edge, glyph, title]) => (
+              {ALIGNS.map(([edge, glyph, title]) => (
                 <button key={edge} type="button" className="ghost" title={title} onClick={() => alignTo(edge)}>
                   {glyph}
                 </button>
@@ -1229,7 +1417,7 @@ export default function App() {
               )}
               {active && (
                 <>
-                  <button type="button" className="ghost" onClick={() => duplicateNow(active.id)}>
+                  <button type="button" className="ghost" onClick={() => duplicateMany([active.id])}>
                     Duplicate
                   </button>
                   <button type="button" className="ghost" onClick={() => dropLayer(active.id)}>
@@ -1248,8 +1436,21 @@ export default function App() {
               {/* Topmost first, because that is the order they sit in front of
                   you - the list reads down into the artboard. */}
               {[...content.layers].reverse().map((l) => (
-                <li key={l.id} className={l.id === selected ? "on" : undefined}>
-                  <button type="button" className="open" onClick={() => setSelected(l.id)}>
+                <li key={l.id} className={selection.includes(l.id) ? "on" : undefined}>
+                  <button
+                    type="button"
+                    className="open"
+                    title="Shift-click to add to the selection"
+                    onClick={(e) =>
+                      setSelection((sel) =>
+                        e.shiftKey
+                          ? sel.includes(l.id)
+                            ? sel.filter((x) => x !== l.id)
+                            : [...sel, l.id]
+                          : [l.id],
+                      )
+                    }
+                  >
                     <strong>{l.kind === "text" ? l.text.slice(0, 28) || "Text" : l.name}</strong>
                     <span>{l.kind}</span>
                   </button>
@@ -1510,24 +1711,74 @@ export default function App() {
         </Section>
         <Section title="Format" open>
         <div className="formats">
-          {FORMATS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className={f.key === format.key ? "fmt on" : "fmt"}
-              onClick={() => setFormat(f)}
-            >
-              <strong>
-                {f.label}
-                {doc.overrides[f.key] && <i className="dot" title="Has its own changes" />}
-              </strong>
-              <span>{f.where}</span>
-              <em>
-                {f.w} &times; {f.h}
-              </em>
-            </button>
+          {formats.map((f) => (
+            <div className="fmt-row" key={f.key}>
+              <button
+                type="button"
+                className={f.key === format.key ? "fmt on" : "fmt"}
+                onClick={() => setFormat(f)}
+              >
+                <strong>
+                  {f.label}
+                  {doc.overrides[f.key] && <i className="dot" title="Has its own changes" />}
+                </strong>
+                <span>{f.where}</span>
+                <em>
+                  {f.w} &times; {f.h}
+                </em>
+              </button>
+              {isCustom(f) && (
+                <button
+                  type="button"
+                  className="undo"
+                  title={`Remove ${f.label}${doc.overrides[f.key] ? " and the changes made in it" : ""}`}
+                  onClick={() => removeSize(f)}
+                >
+                  &times;
+                </button>
+              )}
+            </div>
           ))}
         </div>
+        <details className="adder">
+          <summary>Add a size</summary>
+          <div className="row">
+            <input
+              placeholder="What it is for"
+              value={newSize.label}
+              onChange={(e) => setNewSize((n) => ({ ...n, label: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addSize();
+              }}
+            />
+          </div>
+          <div className="row">
+            <input
+              className="side"
+              inputMode="numeric"
+              aria-label="Width in pixels"
+              value={newSize.w}
+              onChange={(e) => setNewSize((n) => ({ ...n, w: e.target.value }))}
+            />
+            <span className="by">&times;</span>
+            <input
+              className="side"
+              inputMode="numeric"
+              aria-label="Height in pixels"
+              value={newSize.h}
+              onChange={(e) => setNewSize((n) => ({ ...n, h: e.target.value }))}
+            />
+            <button type="button" className="ghost" onClick={addSize}>
+              Add
+            </button>
+          </div>
+          {sizeError && <p className="hint bad">{sizeError}</p>}
+          <p className="hint">
+            Named for the job, like the rest &mdash; &ldquo;Client one-pager&rdquo;, not
+            &ldquo;1080&times;1350&rdquo;. The layout branches on the SHAPE, so a size you add
+            composes itself correctly without anything being written for it.
+          </p>
+        </details>
         <div className="row" style={{ marginTop: 10 }}>
           <button type="button" className="ghost" onClick={autoArrange}>
             Auto-arrange
@@ -1656,8 +1907,8 @@ export default function App() {
             animate={animate && doc.ink === "live"}
             curtain={doc.curtain}
             ink={doc.ink}
-            selected={selected}
-            onSelect={setSelected}
+            selection={selection}
+            onSelect={setSelection}
             onEdit={(id) => {
               setSelected(id);
               // Double-clicking a text layer means "let me type", so put the

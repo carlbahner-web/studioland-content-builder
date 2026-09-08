@@ -65,12 +65,41 @@ export type Manipulator = {
 type HandleId = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w" | "rot";
 
 const CORNERS: HandleId[] = ["nw", "ne", "se", "sw"];
-const SIDES: HandleId[] = ["n", "e", "s", "w"];
 
 /** Handle radius and the rotate handle's stand-off, in SCREEN pixels. */
 const HANDLE_R = 6;
 const GRAB_R = 14;
 const ROT_GAP = 26;
+
+/* A handle needs room, and a thin element does not have it.
+ *
+ * A rule is 540 x 21 artboard pixels. Its n and s handles sit 10 pixels from
+ * its centre, and the grab radius is about 24 - so the whole body of the rule
+ * is inside its own handles, and pressing anywhere on it starts a resize. The
+ * most common shape in the tool could not be dragged at all.
+ *
+ * So a handle only exists on an axis with room for both it and a grabbable
+ * interior. Below that, moving is what the press means: it is the more common
+ * intent, and the size is still adjustable from the panel and from the axis
+ * that does have room. */
+const HANDLE_ROOM = 3.2;
+
+/** Which handles this box is big enough to offer. `u` is one screen pixel in
+ *  artboard units, so the test is in the units the handles are actually drawn at. */
+function handlesFor(
+  r: { w: number; h: number },
+  ext: { w: number; h: number | null } | null,
+  u: number,
+): HandleId[] {
+  const room = GRAB_R * HANDLE_ROOM * u;
+  const wide = r.w >= room;
+  const tall = r.h >= room;
+  const out: HandleId[] = [];
+  if (wide && tall) out.push(...CORNERS);
+  if (ext && wide) out.push("e", "w");
+  if (ext && ext.h !== null && tall) out.push("n", "s");
+  return out;
+}
 
 /** Where a handle sits, in the element's own unrotated frame. */
 function handleOffset(h: HandleId, w: number, h2: number): { x: number; y: number } {
@@ -96,8 +125,79 @@ function toLocal(px: number, py: number, cx: number, cy: number, deg: number) {
   return { x: dx * Math.cos(a) - dy * Math.sin(a), y: dx * Math.sin(a) + dy * Math.cos(a) };
 }
 
+/** A rectangle with its corners in either order, put right way round. */
+function normalise(r: { x0: number; y0: number; x1: number; y1: number }) {
+  return {
+    x0: Math.min(r.x0, r.x1),
+    y0: Math.min(r.y0, r.y1),
+    x1: Math.max(r.x0, r.x1),
+    y1: Math.max(r.y0, r.y1),
+  };
+}
+
+/** The axis-aligned box around some regions. Empty gives a zero box at the origin. */
+function unionBox(rs: { cx: number; cy: number; w: number; h: number; rotation?: number }[]) {
+  if (!rs.length) return { x0: 0, y0: 0, x1: 0, y1: 0 };
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const r of rs) {
+    /* A rotated element's own box is not axis-aligned, so its four corners are
+       projected out and the extremes taken. Using w and h directly would draw a
+       group box that visibly clips a turned element. */
+    const a = rad(r.rotation ?? 0);
+    const hw = r.w / 2;
+    const hh = r.h / 2;
+    for (const [sx, sy] of [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ]) {
+      const px = r.cx + sx * hw * Math.cos(a) - sy * hh * Math.sin(a);
+      const py = r.cy + sx * hw * Math.sin(a) + sy * hh * Math.cos(a);
+      x0 = Math.min(x0, px);
+      y0 = Math.min(y0, py);
+      x1 = Math.max(x1, px);
+      y1 = Math.max(y1, py);
+    }
+  }
+  return { x0, y0, x1, y1 };
+}
+
+/* A marquee catches what it TOUCHES, not only what it fully contains. Requiring
+   containment means sweeping a headline that runs past the artboard edge can
+   never catch it, which is the case you most want the sweep for. */
+function intersects(
+  box: { x0: number; y0: number; x1: number; y1: number },
+  r: { cx: number; cy: number; w: number; h: number; rotation?: number },
+): boolean {
+  const u = unionBox([r]);
+  return !(u.x1 < box.x0 || u.x0 > box.x1 || u.y1 < box.y0 || u.y0 > box.y1);
+}
+
 type Gesture =
-  | { kind: "move"; id: string; ox: number; oy: number }
+  /* A move carries EVERY selected element's position at grab time and applies
+     one shared delta, rather than each element tracking the pointer on its own.
+     Two things fall out of that: the group keeps its internal spacing exactly,
+     and one snap decision applies to the whole selection instead of each
+     element snapping somewhere different. */
+  | {
+      kind: "move";
+      ids: string[];
+      from: Record<string, { x: number; y: number }>;
+      /** Pointer at grab time, in artboard fractions. */
+      px0: number;
+      py0: number;
+      /** The selection's bounds at grab time, in artboard pixels, and whether
+       *  they are meaningful - see the snap in onMove. */
+      u0: { x0: number; y0: number; x1: number; y1: number };
+      spun: boolean;
+    }
+  /* Dragging from empty artboard sweeps out a selection. `add` is set when
+     shift was held, so a marquee can extend a selection rather than replace it. */
+  | { kind: "marquee"; x0: number; y0: number; x1: number; y1: number; add: string[] }
   | {
       kind: "handle";
       id: string;
@@ -121,7 +221,7 @@ export function Artboard({
   animate,
   curtain,
   ink,
-  selected,
+  selection,
   onSelect,
   onEdit,
   onRegions,
@@ -135,8 +235,9 @@ export function Artboard({
   animate: boolean;
   curtain: boolean;
   ink: InkMode;
-  selected: string | null;
-  onSelect: (id: string | null) => void;
+  /** Everything selected, in no particular order. */
+  selection: string[];
+  onSelect: (ids: string[]) => void;
   /** Double-click, which means "let me type into this one". */
   onEdit: (id: string) => void;
   /* Where everything landed, so the panel can align to an edge and show a real
@@ -157,6 +258,10 @@ export function Artboard({
      second copy of that maths is how the two drift apart. */
   const regions = useRef<Region[]>([]);
   const gesture = useRef<Gesture | null>(null);
+  /** The sweep rectangle while one is being dragged, in artboard pixels. */
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(
+    null,
+  );
   /** Displayed size, for turning screen distances into artboard ones. */
   const [view, setView] = useState({ w: 0, h: 0 });
 
@@ -239,29 +344,52 @@ export function Artboard({
       g.setLineDash([]);
     }
 
-    const r = selected ? regions.current.find((x) => x.id === selected) : null;
-    if (!r) return;
-    const locked = manip.locked(r.id);
-    g.save();
-    g.translate(r.cx, r.cy);
-    g.rotate(rad(r.rotation ?? 0));
+    /* Every selected element gets an outline; only a LONE selection gets
+       handles. Resizing or rotating several things at once has to decide what
+       it means - about the group's centre, about each element's own? - and
+       getting that wrong silently scatters a layout. Moving and aligning are
+       what multi-select is actually for, so those are what it does. */
+    const chosen = regions.current.filter((x) => selection.includes(x.id));
+
     /* TWO STROKES, cream under charcoal. A single-colour selection box is
        invisible on the ground that happens to match it, and every colour in the
        palette IS a ground here - a teal box on the teal colourway simply is not
        there. A light halo under a dark line reads on all five. */
-    const outline = () => {
-      g.setLineDash(locked ? [5 * px, 4 * px] : []);
+    const twoTone = (draw: () => void, dark: string, dash: number[] = []) => {
+      g.setLineDash(dash.map((d) => d * px));
       g.strokeStyle = "rgba(252,247,232,0.9)";
       g.lineWidth = 3.5 * px;
-      g.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h);
-      g.strokeStyle = locked ? "#8a8a86" : "#2C2C2A";
+      draw();
+      g.strokeStyle = dark;
       g.lineWidth = 1.25 * px;
-      g.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h);
+      draw();
       g.setLineDash([]);
     };
-    outline();
-    if (!locked) {
-      const ext = manip.extent(r.id);
+
+    for (const r of chosen) {
+      const locked = manip.locked(r.id);
+      g.save();
+      g.translate(r.cx, r.cy);
+      g.rotate(rad(r.rotation ?? 0));
+      twoTone(
+        () => g.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h),
+        locked ? "#8a8a86" : "#2C2C2A",
+        locked ? [5, 4] : [],
+      );
+      g.restore();
+    }
+
+    // The group's extent, so you can see what a nudge or an align will act on.
+    if (chosen.length > 1) {
+      const u = unionBox(chosen);
+      twoTone(() => g.strokeRect(u.x0, u.y0, u.x1 - u.x0, u.y1 - u.y0), "#3A6168", [7, 5]);
+    }
+
+    const r = chosen.length === 1 ? chosen[0] : null;
+    if (r && !manip.locked(r.id)) {
+      g.save();
+      g.translate(r.cx, r.cy);
+      g.rotate(rad(r.rotation ?? 0));
       const dot = (x: number, y: number) => {
         g.beginPath();
         g.arc(x, y, HANDLE_R * px, 0, Math.PI * 2);
@@ -271,32 +399,35 @@ export function Artboard({
         g.lineWidth = 1.5 * px;
         g.stroke();
       };
-      for (const h of CORNERS) {
-        const o = handleOffset(h, r.w, r.h);
-        dot(o.x, o.y);
-      }
-      for (const h of SIDES) {
-        // A side handle only exists where the element has that extent to give.
-        if (!ext) continue;
-        if ((h === "n" || h === "s") && ext.h === null) continue;
+      // Exactly the handles the hit test will accept - drawing one that cannot
+      // be grabbed is worse than not drawing it.
+      for (const h of handlesFor(r, manip.extent(r.id), px)) {
         const o = handleOffset(h, r.w, r.h);
         dot(o.x, o.y);
       }
       // The rotate handle, on a stalk above the top edge.
       const gap = ROT_GAP * px;
-      g.beginPath();
-      g.moveTo(0, -r.h / 2);
-      g.lineTo(0, -r.h / 2 - gap);
-      g.strokeStyle = "rgba(252,247,232,0.9)";
-      g.lineWidth = 3.5 * px;
-      g.stroke();
-      g.strokeStyle = "#2C2C2A";
-      g.lineWidth = 1.25 * px;
-      g.stroke();
+      twoTone(() => {
+        g.beginPath();
+        g.moveTo(0, -r.h / 2);
+        g.lineTo(0, -r.h / 2 - gap);
+        g.stroke();
+      }, "#2C2C2A");
       dot(0, -r.h / 2 - gap);
+      g.restore();
     }
-    g.restore();
-  }, [selected, guides, view, size, content, manip]);
+
+    // The marquee itself, drawn last so it sits over everything it is catching.
+    if (marquee) {
+      g.fillStyle = "rgba(58,97,104,0.12)";
+      g.fillRect(marquee.x0, marquee.y0, marquee.x1 - marquee.x0, marquee.y1 - marquee.y0);
+      twoTone(
+        () => g.strokeRect(marquee.x0, marquee.y0, marquee.x1 - marquee.x0, marquee.y1 - marquee.y0),
+        "#3A6168",
+        [5, 4],
+      );
+    }
+  }, [selection, guides, view, size, content, manip, marquee]);
 
   /* ------------------------------------------------------------- pointers */
 
@@ -311,19 +442,18 @@ export function Artboard({
   /** One screen pixel, in artboard units. */
   const unit = () => (view.w ? size.w / view.w : 1);
 
+  /* Handles belong to a LONE selection - see the overlay for why. */
+  const lone = (): string | null => (selection.length === 1 ? selection[0] : null);
+
   const handleUnder = (px: number, py: number): HandleId | null => {
+    const selected = lone();
     if (!selected) return null;
     const r = regions.current.find((x) => x.id === selected);
     if (!r || manip.locked(r.id)) return null;
     const ext = manip.extent(r.id);
     const reach = GRAB_R * unit();
     const local = toLocal(px, py, r.cx, r.cy, r.rotation ?? 0);
-    const candidates: HandleId[] = [...CORNERS];
-    if (ext) {
-      candidates.push("e", "w");
-      if (ext.h !== null) candidates.push("n", "s");
-    }
-    candidates.push("rot");
+    const candidates: HandleId[] = [...handlesFor(r, ext, unit()), "rot"];
     for (const h of candidates) {
       const o =
         h === "rot"
@@ -336,6 +466,7 @@ export function Artboard({
 
   const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const { px, py } = toArtboard(e);
+    const selected = lone();
     const handle = handleUnder(px, py);
     if (handle && selected) {
       const r = regions.current.find((x) => x.id === selected)!;
@@ -355,22 +486,66 @@ export function Artboard({
       return;
     }
 
+    const extend = e.shiftKey;
     const hit = hitRegion(
       regions.current.filter((r) => !manip.locked(r.id)),
       px,
       py,
     );
-    onSelect(hit?.id ?? null);
-    if (!hit) return;
-    const at = manip.pos(hit.id, { x: hit.cx / size.w, y: hit.cy / size.h });
-    /* The grab OFFSET is recorded, so the element does not jump its centre
-       under your finger, and the gesture is measured from the element's real
-       position rather than from where the layout would have put it. */
+
+    if (!hit) {
+      /* Empty artboard. Shift keeps what is selected and adds to it; a plain
+         press starts a fresh sweep. The selection is not cleared until the
+         pointer comes up, so a press that turns out to be a click still clears
+         and a press that turns out to be a drag never flickers. */
+      gesture.current = {
+        kind: "marquee",
+        x0: px,
+        y0: py,
+        x1: px,
+        y1: py,
+        add: extend ? selection : [],
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    /* Shift toggles membership. Clicking something already selected keeps the
+       whole selection and moves it - otherwise picking up a group would be
+       impossible, because the press that starts the drag would collapse it to
+       one element first. */
+    let next: string[];
+    if (extend) {
+      next = selection.includes(hit.id)
+        ? selection.filter((id) => id !== hit.id)
+        : [...selection, hit.id];
+    } else {
+      next = selection.includes(hit.id) ? selection : [hit.id];
+    }
+    onSelect(next);
+    if (!next.includes(hit.id)) return; // shift-clicked it away; nothing to drag
+
+    const from: Record<string, { x: number; y: number }> = {};
+    for (const id of next) {
+      const r = regions.current.find((x) => x.id === id);
+      if (!r) continue;
+      from[id] = manip.pos(id, { x: r.cx / size.w, y: r.cy / size.h });
+    }
+    /* Positions at grab time plus the pointer at grab time: the move is a
+       delta applied to all of them, so nothing jumps its centre under your
+       finger and the group keeps its spacing exactly. */
+    const mine = regions.current.filter((r) => next.includes(r.id));
     gesture.current = {
       kind: "move",
-      id: hit.id,
-      ox: px / size.w - at.x,
-      oy: py / size.h - at.y,
+      ids: next,
+      from,
+      px0: px / size.w,
+      py0: py / size.h,
+      u0: unionBox(mine),
+      /* A lone rotated element has no axis-aligned edges worth aligning to, so
+         it offers only its centre. A group of several always offers its union,
+         which is axis-aligned whatever its members are doing. */
+      spun: mine.length === 1 && Math.abs((mine[0].rotation ?? 0) % 360) > 0.5,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -384,7 +559,7 @@ export function Artboard({
     const h = handleUnder(px, py);
     if (h === "rot") return "grab";
     if (h) {
-      const r = regions.current.find((x) => x.id === selected)!;
+      const r = regions.current.find((x) => x.id === lone())!;
       const o = handleOffset(h, r.w, r.h);
       const a = Math.atan2(o.y, o.x) + rad(r.rotation ?? 0);
       const oct = ((Math.round((a * 4) / Math.PI) % 4) + 4) % 4;
@@ -403,32 +578,47 @@ export function Artboard({
       return;
     }
 
+    if (g.kind === "marquee") {
+      const box = { x0: g.x0, y0: g.y0, x1: px, y1: py };
+      gesture.current = { ...g, x1: px, y1: py };
+      setMarquee(normalise(box));
+      return;
+    }
+
     if (g.kind === "move") {
-      let x = px / size.w - g.ox;
-      let y = py / size.h - g.oy;
-      /* Snapping is on unless you say otherwise. Alt is the standard "I meant
-         it there" modifier and metaKey covers the trackpad hand that is already
-         holding cmd. */
+      /* ONE delta for the whole selection, and one snap decision for it. The
+         snap is computed against the group's bounding box, so a group lands as
+         a unit instead of each element being pulled to a different guide. */
+      let dx = px / size.w - g.px0;
+      let dy = py / size.h - g.py0;
+
       if (!e.altKey && !e.metaKey) {
-        const me = regions.current.find((r) => r.id === g.id);
         const others = regions.current
-          .filter((r) => r.id !== g.id)
+          .filter((r) => !g.ids.includes(r.id))
           .map<Box>((r) => ({ cx: r.cx, cy: r.cy, w: r.w, h: r.h }));
-        const spun = Math.abs(((me?.rotation ?? 0) % 360)) > 0.5;
+        /* The bounds are the ones recorded at GRAB TIME, not the current ones.
+           The elements have already moved by dx this drag, so adding dx to
+           where they are now would count the drag twice and ask the snapper
+           about a position twice as far out as the pointer - which snaps at the
+           wrong moment and corrects towards the wrong line. */
+        const u = g.u0;
         const box: Box = {
-          cx: x * size.w,
-          cy: y * size.h,
-          // A rotated box has no axis-aligned edges worth aligning to.
-          w: spun ? 0 : (me?.w ?? 0),
-          h: spun ? 0 : (me?.h ?? 0),
+          cx: (u.x0 + u.x1) / 2 + dx * size.w,
+          cy: (u.y0 + u.y1) / 2 + dy * size.h,
+          w: g.spun ? 0 : u.x1 - u.x0,
+          h: g.spun ? 0 : u.y1 - u.y0,
         };
         const m = Math.min(size.w, size.h) * 0.075;
         const out = snapBox(box, snapTargets(size.w, size.h, m, others), snapThreshold(size.w, size.h));
-        x = out.cx / size.w;
-        y = out.cy / size.h;
+        dx += (out.cx - box.cx) / size.w;
+        dy += (out.cy - box.cy) / size.h;
         setGuides(out.guides);
       } else if (guides.length) setGuides([]);
-      manip.setPos(g.id, x, y);
+
+      for (const id of g.ids) {
+        const at = g.from[id];
+        if (at) manip.setPos(id, at.x + dx, at.y + dy);
+      }
       return;
     }
 
@@ -471,8 +661,26 @@ export function Artboard({
   };
 
   const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!gesture.current) return;
+    const g = gesture.current;
+    if (!g) return;
+    if (g.kind === "marquee") {
+      const box = normalise({ x0: g.x0, y0: g.y0, x1: g.x1, y1: g.y1 });
+      /* A sweep smaller than a few pixels is a CLICK on empty artboard, not a
+         selection rectangle - and a click on nothing means deselect. Without
+         this, an ordinary click would run the sweep, catch nothing, and clear
+         the selection anyway, but a one-pixel wobble on the way out of a
+         drag would also silently wipe it. */
+      const swept = Math.max(box.x1 - box.x0, box.y1 - box.y0) > snapThreshold(size.w, size.h);
+      if (!swept) onSelect(g.add);
+      else {
+        const caught = regions.current
+          .filter((r) => !manip.locked(r.id) && intersects(box, r))
+          .map((r) => r.id);
+        onSelect([...new Set([...g.add, ...caught])]);
+      }
+    }
     gesture.current = null;
+    setMarquee(null);
     setGuides([]);
     e.currentTarget.releasePointerCapture(e.pointerId);
   };

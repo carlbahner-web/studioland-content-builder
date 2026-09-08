@@ -262,14 +262,24 @@ export type Restored = {
   name: string;
 };
 
-export function hydrate(raw: unknown, base: SocialAdContent): Restored | null {
+/* `formats` is passed in rather than read off the constant, because the list is
+ * no longer fixed: a custom size added at runtime is a real format, and a design
+ * that carries per-format work for one must not have it dropped just because
+ * this function could not see it. The caller loads the custom sizes BEFORE
+ * hydrating anything - see formats.ts. */
+export function hydrate(
+  raw: unknown,
+  base: SocialAdContent,
+  formats: Format[] = FORMATS,
+): Restored | null {
   if (!isObj(raw)) return null;
+  const known = formats.length ? formats : FORMATS;
   const overrides: Record<string, Partial<SocialAdContent>> = {};
   if (isObj(raw.overrides)) {
     for (const [key, patch] of Object.entries(raw.overrides)) {
       // An override for a format that no longer exists is dropped, not kept as
       // a ghost that can never be seen or reset.
-      if (!FORMATS.some((f) => f.key === key)) continue;
+      if (!known.some((f) => f.key === key)) continue;
       const clean = hydratePartial(patch);
       if (Object.keys(clean).length) overrides[key] = clean;
     }
@@ -279,7 +289,7 @@ export function hydrate(raw: unknown, base: SocialAdContent): Restored | null {
     shared: hydrateContent(raw.shared, base),
     overrides,
     colorway: COLORWAYS.find((c) => c.key === raw.colorway) ?? COLORWAYS[0],
-    format: FORMATS.find((f) => f.key === raw.format) ?? FORMATS[0],
+    format: known.find((f) => f.key === raw.format) ?? known[0],
     ink: (["off", "still", "live"].includes(ink) ? ink : "still") as InkMode,
     curtain: typeof raw.curtain === "boolean" ? raw.curtain : true,
     name: str(raw.name, ""),

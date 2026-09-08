@@ -548,3 +548,23 @@ button.primary:disabled { opacity: 0.4; cursor: default; }
 .sect > summary:hover { opacity: 0.9; }
 .sect[open] { padding-bottom: 14px; }
 .sect > *:last-child { margin-bottom: 0; }
+
+/* ---- custom sizes ---- */
+.fmt-row { display: flex; align-items: stretch; gap: 4px; }
+.fmt-row .fmt { flex: 1; min-width: 0; }
+.fmt-row .undo { padding: 0 9px; font-size: 13px; }
+.adder { margin-top: 10px; }
+.adder > summary {
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.65;
+  list-style: none;
+  padding: 4px 0;
+}
+.adder > summary::-webkit-details-marker { display: none; }
+.adder > summary::before { content: "+ "; }
+.adder[open] > summary::before { content: "– "; }
+.adder > summary:hover { opacity: 1; }
+.adder .row { margin-top: 8px; }
+.panel .adder input.side { flex: 0 1 82px; text-align: center; }
+.adder .by { opacity: 0.45; font-size: 12px; }
