@@ -61,7 +61,15 @@ const bundled = await build({
   target: ["es2022"],
   write: false,
   loader: { ".css": "empty" }, // the CSS is inlined above, not imported
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: {
+    "process.env.NODE_ENV": '"production"',
+    // There is no import.meta in an IIFE, and assets.ts reads the deploy base
+    // from it. Nothing in this build fetches by path anyway - every asset is a
+    // data URI on window.__SL_INLINE - so the base is "/" and unused. Both
+    // spellings, because the guard there tests the object before reading it.
+    "import.meta.env": '{"BASE_URL":"/"}',
+    "import.meta.env.BASE_URL": '"/"',
+  },
 });
 const js = bundled.outputFiles[0].text;
 

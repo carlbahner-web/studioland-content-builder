@@ -1,0 +1,87 @@
+# Put the builder on a URL.
+#
+# Builds the site and publishes it to GitHub Pages at
+# https://carlbahner-web.github.io/studioland-content-builder/, plus the
+# self-contained content-builder.html next to it so the offline copy can be
+# downloaded from the same place rather than passed around as an attachment.
+#
+# READ THIS BEFORE ASSUMING IT IS PRIVATE. Pages on a public repo is world
+# readable and cannot be password protected - that is a paid Netlify or
+# Cloudflare Access feature, not a Pages one. This tool has no sign-in, so
+# anyone with the URL gets the editor. The bundle holds no customer data, no key
+# and no write path, so the worst a finder can do is make a StudioLand-looking
+# graphic with brand assets that are already public in this repo. That is a
+# deliberate trade for a tool that has to open on a phone, not an oversight -
+# but if it stops being an acceptable one, the answer is Netlify with password
+# protection (netlify.toml is already written for it), and this workflow goes.
+#
+# The noindex measures still apply and still are not security: index.html's
+# robots meta and public/robots.txt ask crawlers to stay away, and a crawler
+# that ignores them is not stopped.
+name: Pages
+
+on:
+  push:
+    # main is the real one. The claude/** branches are here because this is a
+    # one-person repo where the work happens on a branch and waiting for a merge
+    # to see it on a phone is the whole friction this removes. Last push wins.
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+# Pages needs to write its own deployment; nothing else does.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never two deploys at once, but do not cancel one in flight - a half-published
+# site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # The fast suite and the typecheck, so a broken build never reaches the
+      # URL. The browser tests are not here: they want a real Chromium and they
+      # are slow, and this is a deploy, not the gate.
+      - run: npm test
+      - run: npm run typecheck
+
+      # A project site is served from a subdirectory, so every built URL has to
+      # carry it. Taken from the repo name rather than typed, so a rename does
+      # not silently produce a page of 404s.
+      - run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      # The offline copy, downloadable from the live site.
+      - run: npm run build:single -- dist/content-builder.html
+
+      # Pages runs Jekyll over the upload unless told not to, and Jekyll drops
+      # files and folders whose names start with an underscore.
+      - run: touch dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

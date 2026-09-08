@@ -2,10 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 
-/* No sign-in. If this is hosted at all it is hosted UNLISTED: nothing links to
- * it, and it asks search engines not to index it (index.html's robots meta,
- * public/robots.txt, plus the X-Robots-Tag header in netlify.toml). A stranger
- * would have to guess the URL.
+/* No sign-in. This IS hosted - GitHub Pages, see .github/workflows/pages.yml -
+ * and it is hosted UNLISTED: nothing links to it, and it asks search engines not
+ * to index it (index.html's robots meta and public/robots.txt). A stranger would
+ * have to guess the URL. Pages offers no password protection at any tier, so the
+ * URL is the whole of it.
  *
  * That is a deliberate call about what is actually at risk here. There is no
  * customer data, no key and no write path in this bundle - the worst a finder

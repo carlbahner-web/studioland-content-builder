@@ -41,34 +41,59 @@ relative already, so nothing had to be rewritten.
 
 ## Hosting, and the sign-in that isn't there
 
-**Nothing is deployed today.** For a one-person tool, running it locally is the
-honest answer: no hosting, no auth, no cost, and browser-local saves are exactly
-right. `netlify.toml` is committed so that connecting this repo is a five-minute
-job when hosting is wanted — it is not evidence that it is hosted.
+**It is on GitHub Pages.** `.github/workflows/pages.yml` typechecks, runs the
+fast test suite, builds, and publishes to
 
-**There is no sign-in.** The prototype was hosted unlisted, which was a
-deliberate call about what is actually at risk: the bundle holds no customer
-data, no key and no write path, so the worst a finder could do is make a
-StudioLand-looking graphic. A login in front of a tool used one-handed from a
-phone costs more than that is worth.
+> https://carlbahner-web.github.io/studioland-content-builder/
 
-If it goes up again, unlisted has to be made real rather than assumed. Not
-linking to something is not the same as it being unlisted — a URL gets found,
-and then indexed, and then it is in search results forever. So all three are
-already in place:
+on every push to `main` or to a `claude/**` branch. The offline single-file copy
+is published alongside it at `…/content-builder.html`, so the thing you can save
+to a phone and open with no network comes from the same place as the live one
+rather than being passed around as an attachment.
+
+Two setup steps happen once, in the repo's own settings, because a workflow
+cannot grant itself a Pages site: **Settings → Pages → Source: GitHub Actions**,
+and — if the first run's `deploy` job is refused — **Settings → Environments →
+github-pages**, whose deployment branch rule defaults to the default branch
+only and has to be widened to allow `claude/**`.
+
+A project site is served from a subdirectory, not from the root, so `BASE_PATH`
+in the workflow feeds `vite.config.ts` and every built URL carries the prefix.
+That covers the script tag and the CSS `url()`s, which Vite can see. It does not
+cover the brand images, which the app hands to an `Image` at runtime as plain
+strings — so `assetUrl()` in `src/assets.ts` prefixes those itself. Getting that
+wrong fails silently in the worst way: the page renders, the fonts fall back,
+the wordmark never appears. `tests/browser/` does not catch it, because the dev
+server serves from the root; it is checked by building with `BASE_PATH` set and
+opening the result under a subdirectory.
+
+**There is no sign-in, and Pages cannot add one.** Password protection is a paid
+Netlify feature and a Cloudflare Access one; it is not a Pages feature at any
+tier, and this repo is public, so the URL is the only thing between a stranger
+and the editor. That is a deliberate call about what is actually at risk rather
+than an oversight: the bundle holds no customer data, no key and no write path,
+the brand assets it ships are already readable in this public repo, and the
+worst a finder could do is make a StudioLand-looking graphic. A login in front
+of a tool used one-handed from a phone costs more than that is worth.
+
+Unlisted has to be made real rather than assumed, though. Not linking to
+something is not the same as it being unlisted — a URL gets found, and then
+indexed, and then it is in search results forever. So:
 
 - `index.html` carries `<meta name="robots" content="noindex, nofollow">`.
-- `netlify.toml` sends `X-Robots-Tag: noindex, nofollow` for everything. The
-  header matters because the JS and the brand images are separately fetchable
-  URLs that would otherwise be indexable on their own — the meta tag only covers
-  the page that contains them.
 - `public/robots.txt` asks crawlers not to fetch any of it.
+- `netlify.toml` sends `X-Robots-Tag: noindex, nofollow` for everything. On
+  Pages that header is **not** available — GitHub serves no custom headers — so
+  the JS and the brand images, which are separately fetchable URLs, rely on
+  `robots.txt` alone rather than on a header of their own.
 
 None of that is a security measure and it is not written as one: a crawler that
 ignores `robots.txt` is not stopped by it, and neither is a person with the URL.
 It keeps the page out of search results, which is the whole of what "unlisted"
-means. If this is ever pointed at a public URL, put something real in front of
-it — Netlify password protection, Clerk, or a Cloudflare Access rule.
+means. The day that stops being enough — a real client name typed into a draft,
+a second person's work in the same browser storage — the move is Netlify with
+password protection, which `netlify.toml` is already written for, and this
+workflow comes back out.
 
 An earlier version gated it with Clerk against an email allowlist. That is in
 the prototype history, under "Host the generator at /studio, gated by Clerk with
@@ -103,7 +128,7 @@ when the single-file build has registered one on `window.__SL_INLINE`.
   download at all and the anchor is silently inert. The viewer grants a
   `downloads` capability instead, which confirms with the person and saves.
 
-The capability is feature-detected, never assumed: the Netlify build has no
+The capability is feature-detected, never assumed: the hosted build has no
 `window.claude` and must not care. Press-and-hold is only offered when the
 browser path was the one that ran; a confirmed save needs no follow-up.
 

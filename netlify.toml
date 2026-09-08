@@ -1,14 +1,16 @@
-# Optional. Nothing is deployed from this repo today - the honest answer for a
-# one-person tool is `npm run dev`, or the single-file build. This is here so
-# that hosting it is a five-minute job when it is wanted, and so the two things
-# that must be true when it is hosted are written down rather than remembered.
+# Not the live host. The live one is GitHub Pages, from
+# .github/workflows/pages.yml. This file stays because Pages CANNOT be password
+# protected - not on a public repo, not at any tier - and Netlify can, so this is
+# the escape hatch: the day the tool needs a gate in front of it, connecting this
+# repo to Netlify and turning on password protection is the five-minute job, and
+# the Pages workflow comes out.
 #
-# THIS TOOL HAS NO SIGN-IN. Before pointing anything public at it, put something
-# in front: Netlify password protection, Clerk (the CRM's approach - there is a
-# working version in the prototype history), or a Cloudflare Access rule. The
-# bundle holds no customer data, no key and no write path, so the worst a finder
-# could do is make a StudioLand-looking graphic - but that is a decision to take
-# deliberately rather than to arrive at by connecting a repo.
+# THIS TOOL HAS NO SIGN-IN. The bundle holds no customer data, no key and no
+# write path, so the worst a finder could do is make a StudioLand-looking
+# graphic. If that stops being true - a real client name in a draft, someone
+# else's work in the same storage - the options are Netlify password protection
+# here, Clerk (the CRM's approach; there is a working version in the prototype
+# history), or a Cloudflare Access rule.
 [build]
   command = "npm run build"
   publish = "dist"
