@@ -300,6 +300,7 @@ export function Artboard({
   curtain,
   ink,
   transparent,
+  grain,
   selection,
   onSelect,
   onEdit,
@@ -316,6 +317,8 @@ export function Artboard({
   ink: InkMode;
   /** Leave the ground unpainted. The PNG export honours it; the MP4 cannot. */
   transparent: boolean;
+  /** The sheet's grain strength. */
+  grain: number;
   /** Everything selected, in no particular order. */
   selection: string[];
   onSelect: (ids: string[]) => void;
@@ -369,6 +372,7 @@ export function Artboard({
         ink,
         hide: editing,
         transparent,
+        grain,
       });
       onRegions(regions.current);
       return;
@@ -386,12 +390,13 @@ export function Artboard({
         ink,
         curtain,
         transparent,
+        grain,
       });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [size, colorway, content, assets, animate, curtain, ink, onRegions, editing, transparent]);
+  }, [size, colorway, content, assets, animate, curtain, ink, onRegions, editing, transparent, grain]);
 
   /* ------------------------------------------------------------ the chrome */
   /* The overlay effect is declared AFTER the draw effect on purpose: effects
@@ -998,7 +1003,7 @@ export function Artboard({
     c.height = size.h;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    drawSocialAd(ctx, size, colorway, content, assets, { ink, transparent });
+    drawSocialAd(ctx, size, colorway, content, assets, { ink, transparent, grain });
     c.toBlob(async (blob) => {
       if (!blob) return;
       const how = await saveFile(`studioland-social-${size.key}-${colorway.key}.png`, blob);
@@ -1006,7 +1011,7 @@ export function Artboard({
       // that ran AND is the unreliable kind. A confirmed save needs no follow-up.
       if (how === "browser" && onHeld) onHeld(c.toDataURL("image/png"));
     }, "image/png");
-  }, [size, colorway, content, assets, ink, onHeld, transparent]);
+  }, [size, colorway, content, assets, ink, onHeld, transparent, grain]);
 
   const exportMp4 = useCallback(async () => {
     // Encode off-screen so the visible preview keeps animating and the two
@@ -1029,7 +1034,7 @@ export function Artboard({
            black rather than as a hole. Painting the ground back in is the
            honest answer, and the panel says so where the option is. */
         draw: (frame) =>
-          drawSocialAd(octx, size, colorway, content, assets, { frame, ink, curtain }),
+          drawSocialAd(octx, size, colorway, content, assets, { frame, ink, curtain, grain }),
         onProgress: (done, total) => setBusy(`${Math.round((done / total) * 100)}%`),
       });
       await saveFile(`studioland-social-${size.key}-${colorway.key}.mp4`, blob);

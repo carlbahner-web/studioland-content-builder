@@ -33,6 +33,8 @@ import {
 } from "../boil.ts";
 import {
   drawGrain,
+  grainMasked,
+  GRAIN_ALPHA,
   drawImageByHeight,
   drawLines,
   drawStarburst,
@@ -170,6 +172,8 @@ export type RenderOpts = {
    * The export path never sets it - it is an editing state, not a property of
    * the design. */
   hide?: string | null;
+  /** The sheet's grain strength. See GRAIN_ALPHA in render.ts. */
+  grain?: number;
   /* Leave the ground unpainted, so the export carries real alpha. The colourway
    * still decides ink and outline colours - you are choosing what the asset is
    * FOR, and only declining to paint the field behind it. */
@@ -190,6 +194,7 @@ export function drawSocialAd(
     curtain = true,
     hide = null,
     transparent = false,
+    grain = GRAIN_ALPHA,
   } = opts;
   const { w, h } = size;
   const S = stageScale(w, h);
@@ -449,7 +454,44 @@ export function drawSocialAd(
   );
 
   /* --- the paper, over everything ---------------------------------------- */
-  drawGrain(ctx, w, h, transparent);
+  drawGrain(ctx, w, h, transparent, grain);
+
+  /* --- and then the two exceptions to "everything" ------------------------ */
+
+  /* A layer that wants NO paper is simply drawn again, on top of the grain.
+   *
+   * That is exact for any shape - a cut-out subject, a rotated ellipse, the
+   * counters inside a letterform - because it is the same drawing code with the
+   * same inputs, so the pixels land identically. Excluding a bounding box from
+   * the grain instead would have taken the paper off the ground around the
+   * element too, leaving a clean rectangle in the middle of a printed sheet. */
+  const crisp = content.layers.filter((l) => !l.hidden && l.grain === "none" && l.id !== hide);
+  if (crisp.length) {
+    drawLayers(ctx, size, crisp, assets.images, {
+      ink: inkMode,
+      frame,
+      scale: S,
+      defaultInk: ink,
+    });
+  }
+
+  /* A layer that wants MORE gets a second pass of the same sheet, shaped by
+     what it actually drew rather than by its box. */
+  const heavy = content.layers.filter((l) => !l.hidden && l.grain === "extra" && l.id !== hide);
+  for (const l of heavy) {
+    const mask = document.createElement("canvas");
+    mask.width = w;
+    mask.height = h;
+    const mctx = mask.getContext("2d");
+    if (!mctx) continue;
+    drawLayers(mctx, size, [l], assets.images, {
+      ink: inkMode,
+      frame,
+      scale: S,
+      defaultInk: ink,
+    });
+    grainMasked(ctx, w, h, mask, grain);
+  }
 
   /* --- and the curtain over that ------------------------------------------ */
   if (frame !== null && curtain) {

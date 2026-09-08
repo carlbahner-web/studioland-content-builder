@@ -17,6 +17,7 @@ import { kvDelete, kvGet, kvKeys, kvSet } from "./kv.ts";
 import type { InkMode } from "./boil.ts";
 import type { SocialAdContent } from "./templates/socialAd.ts";
 import { DEFAULT_CUTOUT } from "./cutout.ts";
+import { GRAIN_ALPHA } from "./render.ts";
 import {
   LAYER_COLORS,
   newImage,
@@ -24,6 +25,7 @@ import {
   newText,
   SHAPES,
   type Face,
+  type GrainMode,
   type Layer,
   type ShapeKind,
 } from "./layers.ts";
@@ -43,6 +45,7 @@ export type Design = {
   ink: InkMode;
   curtain: boolean;
   transparent: boolean;
+  grain: number;
 };
 
 export type SavedDesign = Design & { id: string };
@@ -97,6 +100,7 @@ function hydrateLayer(raw: unknown): Layer | null {
     hidden: raw.hidden === true,
     locked: raw.locked === true,
     ink: inkOrNull(raw.ink),
+    grain: oneOf<GrainMode>(raw.grain, ["default", "none", "extra"], "default"),
   };
 
   if (raw.kind === "text") {
@@ -283,6 +287,7 @@ export type Restored = {
   ink: InkMode;
   curtain: boolean;
   transparent: boolean;
+  grain: number;
   name: string;
 };
 
@@ -317,6 +322,7 @@ export function hydrate(
     ink: (["off", "still", "live"].includes(ink) ? ink : "still") as InkMode,
     curtain: typeof raw.curtain === "boolean" ? raw.curtain : true,
     transparent: raw.transparent === true,
+    grain: clamp(num(raw.grain, GRAIN_ALPHA), 0, 1),
     name: str(raw.name, ""),
   };
 }

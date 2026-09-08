@@ -9,7 +9,7 @@ import {
   type Format,
   type PaletteKey,
 } from "./brand.ts";
-import { loadBrandFonts, loadImage, prepareGrain } from "./render.ts";
+import { GRAIN_ALPHA, loadBrandFonts, loadImage, prepareGrain } from "./render.ts";
 import { FPS, type InkMode } from "./boil.ts";
 import { assetUrl } from "./assets.ts";
 import { Artboard, type Manipulator } from "./Artboard.tsx";
@@ -36,6 +36,7 @@ import {
   reorderLayer,
   updateLayer,
   FACES,
+  GRAIN_MODES,
   SHAPES,
   type Face,
   type Layer,
@@ -119,6 +120,8 @@ type Doc = {
   curtain: boolean;
   /** Leave the ground unpainted, so a PNG carries real alpha. */
   transparent: boolean;
+  /** The sheet's grain. 0.2 is the measured recipe; 0 is no paper at all. */
+  grain: number;
 };
 
 const INITIAL: Doc = {
@@ -128,6 +131,7 @@ const INITIAL: Doc = {
   ink: "still",
   curtain: true,
   transparent: false,
+  grain: GRAIN_ALPHA,
 };
 
 const contentOf = (d: Doc, formatKey: string): SocialAdContent => ({
@@ -640,6 +644,7 @@ export default function App() {
           ink: d.ink,
           curtain: d.curtain,
           transparent: d.transparent,
+          grain: d.grain,
         }),
       );
       setFormat(d.format);
@@ -1445,7 +1450,7 @@ export default function App() {
                        back to its own shape rather than to some remembered one. */
                     onClick={() => patchLayer(active.id, { frameH: null })}
                   >
-                    None
+                    Uncropped
                   </button>
                   {CROPS.map((c) => (
                     <button
@@ -1557,6 +1562,30 @@ export default function App() {
                 {pct(selectedRegion.cx / format.w)}%, {pct(selectedRegion.cy / format.h)}%. Arrow keys
                 nudge a pixel, shift ten. Hold alt while dragging to ignore the guides.
               </p>
+            )}
+
+            {active && (
+              <>
+                <span className="lbl">Paper</span>
+                <div className="modes small">
+                  {GRAIN_MODES.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      title={m.why}
+                      className={active.grain === m.key ? "mode on" : "mode"}
+                      onClick={() => patchLayer(active.id, { grain: m.key })}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">
+                  It is the sheet&rsquo;s own grain either way, anchored to the artboard &mdash; so
+                  a patch of it on this element lines up with the paper beside it rather than
+                  reading as a texture stuck on top.
+                </p>
+              </>
             )}
 
             {canInk(selected) && (
@@ -1801,7 +1830,25 @@ export default function App() {
           &mdash; it is one phase of it held, which is what a PNG should carry.
         </p>
 
+        {/* Paper sits with ink because they are the same kind of thing: how
+            this was printed, rather than what is on it. */}
+        <label>
+          Paper
+          <input
+            type="range"
+            min={0}
+            max={60}
+            value={Math.round(doc.grain * 100)}
+            onChange={(e) => commit((d) => ({ ...d, grain: Number(e.target.value) / 100 }))}
+          />
+        </label>
+        <p className="hint">
+          The press grain over the whole sheet. {Math.round(GRAIN_ALPHA * 100)}% is the measured
+          recipe and where it starts; 0 takes the paper away entirely. Any layer can take more of it
+          or none of it &mdash; select one and look under Paper.
+        </p>
         </Section>
+
         <Section title="Motion">
         <label className="check">
           <input
@@ -2120,6 +2167,7 @@ export default function App() {
             curtain={doc.curtain}
             ink={doc.ink}
             transparent={doc.transparent}
+            grain={doc.grain}
             selection={selection}
             onSelect={setSelection}
             onEdit={(id) => {

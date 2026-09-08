@@ -53,7 +53,28 @@ type Base = {
   locked: boolean;
   /** Ink for this layer, or null to follow the design's setting. */
   ink: InkMode | null;
+  /* How much of the sheet's paper this element gets.
+   *
+   *   default - the sheet's grain lands on it like everything else.
+   *   none    - it stays crisp. For a logo, a QR code, a screenshot: things
+   *             that are being reproduced rather than printed.
+   *   extra   - a second helping, for a photograph that is too clean to sit
+   *             beside boiled linework.
+   *
+   * It is the SHEET's texture in every case, anchored to the artboard - see
+   * render.ts. Turning it on for one element clips the paper to that shape
+   * rather than giving the element a texture of its own, which is the whole
+   * reason this can exist without reading as a sticker. */
+  grain: GrainMode;
 };
+
+export type GrainMode = "default" | "none" | "extra";
+
+export const GRAIN_MODES: { key: GrainMode; label: string; why: string }[] = [
+  { key: "default", label: "Default", why: "The sheet's grain, like everything else." },
+  { key: "none", label: "None", why: "Stays crisp - for a logo or a screenshot." },
+  { key: "extra", label: "Extra", why: "A second helping, to sit a clean photo back." },
+];
 
 /** Which brand face. There are three and there will only ever be three. */
 export type Face = "display" | "narrow" | "body";
@@ -183,6 +204,7 @@ const base = (kind: LayerKind, name: string): Base => ({
   hidden: false,
   locked: false,
   ink: null,
+  grain: "default",
 });
 
 /* What a fresh text layer says. Exported because the artboard checks against it:

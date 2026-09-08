@@ -69,7 +69,22 @@ export function prepareGrain(src: HTMLImageElement): void {
   grainTile = c;
 }
 
-/* The press grain, over everything. Multiply at 0.2 - the game's measured recipe.
+/* The press grain's strength. 0.2 is the game's measured recipe and the default;
+ * it is a dial rather than a constant because a photograph-heavy asset and a
+ * flat-colour one want different amounts of paper. */
+export const GRAIN_ALPHA = 0.2;
+
+/* THE PATTERN IS ANCHORED TO THE ARTBOARD, never to what it is being drawn on.
+ *
+ * That one fact is what lets grain be applied per element without the result
+ * reading as a sticker. Every pass below fills from the artboard's origin at
+ * identity, so a patch of grain clipped to one photograph lines up seamlessly
+ * with the grain on the ground beside it - it is the same sheet showing
+ * through, not a second texture laid on top of a cut-out. Anchoring to the
+ * element instead would break the run at every edge, and the eye reads that
+ * instantly even when it cannot say why. */
+
+/* The press grain, over everything. Multiply - the game's measured recipe.
  *
  * `clipToContent` is for a transparent ground, and it is not optional there.
  * Multiply against a transparent pixel does not leave it transparent: there is
@@ -84,8 +99,9 @@ export function drawGrain(
   w: number,
   h: number,
   clipToContent = false,
+  alpha = GRAIN_ALPHA,
 ): void {
-  if (!grainTile) return;
+  if (!grainTile || alpha <= 0) return;
   const pat = ctx.createPattern(grainTile, "repeat");
   if (!pat) return;
 
@@ -99,7 +115,7 @@ export function drawGrain(
 
   ctx.save();
   ctx.globalCompositeOperation = "multiply";
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = pat;
   ctx.fillRect(0, 0, w, h);
   ctx.restore();
@@ -111,6 +127,45 @@ export function drawGrain(
     ctx.drawImage(mask, 0, 0, w, h);
     ctx.restore();
   }
+}
+
+/* One more pass of the SAME sheet, shaped by whatever `mask` has drawn on it.
+ *
+ * This is how an element gets more paper than the rest of the artboard: a stock
+ * photograph arrives far too clean to sit beside boiled linework, and a second
+ * helping of grain is what sits it back into the print. `mask` is a canvas with
+ * the element drawn alone on it, so the grain takes the element's real alpha -
+ * a cut-out subject, a rotated shape, the inside of a letterform - rather than
+ * a bounding box, which would put a visible rectangle of texture around it.
+ *
+ * The pattern still fills from the artboard's origin, so this pass and the
+ * sheet's own are the same continuous texture. */
+export function grainMasked(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  mask: HTMLCanvasElement,
+  alpha = GRAIN_ALPHA,
+): void {
+  if (!grainTile || alpha <= 0) return;
+  const cut = document.createElement("canvas");
+  cut.width = Math.max(1, Math.round(w));
+  cut.height = Math.max(1, Math.round(h));
+  const g = cut.getContext("2d");
+  if (!g) return;
+  const pat = g.createPattern(grainTile, "repeat");
+  if (!pat) return;
+  g.fillStyle = pat;
+  g.fillRect(0, 0, cut.width, cut.height);
+  // Keep the grain only where the element is.
+  g.globalCompositeOperation = "destination-in";
+  g.drawImage(mask, 0, 0, cut.width, cut.height);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(cut, 0, 0, w, h);
+  ctx.restore();
 }
 
 /* -------------------------------------------------------------- text layout */

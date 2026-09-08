@@ -652,6 +652,51 @@ H.264 is preferred and picked by capability detection; VP9 and AV1 are real
 fallbacks, because Chromium builds without proprietary codecs report no `avc1`
 support at all and a valid VP9-in-MP4 beats a button that fails.
 
+## Paper, and who gets it
+
+The grain is a **multiply over the whole field**, and for a long time that was
+all it was: one pass at a hard-coded 0.2, over everything, at the end. It is now
+a dial, and any layer can take more of it or none of it.
+
+The reason it took a ruling rather than a checkbox: **the grain is the paper.**
+It sits over everything because the whole artboard is one printed object, and
+grain on one element but not another says "this bit was printed and that bit was
+not", which is incoherent as a physical metaphor. Per-element texture is how you
+get something that reads as a sticker.
+
+**What resolves it is anchoring.** The pattern is filled from the artboard's
+origin at identity in every pass, never from the element's. So turning grain on
+for one photograph clips *the sheet's own texture* to that shape — the run of it
+lines up seamlessly with the paper on the ground beside it, because it is the
+same paper showing through. You are choosing what got printed, not printing
+things separately. Anchoring to the element would break the texture at every
+edge, and the eye reads that instantly even when it cannot say why.
+
+That is a testable claim rather than a hope, and it was tested: nudge an element
+seven pixels under a patch of its own grain and the patch does not change,
+because the paper never moved.
+
+Three states per layer, mirroring the ink control for the same reason — a global
+default with a per-element override:
+
+| | What it is | Use |
+|---|---|---|
+| **Default** | The sheet's grain, like everything else. | Almost everything. |
+| **None** | Stays crisp. | A logo, a QR code, a screenshot — things being *reproduced* rather than printed. |
+| **Extra** | A second helping of the same sheet. | A stock photograph that is far too clean to sit beside boiled linework. |
+
+Both exceptions are drawn after the sheet's pass, and the implementations are
+chosen to be exact rather than approximately right:
+
+- **None re-draws the layer on top of the grain**, using the same drawing code
+  with the same inputs, so the pixels land identically. The obvious alternative
+   — excluding the element's bounding box from the grain — would have taken the
+  paper off the *ground around it* too, leaving a clean rectangle in the middle
+  of a printed sheet, and would have been wrong for anything rotated, cut out, or
+  shaped like a letterform.
+- **Extra takes the layer's real alpha as a mask** rather than its box, so a
+  cut-out subject gets more paper on the subject and none on the space around it.
+
 ## Transparency, and what a browser will not do
 
 **Save PNG can leave the ground unpainted**, so the file carries real alpha —
@@ -876,7 +921,11 @@ self-service gap this tool was built to close.
   backdrop; a real matting model is a deliberate dependency nobody has chosen.
 - **Tier 2 texture.** The whole-sheet weathering plates. `wild-ride` has eight;
   none are copied here yet. Use each sheet whole and fitted, never cropped and
-  tiled.
+  tiled. The per-layer paper control is tier 1 only.
+- **Per-element paper on the template's five.** The headline, BUZZ and the
+  wordmark take the sheet's grain and cannot opt out of it; only layers you add
+  can. Redrawing a template element after the grain means re-running its layout,
+  which the drawing code is not currently shaped for.
 - **More templates.** `templates/` takes one file per template; the carousel,
   reel word-cards and the EDU title slide are all specified in bible 3.2. Layers
   are template-agnostic, so a new one gets the whole editor for free by calling

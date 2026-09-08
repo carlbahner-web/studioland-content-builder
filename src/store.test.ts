@@ -86,6 +86,7 @@ test("layers are repaired where they can be and dropped where they cannot", () =
     hidden: false,
     locked: false,
     ink: null,
+    grain: "default",
     frameH: null,
     zoom: 1,
     focusX: 0.5,
@@ -149,6 +150,20 @@ test("an upload keeps an opaque key and a readable label, and they differ", () =
 
 /* null is a real value for cutout too - "leave the artwork as it came" - and a
  * malformed one falls back to the defaults rather than to a broken shape. */
+test("an unknown grain mode falls back rather than failing to draw", () => {
+  const c = hydrateContent(
+    {
+      layers: [
+        { kind: "image", id: "a", file: "p.jpg", grain: "extra" },
+        { kind: "image", id: "b", file: "q.jpg", grain: "sandpaper" },
+      ],
+    },
+    base,
+  );
+  assert.equal(c.layers[0].grain, "extra");
+  assert.equal(c.layers[1].grain, "default");
+});
+
 test("a background cutout survives a round trip and is clamped", () => {
   const c = hydrateContent(
     {
