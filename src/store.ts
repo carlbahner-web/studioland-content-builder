@@ -129,12 +129,25 @@ function hydrateLayer(raw: unknown): Layer | null {
   }
 
   if (raw.kind === "image") {
-    const name = str(raw.name, "");
-    if (!name) return null;
-    return newImage(name, raw.src === "upload" ? "upload" : "library", {
+    /* `file` fell out of `name` when the two were one field, and every layer
+       written then was a folder image where they were the same string - so
+       falling back to `name` reads those correctly. */
+    const file = str(raw.file, str(raw.name, ""));
+    if (!file) return null;
+    return newImage(file, raw.src === "upload" ? "upload" : "library", {
       ...common,
-      name,
+      file,
+      name: str(raw.name, file),
       w: clamp(num(raw.w, 0.24), 0.005, 4),
+      // null is a real value here - "no frame, keep the artwork's own aspect" -
+      // so it survives rather than falling back to a number.
+      frameH:
+        typeof raw.frameH === "number" && Number.isFinite(raw.frameH)
+          ? clamp(raw.frameH, 0.005, 4)
+          : null,
+      zoom: clamp(num(raw.zoom, 1), 1, 8),
+      focusX: clamp(num(raw.focusX, 0.5), 0, 1),
+      focusY: clamp(num(raw.focusY, 0.5), 0, 1),
       flipX: raw.flipX === true,
       flipY: raw.flipY === true,
     });
@@ -158,6 +171,7 @@ function migrateStickers(raw: unknown): Layer[] {
     out.push(
       newImage(name, "library", {
         id,
+        file: name,
         name,
         x: clamp(num(s.x, 0.5), -0.5, 1.5),
         y: clamp(num(s.y, 0.5), -0.5, 1.5),
@@ -313,7 +327,7 @@ export function artworkNames(
   const seen = new Map<string, ArtworkRef>();
   const collect = (layers: Layer[] | undefined) => {
     for (const l of layers ?? []) {
-      if (l.kind === "image" && !seen.has(l.name)) seen.set(l.name, { name: l.name, src: l.src });
+      if (l.kind === "image" && !seen.has(l.file)) seen.set(l.file, { name: l.file, src: l.src });
     }
   };
   collect(shared.layers);

@@ -300,6 +300,43 @@ makes snapping worth having rather than merely tidy. A **rotated** box passes no
 extent and snaps only its centre: its axis-aligned bounds are no longer its
 edges, so snapping them would align something that is not there.
 
+### More than one at a time
+
+Shift-click to add or remove, sweep a marquee across empty artboard, or cmd-A
+for everything. The selection moves, nudges, aligns, distributes, duplicates and
+deletes as one thing, and a group duplicate or delete is **one undo step**, not
+one per element.
+
+- A group move applies **one delta** computed from every element's position at
+  grab time, rather than each element tracking the pointer. The group keeps its
+  internal spacing exactly, and one snap decision applies to all of it instead of
+  each element being pulled to a different guide. The snap is measured against
+  the selection's bounds *at grab time* — using the current bounds counts the
+  drag twice and asks the snapper about a position twice as far out as the
+  pointer actually is.
+- **Handles belong to a lone selection.** Resizing or rotating several things at
+  once has to decide what it means — about the group's centre, or about each
+  element's own? — and getting that wrong silently scatters a layout. Moving and
+  aligning are what multi-select is for.
+- **Align targets the artboard for one element and the selection's own bounds for
+  several.** That is the convention every design tool uses and the only useful
+  one: aligning six things to the artboard's left margin stacks them on top of
+  each other. Spacing is by *centre* rather than by gap, because gap-spacing
+  surprises you the moment the things are different sizes — three items of
+  different widths, evenly gapped, have centres that are not evenly spaced, and
+  the centres are usually what the eye was asking about.
+
+### Handles need room
+
+A handle only appears on an axis with space for both it and a grabbable
+interior. This was a bug, and a bad one: a rule is 540×21 artboard pixels, its
+top and bottom handles sit 10 pixels from its centre, and the grab radius is
+about 24 — so the entire body of the rule was inside its own handles, every
+press started a resize, and **the most common shape in the tool could not be
+dragged at all**. Below the threshold the press means move, which is the more
+common intent, and the size is still adjustable from the panel and from the axis
+that does have room.
+
 ### The keyboard
 
 Arrow keys nudge by one artboard pixel and shift by ten — artboard pixels rather
@@ -307,8 +344,53 @@ than screen ones, so the same keypress means the same thing whatever the preview
 is scaled to. cmd-D duplicates, delete removes, escape deselects, cmd-[ and
 cmd-] restack, and shift with either sends a layer to the very back or front.
 
+cmd-A selects everything, and it deliberately sits *above* the "nothing is
+selected" guard — an empty selection is exactly the state you press it in, which
+it did not do at first.
+
 Only layers are deletable. The template's five are part of the composition; the
 way to be rid of one is to empty its text.
+
+### Typing on the artboard
+
+Double-click a text layer and the caret opens where the letters are, in that
+layer's own face, size, colour, caps and alignment.
+
+It is a **real `<textarea>`**, laid over the artboard and styled from the same
+numbers the canvas draws with. Selection, the system keyboard, autocorrect, IME
+composition, spellcheck and every accessibility affordance come free that way,
+and every one would have had to be reimplemented badly on a canvas-drawn caret.
+The layer itself is left undrawn while it is being typed into — a `hide` render
+option only the preview ever sets — so the caret and the canvas copy are never
+both on screen.
+
+Making "what you type is where it lands" actually true took three fixes, each a
+place where canvas and CSS quietly disagree:
+
+- **The baseline.** Canvas puts the first baseline 78% of the way down its line
+  box; CSS splits the leading evenly around the glyphs. On the display face
+  those land within a pixel of each other; on the body face's 1.82 leading they
+  are a quarter of an em apart, and the text visibly hopped the moment you
+  stopped typing. The shift is measured from the font's own metrics rather than
+  assumed, and the 78% is one exported constant so the two cannot drift.
+- **What is centred.** The canvas centres the *ink* — the width the letters
+  actually run to, which is what makes a selection box hug a short centred line
+  instead of a stretch of empty artboard. A textarea can only centre its box. So
+  the box is placed to put its text where the canvas puts it, while keeping the
+  full measure width so the wrap still breaks in the same places.
+- **Who owns the height.** Measuring the content means letting the height go
+  `auto` and reading `scrollHeight`, which is a DOM write React knows nothing
+  about. Sharing the property does not work: React only writes when the value it
+  last rendered changed, so once the measured height settles it stops writing and
+  the `auto` left over from measuring is what sticks — the box stayed two lines
+  tall however much you typed. The layout effect owns the whole geometry; React
+  owns the typography.
+
+The caret is offered **only where it can be honest**. The template's headline and
+supporting line are fitted to a zone, so their size changes as you type; a caret
+there would need the autofit re-run per keystroke to stay on the letters, and
+would still jump every time the fit stepped. Those keep the panel field, which
+does not pretend otherwise.
 
 ## Balanced headlines
 
@@ -354,7 +436,21 @@ artboard's: otherwise a 16:9 thumbnail crops his hand noticeably harder than a
 1.9:1 link preview, for no reason anyone chose.
 
 Adding a format is a line in `FORMATS` in `brand.ts`. The list there is a
-starting guess at what StudioLand actually posts — change it freely.
+starting guess at what StudioLand actually posts — change it freely. You can
+also **add a size in the tool**, which is the same thing without editing a
+source file mid-design because a client asked for a 4:5 at 1440.
+
+Custom sizes live *outside* the document, in their own key, because a size is a
+fact about where you post rather than about one asset: adding "LinkedIn banner"
+once should make it available to every design, including the ones already saved.
+
+The consequence to be careful about is `hydrate()`. It drops overrides for
+formats it does not recognise — deliberately, so a dropped format cannot leave a
+ghost that can never be seen or reset — which means a custom size has to be
+**known before** a design that uses it is hydrated, or its per-format work is
+silently thrown away. So `hydrate` takes the format list rather than reaching for
+the constant, and the sizes are loaded before the draft is read.
+`formats.test.ts` locks that down.
 
 ### Editing one format vs all of them
 
@@ -637,6 +733,42 @@ only a `viewBox` (intrinsic 150px) and one with an explicit 1200px width render
 byte-identically — measured, not assumed. An SVG with neither a `viewBox` nor
 width/height cannot be sized by the browser at all, and the error says so.
 
+### Cropping a photograph
+
+An image either **fits** its own aspect or **fills** a frame you gave it.
+
+Fitting is the right default: artwork — an arrow, a star, BUZZ — has a shape, and
+cropping or stretching it is vandalism. A photograph is the other case entirely:
+it arrives at whatever shape the camera was, and the design needs a square, or a
+4:5, or a band across the top. So a frame is opt-in, and while there is one the
+artwork fills it and is cropped rather than squashed. There is deliberately **no
+third mode** where the image is distorted to fit, because that is never what
+anyone wanted.
+
+Inside the frame, zoom scales past the tightest fill and the focal point picks
+which part of the artwork sits in the middle. Two rulings:
+
+- **The focal point is stored on the artwork**, as a fraction of it, not as a
+  pixel offset — so the crop survives the frame being resized and the format
+  being switched, which is the same reason every other position here is
+  relative.
+- **The offset is clamped so the frame stays covered.** Without that, dragging
+  the focus to a corner slides the artwork off its own frame and leaves a band of
+  ground showing through, and a crop that does not stay filled is not a crop.
+  `crop.test.ts` checks that every focal point, including ones outside the
+  artwork entirely, still leaves the frame covered.
+
+The frame also **clips**, and that includes the misregistered silhouette — or the
+ink edge would spill past the crop and give the frame a soft charcoal halo on
+exactly the sides the artwork was cut off at.
+
+One field split in two while this was built. An image layer's `name` was doing
+double duty as both the label and the key its decoded bitmap is stored under.
+For a folder image those are the same string, so one field appeared to work; for
+an upload the key is an opaque id and the label is the file you dragged in, so
+**uploads silently drew nothing**. `file` is the key and is never shown; `name`
+is the label and is yours to rename.
+
 ### Where artwork should live
 
 Two libraries, and they want different homes. **Scratch** — the photo for this
@@ -655,16 +787,16 @@ self-service gap this tool was built to close.
 - **Tier 2 texture.** The whole-sheet weathering plates. `wild-ride` has eight;
   none are copied here yet. Use each sheet whole and fitted, never cropped and
   tiled.
-- **Photo handling beyond placement.** Uploading and placing works; focal point,
-  zoom-to-fill and background removal do not.
+- **Background removal.** Uploading, placing, cropping, zooming and the focal
+  point all work; cutting a subject out of its background does not.
 - **More templates.** `templates/` takes one file per template; the carousel,
   reel word-cards and the EDU title slide are all specified in bible 3.2. Layers
   are template-agnostic, so a new one gets the whole editor for free by calling
   `drawLayers`.
-- **Multi-select.** One element at a time. Aligning three things to each other
-  needs it.
-- **Custom format sizes.** `FORMATS` is a list in `brand.ts`; nothing yet lets
-  you type a size into the UI.
+- **Grouping.** Several things can be selected and moved together, but the
+  grouping is not a thing that persists — reselect them next time.
+- **Resizing a multi-selection.** Handles are offered on a lone selection only;
+  see *More than one at a time* for why.
 - **Download all as a zip.** Currently it fires staggered single downloads,
   because browsers drop simultaneous programmatic ones.
 - **Hosting.** Still local-only. No auth story yet, which is the main thing to

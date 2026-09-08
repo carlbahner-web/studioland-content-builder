@@ -32,6 +32,7 @@ import {
   newShape,
   newText,
   faceOf,
+  CROPS,
   reorderLayer,
   updateLayer,
   FACES,
@@ -488,6 +489,11 @@ export default function App() {
         } else if (l.kind === "shape") {
           const r = v / (l.w || 1);
           patchLayer(id, { w: v, h: l.h * r }, tag);
+        } else if (l.kind === "image" && l.frameH !== null) {
+          // A frame keeps its shape under a corner drag; the crop inside it is
+          // unaffected, because the focal point is stored on the artwork.
+          const r = v / (l.w || 1);
+          patchLayer(id, { w: v, frameH: l.frameH * r }, tag);
         } else {
           patchLayer(id, { w: v }, tag);
         }
@@ -508,6 +514,9 @@ export default function App() {
         // something this tool offers.
         if (l.kind === "text") return { w: l.w, h: null };
         if (l.kind === "shape") return { w: l.w, h: l.h };
+        // A FRAME can be reshaped on either axis - that is what cropping is.
+        // Unframed artwork cannot: its aspect is the artwork's own.
+        if (l.kind === "image" && l.frameH !== null) return { w: l.w, h: l.frameH };
         return null;
       },
       setExtent: (id, w, h) => {
@@ -515,6 +524,7 @@ export default function App() {
         if (!l) return;
         if (l.kind === "text") patchLayer(id, { w }, `size:${id}`);
         else if (l.kind === "shape") patchLayer(id, { w, h }, `size:${id}`);
+        else if (l.kind === "image") patchLayer(id, { w, frameH: h }, `size:${id}`);
       },
       locked: (id) => findLayer(content.layers, id)?.locked === true,
       /* Only text LAYERS can be typed into on the artboard, and the reason is
@@ -801,11 +811,11 @@ export default function App() {
   );
 
   const placeImage = useCallback(
-    async (name: string, src: "library" | "upload") => {
+    async (file: string, src: "library" | "upload", label?: string) => {
       try {
-        const img = src === "upload" ? await loadUpload(name) : await loadFromLibrary(name);
-        setAssets((prev) => (prev ? { ...prev, images: { ...prev.images, [name]: img } } : prev));
-        addNew(newImage(name, src, { name: src === "upload" ? name.replace(/^upload:/, "") : name }));
+        const img = src === "upload" ? await loadUpload(file) : await loadFromLibrary(file);
+        setAssets((prev) => (prev ? { ...prev, images: { ...prev.images, [file]: img } } : prev));
+        addNew(newImage(file, src, label ? { name: label } : {}));
       } catch (e) {
         setLibError(e instanceof Error ? e.message : String(e));
       }
@@ -1342,22 +1352,96 @@ export default function App() {
             )}
 
             {active?.kind === "image" && (
-              <div className="row">
-                <button
-                  type="button"
-                  className={active.flipX ? "ghost on" : "ghost"}
-                  onClick={() => patchLayer(active.id, { flipX: !active.flipX })}
-                >
-                  Flip across
-                </button>
-                <button
-                  type="button"
-                  className={active.flipY ? "ghost on" : "ghost"}
-                  onClick={() => patchLayer(active.id, { flipY: !active.flipY })}
-                >
-                  Flip down
-                </button>
-              </div>
+              <>
+                <div className="row">
+                  <button
+                    type="button"
+                    className={active.flipX ? "ghost on" : "ghost"}
+                    onClick={() => patchLayer(active.id, { flipX: !active.flipX })}
+                  >
+                    Flip across
+                  </button>
+                  <button
+                    type="button"
+                    className={active.flipY ? "ghost on" : "ghost"}
+                    onClick={() => patchLayer(active.id, { flipY: !active.flipY })}
+                  >
+                    Flip down
+                  </button>
+                </div>
+                <span className="lbl">Crop</span>
+                <div className="row">
+                  <button
+                    type="button"
+                    className={active.frameH === null ? "ghost on" : "ghost"}
+                    /* Dropping the frame keeps the width, so the artwork springs
+                       back to its own shape rather than to some remembered one. */
+                    onClick={() => patchLayer(active.id, { frameH: null })}
+                  >
+                    None
+                  </button>
+                  {CROPS.map((c) => (
+                    <button
+                      key={c.label}
+                      type="button"
+                      className={
+                        active.frameH !== null &&
+                        Math.abs(active.frameH / active.w - c.ratio) < 0.01
+                          ? "ghost on"
+                          : "ghost"
+                      }
+                      onClick={() => patchLayer(active.id, { frameH: active.w * c.ratio })}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                {active.frameH !== null && (
+                  <>
+                    <label>
+                      Zoom
+                      <input
+                        type="range"
+                        min={100}
+                        max={400}
+                        value={Math.round(active.zoom * 100)}
+                        onChange={(e) =>
+                          patchLayer(active.id, { zoom: Number(e.target.value) / 100 }, `crop:${active.id}`)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Focus across
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(active.focusX * 100)}
+                        onChange={(e) =>
+                          patchLayer(active.id, { focusX: Number(e.target.value) / 100 }, `crop:${active.id}`)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Focus down
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(active.focusY * 100)}
+                        onChange={(e) =>
+                          patchLayer(active.id, { focusY: Number(e.target.value) / 100 }, `crop:${active.id}`)
+                        }
+                      />
+                    </label>
+                    <p className="hint">
+                      The artwork fills the frame and is cropped, never squashed. Focus picks which
+                      part of it sits in the middle; it stops where the frame would start showing
+                      through, so a crop always stays filled. The side handles reshape the frame.
+                    </p>
+                  </>
+                )}
+              </>
             )}
 
             {active?.kind !== "text" && (
@@ -1659,7 +1743,7 @@ export default function App() {
                       void deleteUpload(u.id).then(() => listUploads().then(setUploads));
                       return;
                     }
-                    void placeImage(u.id, "upload");
+                    void placeImage(u.id, "upload", u.name);
                   }}
                 >
                   {thumbs[u.id] ? <img src={thumbs[u.id]} alt="" /> : <span />}

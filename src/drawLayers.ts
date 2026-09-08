@@ -113,10 +113,40 @@ export function layerBox(
     const h = l.shape === "line" ? Math.max(l.h, l.strokeWidth * 1.6) : l.h;
     return { cx, cy, w: l.w * short, h: h * short };
   }
-  const img = assets[l.name];
+  const img = assets[l.file];
   if (!img) return null;
   const w = l.w * short;
-  return { cx, cy, w, h: (img.height / img.width) * w };
+  // A framed image is the size of its frame; an unframed one is the size of
+  // the artwork.
+  return { cx, cy, w, h: l.frameH === null ? (img.height / img.width) * w : l.frameH * short };
+}
+
+/* Where the artwork sits inside its frame, in the frame's own coordinates
+ * (0,0 at the centre).
+ *
+ * The artwork is scaled to COVER the frame and then offset so that the focal
+ * point lands in the middle - and then that offset is CLAMPED so the frame
+ * stays covered. Without the clamp, dragging the focus to a corner slides the
+ * artwork off its own frame and leaves a band of ground showing through, which
+ * is never what a crop is for: a crop says "this rectangle is filled". */
+export function coverBox(
+  img: { width: number; height: number },
+  frameW: number,
+  frameH: number,
+  zoom: number,
+  focusX: number,
+  focusY: number,
+): { x: number; y: number; w: number; h: number } {
+  const scale = Math.max(frameW / img.width, frameH / img.height) * Math.max(1, zoom);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  const limitX = Math.max(0, (w - frameW) / 2);
+  const limitY = Math.max(0, (h - frameH) / 2);
+  const wantX = w * (0.5 - focusX);
+  const wantY = h * (0.5 - focusY);
+  const cx = Math.min(limitX, Math.max(-limitX, wantX));
+  const cy = Math.min(limitY, Math.max(-limitY, wantY));
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
 }
 
 /* Draw the whole stack, bottom to top, and report where everything landed.
@@ -219,8 +249,21 @@ export function drawLayers(
       }
       setInk(0);
     } else {
-      const img = assets[l.name];
+      const img = assets[l.file];
       if (img) {
+        /* A frame CLIPS. Everything inside this block - the silhouette as much
+           as the artwork - is bounded by it, or the misregistered edge would
+           spill out past the crop and give the frame a soft charcoal halo on
+           the sides the artwork was cut off at. */
+        const framed = l.frameH !== null;
+        const at = framed
+          ? coverBox(img, w, h, l.zoom, l.focusX, l.focusY)
+          : { x: -w / 2, y: -h / 2, w, h };
+        if (framed) {
+          ctx.beginPath();
+          ctx.rect(-w / 2, -h / 2, w, h);
+          ctx.clip();
+        }
         /* Flipping is a transform on the drawing, never on the silhouette's
            offset: the misregistration is a property of the press, so it does
            not mirror when the artwork does. */
@@ -229,14 +272,14 @@ export function drawLayers(
           const { dx, dy } = misregOffset(opts.scale);
           if (sil) {
             ctx.globalAlpha *= 0.75;
-            ctx.drawImage(sil, -w / 2 + dx, -h / 2 + dy, w, h);
+            ctx.drawImage(sil, at.x + dx, at.y + dy, at.w, at.h);
             ctx.globalAlpha = Math.max(0, Math.min(1, l.opacity));
           }
         }
         setInk(0);
         ctx.save();
         ctx.scale(l.flipX ? -1 : 1, l.flipY ? -1 : 1);
-        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.drawImage(img, at.x, at.y, at.w, at.h);
         ctx.restore();
       }
     }

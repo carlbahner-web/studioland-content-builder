@@ -75,6 +75,7 @@ test("layers are repaired where they can be and dropped where they cannot", () =
   assert.deepEqual(c.layers[0], {
     kind: "image",
     id: "a",
+    file: "arrow.svg",
     name: "arrow.svg",
     src: "library",
     x: 0.2,
@@ -85,6 +86,10 @@ test("layers are repaired where they can be and dropped where they cannot", () =
     hidden: false,
     locked: false,
     ink: null,
+    frameH: null,
+    zoom: 1,
+    focusX: 0.5,
+    focusY: 0.5,
     flipX: false,
     flipY: false,
   });
@@ -100,6 +105,47 @@ test("layers are repaired where they can be and dropped where they cannot", () =
 /* A kind this build does not know is DROPPED rather than guessed at. A
  * half-understood layer that draws as something else is worse than one that is
  * gone, because nothing tells you it happened. */
+/* null is a real value for frameH - "no frame, keep the artwork's own aspect" -
+ * so it has to survive hydration rather than falling back to a number. */
+test("a crop survives a round trip, and a missing one stays absent", () => {
+  const c = hydrateContent(
+    {
+      layers: [
+        { kind: "image", id: "a", name: "p.jpg", src: "upload", frameH: 0.4, zoom: 2.5, focusX: 0.2, focusY: 0.9 },
+        { kind: "image", id: "b", name: "q.jpg", src: "upload", zoom: -3, focusX: 44 },
+      ],
+    },
+    base,
+  );
+  const [a, b] = c.layers;
+  assert.equal(a.kind === "image" && a.frameH, 0.4);
+  assert.equal(a.kind === "image" && a.zoom, 2.5);
+  assert.equal(a.kind === "image" && a.focusY, 0.9);
+  assert.equal(b.kind === "image" && b.frameH, null, "no frame stays no frame");
+  assert.equal(b.kind === "image" && b.zoom, 1, "a zoom below 1 would open a gap");
+  assert.equal(b.kind === "image" && b.focusX, 1, "a focus outside the artwork is clamped");
+});
+
+/* `file` and `name` used to be one field, and every layer written then was a
+ * folder image where both were the same string. Falling back reads those
+ * correctly rather than dropping them for want of a key. */
+test("an image written before file and name split still finds its artwork", () => {
+  const c = hydrateContent({ layers: [{ kind: "image", id: "a", name: "arrow.svg" }] }, base);
+  const l = c.layers[0];
+  assert.equal(l.kind === "image" && l.file, "arrow.svg");
+  assert.equal(l.name, "arrow.svg");
+});
+
+test("an upload keeps an opaque key and a readable label, and they differ", () => {
+  const c = hydrateContent(
+    { layers: [{ kind: "image", id: "u", file: "upload:k3f", name: "beach.jpg", src: "upload" }] },
+    base,
+  );
+  const l = c.layers[0];
+  assert.equal(l.kind === "image" && l.file, "upload:k3f");
+  assert.equal(l.name, "beach.jpg");
+});
+
 test("an unknown layer kind is dropped", () => {
   const c = hydrateContent({ layers: [{ kind: "video", id: "v", name: "clip.mp4" }] }, base);
   assert.deepEqual(c.layers, []);
@@ -163,7 +209,7 @@ test("stickers from an older build become image layers", () => {
   assert.equal(l.kind, "image");
   if (l.kind !== "image") return;
   assert.equal(l.id, "a");
-  assert.equal(l.name, "arrow.svg");
+  assert.equal(l.file, "arrow.svg");
   assert.equal(l.w, 0.4, "the old `scale` was this `w` - same short-edge fraction");
   assert.equal(l.rotation, 20);
   assert.equal(l.src, "library");

@@ -113,18 +113,50 @@ export type ShapeLayer = Base & {
   label: string;
 };
 
+/* An image either FITS its own aspect or FILLS a frame you gave it.
+ *
+ * Fitting is the right default: artwork - an arrow, a star, BUZZ - has a shape,
+ * and stretching or cropping it is vandalism. A photograph is the other case
+ * entirely: it arrives at whatever shape the camera was, and the design needs a
+ * square, or a 4:5, or a band across the top. So a frame is opt-in, and while
+ * there is one the artwork fills it and is cropped rather than squashed. There
+ * is no third mode where the image is distorted to fit, because that is never
+ * the thing anyone wanted. */
 export type ImageLayer = Base & {
   kind: "image";
-  /** Key into the decoded-image map: a file name from the connected folder, or
-   *  the id of something uploaded into this browser. */
-  name: string;
+  /* WHAT TO DRAW, as against what to call it. These are separate fields
+   * because they are separate things, and conflating them was a bug: for a
+   * folder image both are the file's name, so one field appeared to work,
+   * and for an upload the key is an opaque id while the label is the name of
+   * the file you dragged in - so uploads silently drew nothing. `name` is
+   * yours to rename; `file` is never shown and never edited. */
+  file: string;
   /** Where the bytes come from, so the UI can say what is missing and why. */
   src: "library" | "upload";
-  /** Width, as a fraction of the short edge. Height follows the aspect. */
+  /** Width, as a fraction of the short edge. */
   w: number;
+  /** Frame height, as a fraction of the short edge. null means no frame: the
+   *  artwork keeps its own aspect and nothing is cropped. */
+  frameH: number | null;
+  /** How much bigger than "just covers the frame" the artwork is drawn. 1 is
+   *  the tightest fill that leaves no gap; there is no way to go below it. */
+  zoom: number;
+  /** Which point of the ARTWORK sits at the frame's centre, 0 to 1. Stored on
+   *  the artwork rather than as a pixel offset, so the crop survives the frame
+   *  being resized and the format being switched. */
+  focusX: number;
+  focusY: number;
   flipX: boolean;
   flipY: boolean;
 };
+
+/** Frame shapes worth one click. The ratio is height over width. */
+export const CROPS: { label: string; ratio: number }[] = [
+  { label: "1:1", ratio: 1 },
+  { label: "4:5", ratio: 5 / 4 },
+  { label: "3:2", ratio: 2 / 3 },
+  { label: "16:9", ratio: 9 / 16 },
+];
 
 export type Layer = TextLayer | ShapeLayer | ImageLayer;
 
@@ -191,13 +223,22 @@ export function newShape(shape: ShapeKind, partial: Partial<ShapeLayer> = {}): S
   };
 }
 
-export function newImage(name: string, src: ImageLayer["src"], partial: Partial<ImageLayer> = {}): ImageLayer {
+/** `file` is the key the decoded image is stored under; the label defaults to it. */
+export function newImage(
+  file: string,
+  src: ImageLayer["src"],
+  partial: Partial<ImageLayer> = {},
+): ImageLayer {
   return {
-    ...(base("image", name) as Base & { kind: "image" }),
+    ...(base("image", file) as Base & { kind: "image" }),
     kind: "image",
-    name,
+    file,
     src,
     w: 0.24,
+    frameH: null,
+    zoom: 1,
+    focusX: 0.5,
+    focusY: 0.5,
     flipX: false,
     flipY: false,
     ...partial,
