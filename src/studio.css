@@ -605,3 +605,6 @@ button.primary:disabled { opacity: 0.4; cursor: default; }
   background-size: 18px 18px;
   background-position: 0 0, 9px 9px;
 }
+
+/* The starred design - what opens on a blank start. */
+.saved .undo.on { color: var(--cream); background: var(--teal); }

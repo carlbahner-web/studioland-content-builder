@@ -57,6 +57,8 @@ import {
   saveDesign,
   saveDraft,
   savePreset,
+  setStartDesign,
+  startDesign,
   type SavedPreset,
   type SavedDesign,
 } from "./store.ts";
@@ -251,6 +253,11 @@ export default function App() {
   const [presetName, setPresetName] = useState("");
   const [designName, setDesignName] = useState("");
   const [restored, setRestored] = useState(false);
+  /* Whether a draft was found at all, and which saved design opens a blank
+     start. Both feed the seeding below. */
+  const hadDraft = useRef(false);
+  const seeded = useRef(false);
+  const [startId, setStartId] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const [held, setHeld] = useState<string | null>(null);
   /* Previews hold still by default now that "still" is the default ink: the
@@ -602,7 +609,9 @@ export default function App() {
         /* no custom sizes is a fine state to open in */
       }
       try {
-        const d = hydrate(await loadDraft(), EMPTY, known);
+        const raw = await loadDraft();
+        const d = hydrate(raw, EMPTY, known);
+        hadDraft.current = d !== null;
         if (d) applyDesign(d);
       } finally {
         setRestored(true);
@@ -610,8 +619,46 @@ export default function App() {
     })();
     listDesigns().then(setDesigns).catch(() => {});
     listPresets().then(setPresets).catch(() => {});
+    startDesign().then(setStartId).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* A BLANK START gets something on the artboard rather than an empty ground.
+   *
+   * Only on a blank start - the test is "was there a draft", not "is the
+   * artboard empty". Deleting every layer and reloading has to give you back
+   * the empty artboard you left, or the tool would keep undoing a deliberate
+   * decision every time you refreshed.
+   *
+   * What it seeds is yours if you have said so: a saved design marked as the
+   * starting point wins, and the standard arrangement is the fallback for
+   * someone who has not chosen one yet. Neither is baked into the code, and
+   * changing it means saving a design rather than shipping a build.
+   *
+   * It waits for the artwork, because composing needs BUZZ and the wordmark
+   * decoded to size them - and it resets the history rather than pushing to it,
+   * since this is the state you opened in rather than an edit you made. */
+  useEffect(() => {
+    if (!assets || !restored || seeded.current || hadDraft.current) return;
+    seeded.current = true;
+    (async () => {
+      const chosen = await startDesign().catch(() => null);
+      if (chosen) {
+        const d = hydrate(await loadDesign(chosen), EMPTY, formats);
+        // A starting design that has since been deleted falls through to the
+        // standard arrangement rather than opening nothing.
+        if (d) {
+          applyDesign(d);
+          return;
+        }
+      }
+      const composed = composeStarter(format, colorway);
+      if (composed.length) {
+        setHist((h) => resetHistory(h, { ...h.present, shared: { layers: composed } }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets, restored]);
 
   /* Autosave, debounced. Everything that makes the design what it is, plus the
      format, which is not part of the document but is where you left off. */
@@ -907,6 +954,7 @@ export default function App() {
   const doDelete = async (id: string) => {
     await deleteDesign(id);
     setDesigns(await listDesigns());
+    if (id === startId) setStartId(null);
   };
 
   /* ------------------------------------------------------------- the view */
@@ -2025,7 +2073,8 @@ export default function App() {
         <Section title="Designs">
         <p className="hint">
           Your work is kept as you go, so a reload costs nothing. Save it under a name to come back
-          to it later.
+          to it later. Star one and it is what opens on a blank start &mdash; a fresh browser, or
+          after clearing this one &mdash; instead of the standard arrangement.
         </p>
         <div className="row">
           <input
@@ -2048,6 +2097,22 @@ export default function App() {
                 <button type="button" className="open" onClick={() => void doLoad(d.id)}>
                   <strong>{d.name}</strong>
                   <span>{new Date(d.updated).toLocaleDateString()}</span>
+                </button>
+                <button
+                  type="button"
+                  className={d.id === startId ? "undo on" : "undo"}
+                  title={
+                    d.id === startId
+                      ? "Opens on a blank start. Click to stop."
+                      : "Open this on a blank start"
+                  }
+                  onClick={() => {
+                    const next = d.id === startId ? null : d.id;
+                    setStartId(next);
+                    void setStartDesign(next);
+                  }}
+                >
+                  {d.id === startId ? "★" : "☆"}
                 </button>
                 <button
                   type="button"

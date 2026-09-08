@@ -242,6 +242,26 @@ Two other things went with the roles:
 - **Per-format overrides are per design**, not per field — a format either
   carries its own stack of layers or shares the common one.
 
+### What opens on a blank start
+
+An empty ground is a cold open, so a **blank start is seeded**: the standard
+arrangement, composed for the format you land in.
+
+"Blank start" means *no draft was found* — a fresh browser, or one whose storage
+has been cleared. It deliberately does **not** mean "the artboard is empty".
+Deleting every layer and reloading gives you back the empty artboard you left,
+because the alternative is a tool that keeps undoing a deliberate decision every
+time you refresh.
+
+**Which design that is, is yours.** Star any saved design and it becomes what a
+blank start opens instead. That is a pointer rather than a copy: changing what
+the tool starts with means opening that design, editing it and saving — not
+editing source and shipping a build. Baking an arrangement into the code would
+have made "the starting point" something only a developer could change, for a
+decision that is entirely taste and will change often. A starred design that is
+later deleted falls back to the standard arrangement rather than opening
+nothing.
+
 ### What survived, and where it went
 
 The wordmark's minimum size — the bible's "so the arrow-I signpost stops

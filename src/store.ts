@@ -422,6 +422,34 @@ export async function loadDesign(id: string): Promise<unknown> {
 
 export async function deleteDesign(id: string): Promise<void> {
   await kvDelete(id).catch(() => {});
+  // A deleted design cannot go on being the starting point.
+  if ((await startDesign()) === id) await setStartDesign(null);
+}
+
+/* ------------------------------------------------------- the starting point
+
+   Which saved design opens on a blank start.
+
+   This is a POINTER, not a copy, and that is the whole of its design: it names
+   one of your saved designs, so changing what the tool opens with means opening
+   that design, editing it and saving - not editing source and shipping a build.
+   The alternative was baking a default arrangement into the code, which would
+   have made "the starting point" something only a developer could change, for a
+   decision that is entirely a matter of taste and will change often. */
+const START_KEY = "start-design";
+
+export async function startDesign(): Promise<string | null> {
+  const id = await kvGet<string>(START_KEY).catch(() => undefined);
+  return typeof id === "string" ? id : null;
+}
+
+export async function setStartDesign(id: string | null): Promise<void> {
+  try {
+    if (id) await kvSet(START_KEY, id);
+    else await kvDelete(START_KEY);
+  } catch {
+    /* best-effort, like every other write here */
+  }
 }
 
 
