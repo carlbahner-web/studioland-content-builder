@@ -47,7 +47,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22, not 20: the test script is `node --test --experimental-strip-types`
+          # over .ts files directly, and type stripping does not exist before
+          # 22.6. On 20 the whole suite fails in under a second.
+          node-version: 22
           cache: npm
       - run: npm ci
 
