@@ -170,6 +170,10 @@ export type RenderOpts = {
    * The export path never sets it - it is an editing state, not a property of
    * the design. */
   hide?: string | null;
+  /* Leave the ground unpainted, so the export carries real alpha. The colourway
+   * still decides ink and outline colours - you are choosing what the asset is
+   * FOR, and only declining to paint the field behind it. */
+  transparent?: boolean;
 };
 
 export function drawSocialAd(
@@ -180,7 +184,13 @@ export function drawSocialAd(
   assets: Assets,
   opts: RenderOpts = {},
 ): Region[] {
-  const { frame = null, ink: inkMode = "still", curtain = true, hide = null } = opts;
+  const {
+    frame = null,
+    ink: inkMode = "still",
+    curtain = true,
+    hide = null,
+    transparent = false,
+  } = opts;
   const { w, h } = size;
   const S = stageScale(w, h);
   const regions: Region[] = [];
@@ -233,8 +243,10 @@ export function drawSocialAd(
   const ink = PALETTE[inkFor(ground)];
 
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = ground;
-  ctx.fillRect(0, 0, w, h);
+  if (!transparent) {
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   /* Layout is zones, not a free-floating stack.
    *
@@ -437,7 +449,7 @@ export function drawSocialAd(
   );
 
   /* --- the paper, over everything ---------------------------------------- */
-  drawGrain(ctx, w, h);
+  drawGrain(ctx, w, h, transparent);
 
   /* --- and the curtain over that ------------------------------------------ */
   if (frame !== null && curtain) {

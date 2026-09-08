@@ -116,6 +116,8 @@ type Doc = {
   colorway: string;
   ink: InkMode;
   curtain: boolean;
+  /** Leave the ground unpainted, so a PNG carries real alpha. */
+  transparent: boolean;
 };
 
 const INITIAL: Doc = {
@@ -124,6 +126,7 @@ const INITIAL: Doc = {
   colorway: COLORWAYS[0].key,
   ink: "still",
   curtain: true,
+  transparent: false,
 };
 
 const contentOf = (d: Doc, formatKey: string): SocialAdContent => ({
@@ -635,6 +638,7 @@ export default function App() {
           colorway: d.colorway.key,
           ink: d.ink,
           curtain: d.curtain,
+          transparent: d.transparent,
         }),
       );
       setFormat(d.format);
@@ -1679,6 +1683,37 @@ export default function App() {
           Grounds, ink and action colors are paired for you. Alert Red is not offered on the warm
           grounds &mdash; it measured 1.23:1 on rust, which is invisible.
         </p>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={doc.transparent}
+            onChange={(e) => commit((d) => ({ ...d, transparent: e.target.checked }))}
+          />
+          <span>No ground &mdash; save with transparency</span>
+        </label>
+        <p className="hint">
+          The ground goes unpainted and the PNG carries real alpha, for dropping onto someone
+          else&rsquo;s slide or a photograph. The colourway still picks the ink, because you are
+          still saying what the asset is <em>for</em> &mdash; you are only declining to paint the
+          field behind it.{" "}
+          {doc.transparent && (
+            <strong>
+              MP4 has no transparency anywhere in the browser, so the video export paints the ground
+              back in.
+            </strong>
+          )}
+        </p>
+        {/* The colourway pairs ink TO A GROUND. Take the ground away and that
+            pairing is still doing its job, but against whatever the asset gets
+            dropped onto - which is usually pale. Worth saying at the moment it
+            becomes true rather than leaving it to be discovered in a deck. */}
+        {doc.transparent && colorway.ink === "offwhite" && (
+          <p className="hint warn">
+            This colourway inks in cream, which was chosen to sit on {colorway.label}. With no
+            ground behind it, it will disappear on anything pale. <strong>BUZZ Off-White</strong>{" "}
+            inks in charcoal and is the one to reach for here.
+          </p>
+        )}
 
         </Section>
         <Section title="Ink">
@@ -2024,6 +2059,7 @@ export default function App() {
             animate={animate && doc.ink === "live"}
             curtain={doc.curtain}
             ink={doc.ink}
+            transparent={doc.transparent}
             selection={selection}
             onSelect={setSelection}
             onEdit={(id) => {

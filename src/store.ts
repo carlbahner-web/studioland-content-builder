@@ -41,6 +41,7 @@ export type Design = {
   format: string;
   ink: InkMode;
   curtain: boolean;
+  transparent: boolean;
 };
 
 export type SavedDesign = Design & { id: string };
@@ -273,6 +274,7 @@ export type Restored = {
   format: Format;
   ink: InkMode;
   curtain: boolean;
+  transparent: boolean;
   name: string;
 };
 
@@ -306,6 +308,7 @@ export function hydrate(
     format: known.find((f) => f.key === raw.format) ?? known[0],
     ink: (["off", "still", "live"].includes(ink) ? ink : "still") as InkMode,
     curtain: typeof raw.curtain === "boolean" ? raw.curtain : true,
+    transparent: raw.transparent === true,
     name: str(raw.name, ""),
   };
 }

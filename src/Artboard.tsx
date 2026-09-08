@@ -299,6 +299,7 @@ export function Artboard({
   animate,
   curtain,
   ink,
+  transparent,
   selection,
   onSelect,
   onEdit,
@@ -313,6 +314,8 @@ export function Artboard({
   animate: boolean;
   curtain: boolean;
   ink: InkMode;
+  /** Leave the ground unpainted. The PNG export honours it; the MP4 cannot. */
+  transparent: boolean;
   /** Everything selected, in no particular order. */
   selection: string[];
   onSelect: (ids: string[]) => void;
@@ -362,7 +365,11 @@ export function Artboard({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (!animate) {
-      regions.current = drawSocialAd(ctx, size, colorway, content, assets, { ink, hide: editing });
+      regions.current = drawSocialAd(ctx, size, colorway, content, assets, {
+        ink,
+        hide: editing,
+        transparent,
+      });
       onRegions(regions.current);
       return;
     }
@@ -374,12 +381,17 @@ export function Artboard({
     const tick = (now: number) => {
       if (!start) start = now;
       const frame = Math.floor(((now - start) / 1000) * FPS) % LOOP_FRAMES;
-      regions.current = drawSocialAd(ctx, size, colorway, content, assets, { frame, ink, curtain });
+      regions.current = drawSocialAd(ctx, size, colorway, content, assets, {
+        frame,
+        ink,
+        curtain,
+        transparent,
+      });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [size, colorway, content, assets, animate, curtain, ink, onRegions, editing]);
+  }, [size, colorway, content, assets, animate, curtain, ink, onRegions, editing, transparent]);
 
   /* ------------------------------------------------------------ the chrome */
   /* The overlay effect is declared AFTER the draw effect on purpose: effects
@@ -986,7 +998,7 @@ export function Artboard({
     c.height = size.h;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    drawSocialAd(ctx, size, colorway, content, assets, { ink });
+    drawSocialAd(ctx, size, colorway, content, assets, { ink, transparent });
     c.toBlob(async (blob) => {
       if (!blob) return;
       const how = await saveFile(`studioland-social-${size.key}-${colorway.key}.png`, blob);
@@ -994,7 +1006,7 @@ export function Artboard({
       // that ran AND is the unreliable kind. A confirmed save needs no follow-up.
       if (how === "browser" && onHeld) onHeld(c.toDataURL("image/png"));
     }, "image/png");
-  }, [size, colorway, content, assets, ink, onHeld]);
+  }, [size, colorway, content, assets, ink, onHeld, transparent]);
 
   const exportMp4 = useCallback(async () => {
     // Encode off-screen so the visible preview keeps animating and the two
@@ -1011,7 +1023,13 @@ export function Artboard({
         height: size.h,
         frames: LOOP_FRAMES,
         canvas: off,
-        draw: (frame) => drawSocialAd(octx, size, colorway, content, assets, { frame, ink, curtain }),
+        /* NEVER transparent, whatever the design says. No browser codec will
+           encode an alpha channel - VideoEncoder rejects `alpha: "keep"` on
+           VP8, VP9 and AV1 alike - so a transparent video would come out as
+           black rather than as a hole. Painting the ground back in is the
+           honest answer, and the panel says so where the option is. */
+        draw: (frame) =>
+          drawSocialAd(octx, size, colorway, content, assets, { frame, ink, curtain }),
         onProgress: (done, total) => setBusy(`${Math.round((done / total) * 100)}%`),
       });
       await saveFile(`studioland-social-${size.key}-${colorway.key}.mp4`, blob);
@@ -1050,7 +1068,11 @@ export function Artboard({
       {/* The lower canvas IS the 1080px artboard; only its CSS box shrinks, so
           what you see is exactly what exports. The upper one is chrome and
           never touches the export path. */}
-      <div className="board">
+      <div className={transparent ? "board alpha" : "board"}>
+        {/* With no ground, the artboard is genuinely see-through - so the
+            checkerboard goes BEHIND it, or a transparent asset would read as a
+            cream one against the panel and you would not know until you dropped
+            it on something dark. */}
         <canvas ref={ref} width={size.w} height={size.h} style={{ aspectRatio: `${size.w} / ${size.h}` }} />
         <canvas
           ref={overlay}

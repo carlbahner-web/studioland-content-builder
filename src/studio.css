@@ -592,3 +592,16 @@ button.primary:disabled { opacity: 0.4; cursor: default; }
      edit finished. The dotted rule instead says "this is being typed into". */
   box-shadow: 0 0 0 1px rgba(252, 247, 232, 0.55), 0 0 0 2px rgba(44, 44, 42, 0.35);
 }
+
+/* ---- a transparent ground ----
+   The artboard really is see-through here, so the page shows through it. A
+   checkerboard behind it says "hole" rather than letting a transparent asset
+   read as a cream one against the panel. */
+.board.alpha canvas:first-child {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #d9d3c2 25%, transparent 25%, transparent 75%, #d9d3c2 75%),
+    linear-gradient(45deg, #d9d3c2 25%, transparent 25%, transparent 75%, #d9d3c2 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 9px 9px;
+}

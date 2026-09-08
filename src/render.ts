@@ -69,17 +69,48 @@ export function prepareGrain(src: HTMLImageElement): void {
   grainTile = c;
 }
 
-/** The press grain, over everything. Multiply at 0.2 - the game's measured recipe. */
-export function drawGrain(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+/* The press grain, over everything. Multiply at 0.2 - the game's measured recipe.
+ *
+ * `clipToContent` is for a transparent ground, and it is not optional there.
+ * Multiply against a transparent pixel does not leave it transparent: there is
+ * nothing to multiply with, so the grain lands as flat grey and the empty part
+ * of the artboard - the part that is supposed to be a hole - comes out as a
+ * dirty rectangle. So the alpha the canvas had BEFORE the grain is taken as a
+ * copy and re-applied after, which keeps the texture on the artwork and off the
+ * hole. It costs one full-canvas copy, which is why it is only paid for when
+ * there is a hole to protect. */
+export function drawGrain(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  clipToContent = false,
+): void {
   if (!grainTile) return;
   const pat = ctx.createPattern(grainTile, "repeat");
   if (!pat) return;
+
+  let mask: HTMLCanvasElement | null = null;
+  if (clipToContent) {
+    mask = document.createElement("canvas");
+    mask.width = Math.max(1, Math.round(w));
+    mask.height = Math.max(1, Math.round(h));
+    mask.getContext("2d")?.drawImage(ctx.canvas, 0, 0);
+  }
+
   ctx.save();
   ctx.globalCompositeOperation = "multiply";
   ctx.globalAlpha = 0.2;
   ctx.fillStyle = pat;
   ctx.fillRect(0, 0, w, h);
   ctx.restore();
+
+  if (mask) {
+    ctx.save();
+    // Keep only what the pre-grain canvas had alpha for.
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(mask, 0, 0, w, h);
+    ctx.restore();
+  }
 }
 
 /* -------------------------------------------------------------- text layout */
