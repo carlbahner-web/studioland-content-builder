@@ -10,7 +10,8 @@ rest will share.
 ```
 npm install
 npm run dev      # http://localhost:5173
-npm test         # the brand rules, the boil, layers, history, snapping, the store
+npm test         # the pure logic: brand rules, boil, layers, history, snapping, store
+npm run test:browser   # the editor, driven in a real Chromium
 npm run build    # typecheck + dist/
 ```
 
@@ -147,6 +148,44 @@ about StudioLand's brand push the other way:
 
 The cost is that text wrapping, balancing and autofitting had to be written
 instead of inherited from CSS. That is most of `render.ts`.
+
+## Two test suites, and why
+
+`npm test` is the fast one: pure functions, no DOM, a couple of hundred
+milliseconds. The boil's constants, the palette rulings, the cover maths, the
+cutout mask, every branch of hydration.
+
+`npm run test:browser` opens the tool in Chromium and presses it. It is slow by
+comparison — half a minute — and it exists because **every bug that actually
+shipped was one the fast suite structurally could not catch**:
+
+- a selection box drawn in a colour invisible on the ground it sits on;
+- a rule whose own resize handles swallowed its entire body, so the most common
+  shape in the tool could not be dragged at all;
+- uploads that silently drew nothing, because a lookup key and a display label
+  had been conflated in a field that worked fine for folder images;
+- cmd-A sitting below the "nothing is selected" guard, so select-all could never
+  run from an empty selection — the one state you press it in;
+- an undo tag keyed on the element rather than the gesture, so one group drag
+  recorded dozens of steps;
+- a caret box floored at two rows by a `<textarea>`'s default, so a single line
+  of type was measured as two and sat half a line high while you edited it.
+
+Not one of those is a wrong return value. They are all "the thing on the screen
+does not do what it says", and the only way to catch them is to open the thing.
+Each of those cases is now a named test with the reason written next to it,
+because a regression test whose reason has been forgotten is the first one
+somebody deletes.
+
+Where it can, it reads **pixels off the real canvas** rather than asking the
+panel what it thinks — the grain modes are checked by measuring variance over a
+flat field, transparency by sampling the corner's alpha, the cutout by sampling
+a patch that has to survive. That is deliberate: the interesting failures are the
+ones where the state is right and the picture is wrong.
+
+It needs a browser: `npx playwright install chromium` once. The harness starts
+the dev server itself if one is not already running, and falls back to any
+chromium on disk when Playwright's own download is not where it expects.
 
 ## The rules are data, not guidance
 

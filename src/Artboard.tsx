@@ -1097,6 +1097,13 @@ export function Artboard({
           <textarea
             ref={ta}
             className="caret"
+            /* ONE row, because the height is measured rather than declared. A
+               textarea's default is two, and `height: auto` then floors at two
+               rows - so a single line of type reported the height of two, the
+               box was centred on that, and the text sat half a line above where
+               the canvas draws it. The measurement below can only shrink to the
+               floor the markup gives it. */
+            rows={1}
             value={edit.text}
             spellCheck={false}
             onChange={(e) => manip.setText(editing!, e.target.value)}

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types src/brand.test.ts src/boil.test.ts src/layerBox.test.ts src/store.test.ts src/layers.test.ts src/history.test.ts src/snap.test.ts src/formats.test.ts src/crop.test.ts src/cutout.test.ts",
-    "build:single": "node scripts/build-single.mjs"
+    "build:single": "node scripts/build-single.mjs",
+    "test:browser": "node --test --experimental-strip-types tests/browser/*.test.ts"
   },
   "dependencies": {
     "mp4-muxer": "^5.2.2",
@@ -23,6 +24,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "esbuild": "^0.25.0",
+    "playwright": "^1.63.0",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
   }
