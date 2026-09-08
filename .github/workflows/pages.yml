@@ -71,7 +71,12 @@ jobs:
       # files and folders whose names start with an underscore.
       - run: touch dist/.nojekyll
 
+      # `enablement` turns the Pages site on the first time this runs, using the
+      # pages: write permission above, so there is no settings click to remember
+      # and no first run that builds fine and then has nowhere to publish to.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

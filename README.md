@@ -51,11 +51,11 @@ is published alongside it at `…/content-builder.html`, so the thing you can sa
 to a phone and open with no network comes from the same place as the live one
 rather than being passed around as an attachment.
 
-Two setup steps happen once, in the repo's own settings, because a workflow
-cannot grant itself a Pages site: **Settings → Pages → Source: GitHub Actions**,
-and — if the first run's `deploy` job is refused — **Settings → Environments →
-github-pages**, whose deployment branch rule defaults to the default branch
-only and has to be widened to allow `claude/**`.
+Nothing has to be clicked to set it up: `configure-pages` runs with
+`enablement: true`, so the first run turns the Pages site on itself. The one
+thing that can still refuse is **Settings → Environments → github-pages**, whose
+deployment branch rule may be limited to the default branch — widen it to allow
+`claude/**` if the `deploy` job says it is not allowed to deploy.
 
 A project site is served from a subdirectory, not from the root, so `BASE_PATH`
 in the workflow feeds `vite.config.ts` and every built URL carries the prefix.
