@@ -16,6 +16,7 @@ import { COLORWAYS, FORMATS, type Colorway, type Format } from "./brand.ts";
 import { kvDelete, kvGet, kvKeys, kvSet } from "./kv.ts";
 import type { InkMode } from "./boil.ts";
 import type { SocialAdContent } from "./templates/socialAd.ts";
+import { DEFAULT_CUTOUT } from "./cutout.ts";
 import {
   LAYER_COLORS,
   newImage,
@@ -149,6 +150,13 @@ function hydrateLayer(raw: unknown): Layer | null {
       zoom: clamp(num(raw.zoom, 1), 1, 8),
       focusX: clamp(num(raw.focusX, 0.5), 0, 1),
       focusY: clamp(num(raw.focusY, 0.5), 0, 1),
+      // null is a real value - "leave the artwork as it came".
+      cutout: isObj(raw.cutout)
+        ? {
+            tolerance: clamp(num(raw.cutout.tolerance, DEFAULT_CUTOUT.tolerance), 0, 1),
+            feather: clamp(num(raw.cutout.feather, DEFAULT_CUTOUT.feather), 0, 6),
+          }
+        : null,
       flipX: raw.flipX === true,
       flipY: raw.flipY === true,
     });

@@ -84,6 +84,7 @@ import {
   uploadThumb,
   type UploadItem,
 } from "./uploads.ts";
+import { DEFAULT_CUTOUT } from "./cutout.ts";
 import {
   customKey,
   formatProblem,
@@ -1376,6 +1377,65 @@ export default function App() {
                     Flip down
                   </button>
                 </div>
+                <span className="lbl">Background</span>
+                <div className="row">
+                  <button
+                    type="button"
+                    className={active.cutout ? "ghost" : "ghost on"}
+                    onClick={() => patchLayer(active.id, { cutout: null })}
+                  >
+                    Keep
+                  </button>
+                  <button
+                    type="button"
+                    className={active.cutout ? "ghost on" : "ghost"}
+                    onClick={() => patchLayer(active.id, { cutout: active.cutout ?? DEFAULT_CUTOUT })}
+                  >
+                    Remove
+                  </button>
+                </div>
+                {active.cutout && (
+                  <>
+                    <label>
+                      How much counts as background
+                      <input
+                        type="range"
+                        min={1}
+                        max={60}
+                        value={Math.round(active.cutout.tolerance * 200)}
+                        onChange={(e) =>
+                          patchLayer(
+                            active.id,
+                            { cutout: { ...active.cutout!, tolerance: Number(e.target.value) / 200 } },
+                            `cut:${active.id}`,
+                          )
+                        }
+                      />
+                    </label>
+                    <label>
+                      Edge softness
+                      <input
+                        type="range"
+                        min={0}
+                        max={6}
+                        value={active.cutout.feather}
+                        onChange={(e) =>
+                          patchLayer(
+                            active.id,
+                            { cutout: { ...active.cutout!, feather: Number(e.target.value) } },
+                            `cut:${active.id}`,
+                          )
+                        }
+                      />
+                    </label>
+                    <p className="hint">
+                      It floods in from the edges, so it only takes background that is
+                      <em> connected to the border</em> &mdash; a white shirt against a white wall
+                      keeps the shirt. It has no idea what a person is, though: a plain backdrop is
+                      what it is for, and a cluttered room is not something more tolerance will fix.
+                    </p>
+                  </>
+                )}
                 <span className="lbl">Crop</span>
                 <div className="row">
                   <button

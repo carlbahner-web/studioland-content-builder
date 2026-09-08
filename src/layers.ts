@@ -29,6 +29,7 @@
  */
 import { PALETTE, type PaletteKey } from "./brand.ts";
 import type { InkMode } from "./boil.ts";
+import type { Cutout } from "./cutout.ts";
 
 /* ------------------------------------------------------------------- model */
 
@@ -146,6 +147,8 @@ export type ImageLayer = Base & {
    *  being resized and the format being switched. */
   focusX: number;
   focusY: number;
+  /** Remove the background, or null to leave the artwork as it came. */
+  cutout: Cutout | null;
   flipX: boolean;
   flipY: boolean;
 };
@@ -239,6 +242,7 @@ export function newImage(
     zoom: 1,
     focusX: 0.5,
     focusY: 0.5,
+    cutout: null,
     flipX: false,
     flipY: false,
     ...partial,

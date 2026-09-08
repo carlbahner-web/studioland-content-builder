@@ -328,9 +328,15 @@ function seeded(seed: number): () => number {
  * drawing." So BUZZ is drawn exactly as painted, and it is his shadow that
  * breathes - the print-misregistration cycle from 2.1, live rather than static.
  */
-const silhouettes = new WeakMap<HTMLImageElement, HTMLCanvasElement>();
+/* Keyed on whatever was drawn, which is not always the original image: a layer
+ * with its background removed hands over the CUTOUT canvas, so the ink edge
+ * follows the subject rather than the rectangle the photograph arrived in. */
+const silhouettes = new WeakMap<CanvasImageSource & object, HTMLCanvasElement>();
 
-export function silhouetteOf(img: HTMLImageElement, color: string): HTMLCanvasElement | null {
+export function silhouetteOf(
+  img: HTMLImageElement | HTMLCanvasElement,
+  color: string,
+): HTMLCanvasElement | null {
   const hit = silhouettes.get(img);
   if (hit) return hit;
   const c = document.createElement("canvas");

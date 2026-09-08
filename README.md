@@ -326,6 +326,29 @@ one per element.
   different widths, evenly gapped, have centres that are not evenly spaced, and
   the centres are usually what the eye was asking about.
 
+### Resizing a selection
+
+The group gets corner handles and a rotate stalk. Scaling grows the
+**arrangement**: every element's position scales about the group's centre as
+well as its size, so the spacing between things grows with the things instead of
+everything piling into the middle. Rotating turns each element on its own axis
+and orbits it around the centre.
+
+**Corners only**, and that is the ruling rather than the omission it looks like.
+A uniform scale about the centre is unambiguous — the arrangement grows and
+everything keeps its proportions — while a side handle on a group would have to
+mean stretching text and photographs out of shape, which is never what "make
+these bigger" meant.
+
+The undo tag identifies the **gesture**, not the element, and that was a bug
+worth recording: undo folds consecutive edits carrying the same tag, so tagging
+by element works for a single drag and falls apart the moment a drag touches
+more than one. Two elements moving together emit `drag:A`, `drag:B`, `drag:A`, …
+and because each push differs from the one before it, none of them fold — a
+two-element move was recording dozens of undo steps, so taking it back meant
+holding cmd-Z. One tag per gesture makes any drag one step, however many things
+it moves.
+
 ### Handles need room
 
 A handle only appears on an axis with space for both it and a grabbable
@@ -629,6 +652,31 @@ H.264 is preferred and picked by capability detection; VP9 and AV1 are real
 fallbacks, because Chromium builds without proprietary codecs report no `avc1`
 support at all and a valid VP9-in-MP4 beats a button that fails.
 
+## Transparency, and what a browser will not do
+
+**Save PNG can leave the ground unpainted**, so the file carries real alpha —
+for dropping an asset onto someone else's slide or onto a photograph. The
+colourway still picks the ink, because choosing one is still saying what the
+asset is *for*; you are only declining to paint the field behind it.
+
+The grain is the interesting part. Multiply against a transparent pixel does not
+leave it transparent — there is nothing to multiply with, so the grain lands as
+flat grey and the hole comes out as a dirty rectangle. So with no ground, the
+alpha the canvas had *before* the grain is taken as a copy and re-applied after,
+which keeps the texture on the artwork and off the hole. It costs one
+full-canvas copy, which is why it is only paid when there is a hole to protect.
+
+The preview puts a **checkerboard behind the artboard**, because the artboard is
+genuinely see-through now; without it a transparent asset reads as a cream one
+against the cream panel and you find out when you drop it on something dark.
+
+**MP4 is never transparent**, whatever the design says, and the export paints the
+ground back in rather than shipping a black rectangle. This is measured, not
+assumed: `VideoEncoder.isConfigSupported` rejects `alpha: "keep"` for VP8, VP9
+*and* AV1 in current Chromium, so there is no browser-side path to an alpha video
+at all. Getting one means a PNG sequence and ffmpeg — a different tool, honestly
+outside this one. The panel says so where the option is offered.
+
 ## Saving
 
 Two things, one record. `store.ts`.
@@ -769,6 +817,45 @@ an upload the key is an opaque id and the label is the file you dragged in, so
 **uploads silently drew nothing**. `file` is the key and is never shown; `name`
 is the label and is yours to rename.
 
+### Taking the background out
+
+**A flood fill inward from the edges**, removing what is both close in colour to
+the border *and connected to it*. Not a global colour match, and that is the
+difference that matters: a photograph of an engineer in a white shirt against a
+white wall loses the wall and keeps the shirt, because the shirt is not touching
+the border. "Remove every white pixel" would punch a hole through him, and it
+would look like it worked right up until someone opened the export.
+`cutout.test.ts` locks exactly that case.
+
+**It is not a matting model, and the boundary is worth knowing before you reach
+for it.** It has no idea what a person is. Give it a plain backdrop — a studio
+wall, a product on white, a logo on a flat field — and it is exactly right and
+instant. Give it a band photo in a cluttered rehearsal room and it will not save
+you, and no amount of tolerance-fiddling will change that. This is the
+deterministic 90% case, not remove.bg. A real matting model is possible in a
+browser and is not here on purpose: it means shipping tens or hundreds of
+megabytes of weights, which breaks the single-file build outright and is a
+dependency worth choosing deliberately rather than arriving at.
+
+Details that matter:
+
+- The mask **multiplies** the alpha already there rather than replacing it, so a
+  PNG that arrives with soft edges keeps them, and one that arrives with holes
+  keeps those too — anything already transparent is treated as background
+  whatever colour it claims to be.
+- **The edge is feathered** by a few passes of a separable 3×3 average. A hard
+  mask cuts along the pixel grid and reads as a sticker with a jagged outline,
+  which is the giveaway that something was cut out.
+- The working resolution is **capped at 2048** on the long edge. A 24MB photo can
+  be 8000×6000, which is 48 million pixels and nearly 200MB of `ImageData` for a
+  mask nobody will see at that resolution — the artboard's longest edge is 1920.
+- The **ink silhouette follows the cutout**, not the rectangle the photograph
+  arrived in, so a cut-out subject gets a misregistered edge around the subject.
+- A cutout that cannot be computed **falls back to the original**. `getImageData`
+  throws on a canvas tainted by a cross-origin image, and a background that could
+  not be removed should look like one that was not asked about, not like a layer
+  that vanished.
+
 ### Where artwork should live
 
 Two libraries, and they want different homes. **Scratch** — the photo for this
@@ -781,22 +868,23 @@ self-service gap this tool was built to close.
 
 ## What is not built yet
 
-- **GIF and transparent MOV.** The MP4 path is there; these are separate
-  containers. Transparent MOV needs an alpha-capable codec and will likely not
-  be a browser-side job.
+- **GIF, and transparent video.** The MP4 path is there; GIF is a separate
+  container. Transparent video is not a browser-side job at all — measured, see
+  *Transparency, and what a browser will not do*. A PNG sequence handed to
+  ffmpeg is the route, and nothing here builds one yet.
+- **Cutting a subject out of a busy background.** The edge flood handles a plain
+  backdrop; a real matting model is a deliberate dependency nobody has chosen.
 - **Tier 2 texture.** The whole-sheet weathering plates. `wild-ride` has eight;
   none are copied here yet. Use each sheet whole and fitted, never cropped and
   tiled.
-- **Background removal.** Uploading, placing, cropping, zooming and the focal
-  point all work; cutting a subject out of its background does not.
 - **More templates.** `templates/` takes one file per template; the carousel,
   reel word-cards and the EDU title slide are all specified in bible 3.2. Layers
   are template-agnostic, so a new one gets the whole editor for free by calling
   `drawLayers`.
 - **Grouping.** Several things can be selected and moved together, but the
   grouping is not a thing that persists — reselect them next time.
-- **Resizing a multi-selection.** Handles are offered on a lone selection only;
-  see *More than one at a time* for why.
+- **Non-uniform group resize.** A group scales uniformly from a corner; there
+  is no group side handle, and *Resizing a selection* says why.
 - **Download all as a zip.** Currently it fires staggered single downloads,
   because browsers drop simultaneous programmatic ones.
 - **Hosting.** Still local-only. No auth story yet, which is the main thing to

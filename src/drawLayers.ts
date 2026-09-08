@@ -39,6 +39,7 @@ import {
   type TextStyle,
 } from "./render.ts";
 import { colorOf, faceOf, type Layer, type TextLayer } from "./layers.ts";
+import { cutoutImage } from "./cutout.ts";
 import type { Format } from "./brand.ts";
 
 /** A grabbable thing on the artboard, in device pixels. Mirrors the template's. */
@@ -249,7 +250,11 @@ export function drawLayers(
       }
       setInk(0);
     } else {
-      const img = assets[l.file];
+      const original = assets[l.file];
+      /* A failed cutout falls back to the original rather than to nothing: a
+         background that could not be removed should look like one that was not
+         asked about, not like a layer that vanished. */
+      const img = original && l.cutout ? (cutoutImage(original, l.cutout) ?? original) : original;
       if (img) {
         /* A frame CLIPS. Everything inside this block - the silhouette as much
            as the artwork - is bounded by it, or the misregistered edge would
@@ -257,7 +262,7 @@ export function drawLayers(
            the sides the artwork was cut off at. */
         const framed = l.frameH !== null;
         const at = framed
-          ? coverBox(img, w, h, l.zoom, l.focusX, l.focusY)
+          ? coverBox(original, w, h, l.zoom, l.focusX, l.focusY)
           : { x: -w / 2, y: -h / 2, w, h };
         if (framed) {
           ctx.beginPath();
