@@ -1,13 +1,15 @@
 # StudioLand content builder
 
 Make an on-brand asset in whatever proportion you need, without deciding
-anything the brand has already decided. A first template — the social ad — plus
-the machinery the rest will share.
+anything the brand has already decided — and then keep going, because a template
+that composes the first ninety percent is no use if the last ten is impossible.
+A first template — the social ad — a layer editor over it, and the machinery the
+rest will share.
 
 ```
 npm install
 npm run dev      # http://localhost:5173
-npm test         # the brand rules, the boil, stickers, the store
+npm test         # the brand rules, the boil, layers, history, snapping, the store
 npm run build    # typecheck + dist/
 ```
 
@@ -110,11 +112,17 @@ controls scrolling under it. Two things do not work there, and the tool says so
 rather than appearing broken:
 
 - **The artwork folder.** No mobile browser implements the File System Access
-  API, so arrows and stars are desktop-only.
+  API, so a connected folder of arrows and stars is desktop-only. *Uploading* an
+  image works everywhere, which is most of what the folder was wanted for on a
+  phone anyway.
 - **Your saved designs.** They live in this browser's IndexedDB, which is per
-  device. A design saved at the desk is not on the phone. The phone is for
-  fresh work; that was the deliberate choice, over standing up a backend to sync
-  them.
+  device. A design saved at the desk is not on the phone, and neither are its
+  uploads. The phone is for fresh work; that was the deliberate choice, over
+  standing up a backend to sync them.
+
+Everything else does work there, including the editor: dragging, the resize and
+rotate handles and snapping are all pointer events, so they take touch without
+anything extra.
 
 ## How it renders, and why not the DOM
 
@@ -175,6 +183,132 @@ Landscape is composed separately rather than scaled from the square — a 1200x6
 is a different shape, and stacking a headline over a character in it leaves both
 cramped. There the headline takes the left, BUZZ takes the right, and the badge
 tucks between them.
+
+## Two things on one artboard
+
+A design is **the template plus a list of layers**, and the split is the load-bearing
+idea in the whole tool.
+
+The **template** owns five named elements — headline, supporting line, CTA badge,
+BUZZ, wordmark — and composes them per format. That is what makes a new asset
+on-brand in one second and what makes switching format re-lay out rather than
+crop. It is worth keeping and it was kept.
+
+**Layers** are what you add: text boxes, rules, rectangles, ellipses, the brand's
+own starburst, and images. They sit over whatever the template composed, in the
+order you stacked them, under the grain. They are the answer to everything the
+five slots cannot express — a second block of copy, a rule under a word, three
+photos in a row — and without them the tool could produce one shape of thing
+very well and nothing else at all.
+
+The two are stored differently and it matters. A template element carries a
+*scale multiplier* against whatever the layout chose for this format, so an
+untouched one still composes itself and a nudged one keeps its nudge. A layer
+carries its size outright, because nothing ever chose one for it. Everywhere
+else that difference is invisible: `Manipulator` in `Artboard.tsx` is the single
+place the two are translated, so selection, dragging, handles, snapping, undo
+and the keyboard are written once and work on both.
+
+Layers are constrained exactly where the brand is:
+
+- **Colour is a palette key, never a hex string.** A free-text colour field is
+  precisely how an off-brand choice gets made. The offered set is in
+  `LAYER_COLORS`, so the swatch row and the hydrator cannot drift apart.
+- **The faces are the three brand faces.** There is no font menu.
+- **Text never boils, drawn shapes do.** Both are rules rather than defaults, so
+  a text layer has no ink control at all instead of one that does nothing, and a
+  rectangle takes Recipe B through the same context proxy the starburst uses —
+  which is also why `rectPath` and `ellipsePath` are built from `moveTo`,
+  `lineTo` and `arc` rather than from the canvas's own `roundRect` and
+  `ellipse`. The boil proxy overrides those three calls and nothing else, so a
+  shape drawn the convenient way would come out machine-perfect while everything
+  beside it wobbled.
+- **Artwork never warps.** An image layer is drawn exactly as painted with a
+  misregistered silhouette behind it — the treatment BUZZ gets, for his reason.
+
+### The artboard is two canvases
+
+The lower one is the real 1080px artboard: the thing that exports, with nothing
+on it that is not in the design. The upper one is chrome — the selection box, the
+handles, the snap guides — and it never touches the export path.
+
+The obvious alternative is one canvas that draws the chrome and clears it before
+exporting. That is a trap: the export would depend on the editor having tidied
+up after itself, and the first time it did not you would ship a PNG with a
+selection rectangle on it. Two surfaces makes that impossible rather than
+unlikely.
+
+Two details on the overlay are worth keeping:
+
+- **Handles are sized in screen pixels**, not artboard pixels. A 1080px board
+  shown at 380px would otherwise draw a 10px handle at 3.5px, which is not
+  grabbable with a finger and barely with a mouse. The overlay is sized to its
+  displayed box times the device pixel ratio and artboard coordinates are scaled
+  into it, which also means the handles come out crisp rather than resampled.
+- **The selection box is stroked twice, cream under charcoal.** Every colour in
+  this palette is also a ground, so a single-colour selection box is invisible on
+  the colourway that happens to match it. A light halo under a dark line reads on
+  all five. This was a real bug, found by looking at a teal box on the teal
+  colourway.
+
+Hit regions still come from the **last draw** rather than a second copy of the
+layout maths, which is the rule the template already followed and the reason the
+overlay effect is declared after the drawing effect: effects run in declaration
+order, so the handles are placed on regions the draw has just produced.
+
+### Undo
+
+Free placement without undo is a trap, and it was one here: the only way back
+from a drag you did not mean was Auto-arrange, which throws away every position
+in the design to fix one of them.
+
+`history.ts` holds the whole document. The interesting part is **coalescing**: a
+drag emits a state change per pointer move and typing emits one per keystroke,
+so recorded literally, one dragged layer is two hundred undo steps and cmd-Z
+stops meaning anything. Each push carries a tag naming the kind of edit —
+`drag:L4f`, `text:headline` — and consecutive pushes with the same tag inside
+700ms replace each other. One drag is one undo; a sentence typed without pausing
+is one undo. An untagged push never coalesces, so adding a layer or applying a
+preset is always its own step.
+
+Two smaller rulings:
+
+- **Loading a design resets the stack rather than appending to it.** The states
+  before it belong to a different document, and undoing into them would take you
+  out of the design you just opened with no way to tell what happened.
+- **The format is not in the document.** It is which view you are looking at, not
+  something about the design. Putting it in would mean cmd-Z sometimes switched
+  format instead of taking back your edit, which is how people learn not to trust
+  undo. It is still saved with the draft, so reopening puts you back where you
+  were.
+
+While the caret is in a text field the editor's shortcuts stay out of the way
+entirely: there, cmd-Z should take back the word you typed, not the layer you
+added five minutes ago.
+
+### Snapping
+
+Placing by eye at preview scale is placing by eye at a quarter size — a headline
+centred on a 270px preview can be four artboard pixels out in the export, which
+is invisible until it is printed. So a dragged element snaps to the artboard's
+centre lines, its margin and its edges, and to the edges and centres of
+everything else placed, with a guide drawn to say which. Alt overrides it.
+
+Each axis resolves independently, so a box can align its left edge to a
+neighbour while its centre takes the artboard's middle — which is the case that
+makes snapping worth having rather than merely tidy. A **rotated** box passes no
+extent and snaps only its centre: its axis-aligned bounds are no longer its
+edges, so snapping them would align something that is not there.
+
+### The keyboard
+
+Arrow keys nudge by one artboard pixel and shift by ten — artboard pixels rather
+than screen ones, so the same keypress means the same thing whatever the preview
+is scaled to. cmd-D duplicates, delete removes, escape deselects, cmd-[ and
+cmd-] restack, and shift with either sends a layer to the very back or front.
+
+Only layers are deletable. The template's five are part of the composition; the
+way to be rid of one is to empty its text.
 
 ## Balanced headlines
 
@@ -262,8 +396,11 @@ built.
 ## Moving things
 
 **Every element is freely placed: dragged, resized, rotated.** Headline,
-supporting line, badge, BUZZ, the wordmark, every sticker. Touch works, which
-matters because the phone has nothing else to fall back on.
+supporting line, badge, BUZZ, the wordmark, and every layer you add. Touch works,
+which matters because the phone has nothing else to fall back on. The handles,
+the keyboard and undo that make this workable are described under *Two things on
+one artboard*; what follows is why free placement is the right design here at
+all, which was not obvious and was got wrong first.
 
 ### The reversal
 
@@ -294,11 +431,18 @@ text is just allowed to be bigger or smaller than its zone suggested.
 Hit regions come from the **last draw**, not a second copy of the layout maths —
 recomputing it for hit-testing is how the two silently drift apart. And a drag
 records both the grab offset and the current position, so nothing jumps its
-centre under your finger and each drag continues from the last.
+centre under your finger and each drag continues from the last. A handle drag
+records the element as it was at *grab time* and measures from there rather than
+from the last frame, so a long resize does not compound rounding error.
+
+The one constraint that survived the reversal is the **wordmark's minimum size**
+— the bible sets one "so the arrow-I signpost stops reading". It is enforced in
+the write path rather than on the slider, because a corner handle is now a second
+way to get below it, and a limit only one of two paths respects is not a limit.
 
 ## Presets
 
-**An arrangement and a look, without the words**: transforms, ink, stickers, the
+**An arrangement and a look, without the words**: transforms, ink, layers, the
 BUZZ pose, the colourway. Not the headline, supporting line or call to action.
 
 That split is why a preset is a different thing from a saved design. A saved
@@ -410,23 +554,46 @@ not open with no obvious way back. Rename a colourway, drop a format, and
 yesterday's draft references something gone. So: unknown colourway or format
 falls back to the first, an override for a dropped format is discarded rather
 than kept as a ghost that can never be seen or reset, an unknown ink mode falls
-back to still, a sticker missing an id or name is dropped, and one with a wild
-position or a zero scale is clamped back into reach rather than discarded — an
-off-canvas sticker should come back grabbable, not vanish. Anything unreadable
+back to still, a layer missing an id or an unrecognised kind is dropped, and one
+with a wild position or a zero size is clamped back into reach rather than
+discarded — a layer dragged off the artboard by an older build should come back
+grabbable, not vanish. An unknown *kind* is dropped rather than guessed at: a
+half-understood layer that draws as something else is worse than one that is
+gone, because nothing tells you it happened. Designs written before layers
+existed carried `stickers`, which were image layers in all but name — same
+relative placement, same short-edge sizing — so they are migrated rather than
+dropped, and last quarter's hiring ad still opens. Anything unreadable
 is treated as "no draft", never as an error. `store.test.ts` covers all of it.
 
-**Artwork is stored by file name, never by content**, matching the library's
-handle-not-a-copy rule: a design picks up the current version of an arrow rather
+**Folder artwork is stored by file name, never by content**, matching the
+library's handle-not-a-copy rule: a design picks up the current version of an arrow rather
 than a snapshot. The cost is that a design restored before the folder is
-connected has stickers with nothing behind them, so connecting the folder
+connected has layers with nothing behind them, so connecting the folder
 re-attaches them, and until then the Artwork panel says how many are waiting.
 A file renamed or deleted since keeps its place in the design and simply does
 not draw — losing the placement would be worse than a gap.
 
 ## Your own artwork
 
-Point the tool at a folder of your own arrows, stars and illustrations and drop
-them onto an ad. `library.ts`.
+Two ways in, and they are a deliberate pair.
+
+A **folder** is a handle, not a copy: point the tool at your arrows, stars and
+illustrations and it draws the current version of each. That is right for a
+library of marks you maintain. `library.ts`.
+
+An **upload** is a copy, in IndexedDB. That is right for the photo you were sent
+this morning: it needs no folder connected, it works on the phone — where no
+browser implements the File System Access API at all — and a design that uses it
+keeps working after the original has left your Downloads. `uploads.ts`. The cost
+is that it is per browser, like saved designs and for the same reason.
+
+Which library a piece of artwork came from is **stored on the layer**, never
+guessed from its name, because the two fail differently and the panel has to say
+which: a folder image is missing until the folder is reconnected, and an upload
+is missing because it is in another browser. Guessing would collapse those into
+one unhelpful "could not be found".
+
+### The folder, in detail
 
 **Nothing is eager.** That was the explicit brief, and it shapes the whole
 module:
@@ -436,7 +603,7 @@ module:
 | Page load | Nothing. It checks IndexedDB for a saved folder and offers to reconnect. No directory is listed, no file opened. |
 | Reconnect / choose | The listing. `getFile()` returns a lazy `File` — name, size, mtime. Still no bytes. |
 | Thumbnail | Decoded once, cached in IndexedDB against size + mtime. Later visits paint the grid without touching the originals. |
-| Place a sticker | Only now is the full file read and decoded. |
+| Place an image | Only now is the full file read and decoded. |
 
 What is stored is a **handle, not the files**. Edit an arrow in Illustrator, save
 it, and the tool sees the new version — there is no second copy to drift out of
@@ -453,15 +620,15 @@ Chrome and Edge only. That narrows nothing: the MP4 export already needs
 WebCodecs. Chrome cannot restore directory permission silently, so a return
 visit costs one click. That is the browser's rule, not a shortcut here.
 
-**Placement is relative.** A sticker stores its centre as a fraction of width
-and height, and its size as a fraction of the artboard's *short* edge. That is
+**Placement is relative.** A layer stores its centre as a fraction of width and
+height, and its size as a fraction of the artboard's *short* edge. That is
 what lets one placement mean something at all four sizes — an arrow put beside
 the headline in the square lands beside the headline in the story. Pixels would
 pin it to one aspect ratio and make the other three wrong, undoing the point of
-the tool. Sizing against the short edge rather than the width is why a sticker
+the tool. Sizing against the short edge rather than the width is why a layer
 does not balloon in the landscape.
 
-Stickers draw above the design and **below the grain**, and they take the same
+Layers draw above the design and **below the grain**, and images take the same
 treatment as BUZZ: the art never warps, so the ink edge comes from a
 misregistered silhouette behind it.
 
@@ -488,10 +655,16 @@ self-service gap this tool was built to close.
 - **Tier 2 texture.** The whole-sheet weathering plates. `wild-ride` has eight;
   none are copied here yet. Use each sheet whole and fitted, never cropped and
   tiled.
-- **Photos.** Upload, focal point, zoom, background removal. Needed before any
-  template with a person in it.
+- **Photo handling beyond placement.** Uploading and placing works; focal point,
+  zoom-to-fill and background removal do not.
 - **More templates.** `templates/` takes one file per template; the carousel,
-  reel word-cards and the EDU title slide are all specified in bible 3.2.
+  reel word-cards and the EDU title slide are all specified in bible 3.2. Layers
+  are template-agnostic, so a new one gets the whole editor for free by calling
+  `drawLayers`.
+- **Multi-select.** One element at a time. Aligning three things to each other
+  needs it.
+- **Custom format sizes.** `FORMATS` is a list in `brand.ts`; nothing yet lets
+  you type a size into the UI.
 - **Download all as a zip.** Currently it fires staggered single downloads,
   because browsers drop simultaneous programmatic ones.
 - **Hosting.** Still local-only. No auth story yet, which is the main thing to

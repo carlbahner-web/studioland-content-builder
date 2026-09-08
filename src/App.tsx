@@ -7,6 +7,7 @@ import {
   type BuzzPose,
   type Colorway,
   type Format,
+  type PaletteKey,
 } from "./brand.ts";
 import { loadBrandFonts, loadImage, prepareGrain } from "./render.ts";
 import { FPS, type InkMode } from "./boil.ts";
@@ -41,6 +42,7 @@ import {
 } from "./layers.ts";
 import {
   LOOP_FRAMES,
+  minMarkScale,
   type Assets,
   type Region,
   type SocialAdContent,
@@ -193,8 +195,8 @@ function Swatches({
   onChange,
   none,
 }: {
-  value: string | null;
-  onChange: (key: never) => void;
+  value: PaletteKey | null;
+  onChange: (key: PaletteKey | null) => void;
   none?: boolean;
 }) {
   return (
@@ -204,7 +206,7 @@ function Swatches({
           type="button"
           title="None"
           className={value === null ? "pk none on" : "pk none"}
-          onClick={() => onChange(null as never)}
+          onClick={() => onChange(null)}
         />
       )}
       {LAYER_COLORS.map((key) => (
@@ -215,7 +217,7 @@ function Swatches({
           aria-label={key}
           className={value === key ? "pk on" : "pk"}
           style={{ background: PALETTE[key] }}
-          onClick={() => onChange(key as never)}
+          onClick={() => onChange(key)}
         />
       ))}
     </div>
@@ -427,6 +429,12 @@ export default function App() {
       setScale: (id, v) => {
         const l = findLayer(content.layers, id);
         const tag = `size:${id}`;
+        /* The wordmark has a floor. The bible sets a minimum size "so the
+           arrow-I signpost stops reading", and it is enforced HERE rather than
+           on the slider because a corner handle is now another way to get
+           below it - a limit that only one of two paths respects is not a
+           limit. */
+        if (id === "wordmark") return setTransform(id, { scale: Math.max(minMarkScale(format), v) }, tag);
         if (!l) return setTransform(id, { scale: v }, tag);
         // A corner is proportional, so the OTHER dimension follows by the same
         // ratio: a text box keeps its measure as the type grows, and a shape
@@ -467,7 +475,7 @@ export default function App() {
       },
       locked: (id) => findLayer(content.layers, id)?.locked === true,
     }),
-    [content, patchLayer, setTransform],
+    [content, format, patchLayer, setTransform],
   );
 
   /* ------------------------------------------------------------ the boot */
@@ -1052,7 +1060,7 @@ export default function App() {
                   />
                 </label>
                 <span className="lbl">Colour</span>
-                <Swatches value={active.color} onChange={(k) => patchLayer(active.id, { color: k })} />
+                <Swatches value={active.color} onChange={(k) => k && patchLayer(active.id, { color: k })} />
                 <span className="lbl">Outline</span>
                 <Swatches
                   none
@@ -1134,16 +1142,24 @@ export default function App() {
               </div>
             )}
 
-            <label>
-              Size
-              <input
-                type="range"
-                min={active ? 1 : 20}
-                max={active ? 200 : 250}
-                value={Math.round(manip.scale(selected) * 100)}
-                onChange={(e) => manip.setScale(selected, Number(e.target.value) / 100)}
-              />
-            </label>
+            {active?.kind !== "text" && (
+              <label>
+                Size
+                <input
+                  type="range"
+                  min={selected === "wordmark" ? Math.round(minMarkScale(format) * 100) : active ? 1 : 20}
+                  max={active ? 200 : 250}
+                  value={Math.round(manip.scale(selected) * 100)}
+                  onChange={(e) => manip.setScale(selected, Number(e.target.value) / 100)}
+                />
+                {selected === "wordmark" && (
+                  <em className="floor">
+                    Stops at {Math.round(minMarkScale(format) * 100)}% &mdash; below that the arrow-I
+                    signpost stops reading.
+                  </em>
+                )}
+              </label>
+            )}
             <label>
               Rotation
               <input
