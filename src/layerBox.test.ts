@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { layerBox } from "./drawLayers.ts";
-import { hitRegion } from "./templates/socialAd.ts";
+import { hitRegion } from "./sheet.ts";
 import { newImage, newShape, type ImageLayer, type Layer } from "./layers.ts";
 import { FORMATS } from "./brand.ts";
 

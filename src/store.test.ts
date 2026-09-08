@@ -2,17 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { artworkNames, hydrate, hydrateContent } from "./store.ts";
 import { COLORWAYS, FORMATS } from "./brand.ts";
-import type { SocialAdContent } from "./templates/socialAd.ts";
+import type { Design } from "./sheet.ts";
 
-const base: SocialAdContent = {
-  headline: "base headline",
-  body: "base body",
-  cta: "base cta",
-  buzz: "wave",
-  layers: [],
-  transforms: {},
-  inkOverrides: {},
-};
+const base: Design = { layers: [] };
 
 /* A stored design outlives the code that wrote it, and hydrate() runs at
  * startup. Anything it throws on is a tool that will not open. */
@@ -39,12 +31,13 @@ test("a colorway or format that no longer exists falls back", () => {
 });
 
 test("an override for a dropped format is discarded, not kept as a ghost", () => {
+  const keep = { kind: "image", id: "k", file: "keep.svg" };
   const r = hydrate(
-    { overrides: { story: { headline: "keep" }, billboard: { headline: "drop" } } },
+    { overrides: { story: { layers: [keep] }, billboard: { layers: [keep] } } },
     base,
   )!;
   assert.deepEqual(Object.keys(r.overrides), ["story"]);
-  assert.equal(r.overrides.story.headline, "keep");
+  assert.equal(r.overrides.story.layers?.[0].id, "k");
 });
 
 test("an empty override is not carried, so it cannot dot a format for nothing", () => {
@@ -262,11 +255,45 @@ test("layers win over stickers where a design somehow carries both", () => {
   assert.equal(c.layers[0].id, "new");
 });
 
-test("text fields survive a round trip and non-strings do not overwrite", () => {
-  const c = hydrateContent({ headline: "kept", body: 12, cta: null }, base);
-  assert.equal(c.headline, "kept");
-  assert.equal(c.body, base.body);
-  assert.equal(c.cta, base.cta);
+/* A design written before the roles were deleted carries five named fields and
+ * no layers. It cannot be composed in here - that needs the artboard's shape,
+ * the colourway, decoded artwork and a context to measure with - so the legacy
+ * copy is carried OUT for the caller to compose. Dropping it instead would be
+ * data loss with a changelog. */
+test("a design from before layers hands its copy out to be composed", () => {
+  const r = hydrate(
+    {
+      shared: {
+        headline: "Old headline",
+        body: "Old body",
+        cta: "Go",
+        buzz: "ride",
+        transforms: { headline: { x: 0.3, y: 0.2, scale: 1.5 } },
+        inkOverrides: { buzz: "live" },
+      },
+      format: "story",
+    },
+    base,
+  )!;
+  assert.ok(r.legacy, "the copy comes out rather than being dropped");
+  assert.equal(r.legacy!.copy.headline, "Old headline");
+  assert.equal(r.legacy!.copy.buzz, "brand:buzz-ride", "the pose becomes an artwork key");
+  assert.deepEqual(r.legacy!.transforms.headline, { x: 0.3, y: 0.2, scale: 1.5 });
+  assert.equal(r.legacy!.ink.buzz, "live");
+});
+
+test("BUZZ set to none means no BUZZ, not the default pose", () => {
+  const r = hydrate({ shared: { headline: "x", buzz: "none" } }, base)!;
+  assert.equal(r.legacy!.copy.buzz, null);
+});
+
+test("a design that already has layers is not treated as legacy", () => {
+  const r = hydrate(
+    { shared: { headline: "leftover", layers: [{ kind: "image", id: "a", file: "p.png" }] } },
+    base,
+  )!;
+  assert.equal(r.legacy, null);
+  assert.equal(r.shared.layers.length, 1);
 });
 
 test("artworkNames collects across shared and every override, without duplicates", () => {

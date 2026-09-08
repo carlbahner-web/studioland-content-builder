@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BUZZ_POSES,
   COLORWAYS,
   PALETTE,
   FORMATS,
-  type BuzzPose,
   type Colorway,
   type Format,
   type PaletteKey,
@@ -42,13 +40,9 @@ import {
   type Layer,
   type ShapeKind,
 } from "./layers.ts";
-import {
-  LOOP_FRAMES,
-  minMarkScale,
-  type Assets,
-  type Region,
-  type SocialAdContent,
-} from "./templates/socialAd.ts";
+import { LOOP_FRAMES, type Assets, type Design as DesignContent, type Region } from "./sheet.ts";
+import { socialAdStarter, DEFAULT_COPY } from "./starters/socialAd.ts";
+import { BRAND_ASSETS, minLayerWidth } from "./brandAssets.ts";
 import {
   artworkNames,
   deleteDesign,
@@ -95,15 +89,7 @@ import {
 } from "./formats.ts";
 import "./studio.css";
 
-const DEFAULT_CONTENT: SocialAdContent = {
-  headline: "Your mixes deserve a better client list",
-  body: "StudioLand trains audio engineers to find and book the artists they actually want to work with.",
-  cta: "Learn more",
-  buzz: "wave",
-  layers: [],
-  transforms: {},
-  inkOverrides: {},
-};
+const EMPTY: DesignContent = { layers: [] };
 
 /* THE DOCUMENT: everything an undo step has to restore.
  *
@@ -113,8 +99,8 @@ const DEFAULT_CONTENT: SocialAdContent = {
  * - which is the behaviour that makes people stop trusting undo. It is still
  * saved with the draft, so reopening the tool puts you back where you were. */
 type Doc = {
-  shared: SocialAdContent;
-  overrides: Record<string, Partial<SocialAdContent>>;
+  shared: DesignContent;
+  overrides: Record<string, Partial<DesignContent>>;
   colorway: string;
   ink: InkMode;
   curtain: boolean;
@@ -125,7 +111,7 @@ type Doc = {
 };
 
 const INITIAL: Doc = {
-  shared: DEFAULT_CONTENT,
+  shared: EMPTY,
   overrides: {},
   colorway: COLORWAYS[0].key,
   ink: "still",
@@ -134,51 +120,10 @@ const INITIAL: Doc = {
   grain: GRAIN_ALPHA,
 };
 
-const contentOf = (d: Doc, formatKey: string): SocialAdContent => ({
+const contentOf = (d: Doc, formatKey: string): DesignContent => ({
   ...d.shared,
   ...(d.overrides[formatKey] ?? {}),
 });
-
-/* A labelled control that says, right on the label, when this format's value has
- * been forked from the shared one - and offers the way back. The scope toggle is
- * modal, so the state it produces has to be visible without anyone going
- * looking for it. */
-function Field({
-  label,
-  name,
-  overridden,
-  onClear,
-  children,
-}: {
-  label: string;
-  name: keyof SocialAdContent;
-  overridden: Set<string>;
-  onClear: (k: keyof SocialAdContent) => void;
-  children: React.ReactNode;
-}) {
-  const forked = overridden.has(name);
-  return (
-    <label className={forked ? "fld forked" : "fld"}>
-      <span className="lbl">
-        {label}
-        {forked && (
-          <button
-            type="button"
-            className="undo"
-            title="This format only. Click to go back to the shared value."
-            onClick={(e) => {
-              e.preventDefault();
-              onClear(name);
-            }}
-          >
-            this format only &times;
-          </button>
-        )}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 /* A foldable section.
  *
@@ -260,14 +205,6 @@ const ALIGNS = [
   ["bottom", "⇣", "Align bottom"],
 ] as const;
 
-const LABELS: Record<string, string> = {
-  headline: "Headline",
-  body: "Supporting line",
-  cta: "Call to action",
-  buzz: "BUZZ",
-  wordmark: "Wordmark",
-};
-
 export default function App() {
   /* Content is a SHARED base plus per-format overrides, resolved at render, and
    * the whole of it goes through the history stack. The scope toggle is
@@ -289,7 +226,6 @@ export default function App() {
 
   const colorway: Colorway = COLORWAYS.find((c) => c.key === doc.colorway) ?? COLORWAYS[0];
   const content = useMemo(() => contentOf(doc, format.key), [doc, format.key]);
-  const overridden = new Set(Object.keys(doc.overrides[format.key] ?? {}));
 
   const [assets, setAssets] = useState<Assets | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -336,30 +272,21 @@ export default function App() {
    * so it cannot be built into the write path. Re-overriding is one switch away;
    * a change that appeared to apply and did not is not recoverable, because you
    * never see it. */
-  const edit = useCallback(
-    <K extends keyof SocialAdContent>(
-      k: K,
-      v: SocialAdContent[K] | ((cur: SocialAdContent[K]) => SocialAdContent[K]),
-      tag: string | null = null,
-    ) => {
+  /* Writing in "all formats" scope also CLEARS this format's override.
+   *
+   * The rule used to be per field and is now per design, because there is only
+   * one field left: a design is its layers. "All formats" therefore means what
+   * it says - after it, no format is carrying a different stack - which is the
+   * silent-divergence trap the markers exist to prevent. Re-overriding is one
+   * switch away; a change that appeared to apply and did not is not
+   * recoverable, because you never see it. */
+  const editLayers = useCallback(
+    (v: Layer[] | ((cur: Layer[]) => Layer[]), tag: string | null = null) => {
       commit((d) => {
-        const cur = contentOf(d, format.key)[k];
-        const next = typeof v === "function" ? (v as (c: SocialAdContent[K]) => SocialAdContent[K])(cur) : v;
-        if (scope === "all") {
-          const overrides: Record<string, Partial<SocialAdContent>> = {};
-          for (const [key, patch] of Object.entries(d.overrides)) {
-            const { [k]: _drop, ...rest } = patch;
-            if (Object.keys(rest).length) overrides[key] = rest;
-          }
-          return { ...d, shared: { ...d.shared, [k]: next }, overrides };
-        }
-        return {
-          ...d,
-          overrides: {
-            ...d.overrides,
-            [format.key]: { ...(d.overrides[format.key] ?? {}), [k]: next },
-          },
-        };
+        const cur = contentOf(d, format.key).layers;
+        const layers = typeof v === "function" ? v(cur) : v;
+        if (scope === "all") return { ...d, shared: { layers }, overrides: {} };
+        return { ...d, overrides: { ...d.overrides, [format.key]: { layers } } };
       }, tag);
     },
     [commit, format.key, scope],
@@ -372,16 +299,16 @@ export default function App() {
 
   const patchLayer = useCallback(
     (id: string, patch: Partial<Layer>, tag: string | null = null) =>
-      edit("layers", (ls) => updateLayer(ls, id, patch), tag),
-    [edit],
+      editLayers((ls) => updateLayer(ls, id, patch), tag),
+    [editLayers],
   );
 
   const addNew = useCallback(
     (layer: Layer) => {
-      edit("layers", (ls) => addLayer(ls, layer));
+      editLayers((ls) => addLayer(ls, layer));
       setSelected(layer.id);
     },
-    [edit],
+    [editLayers],
   );
 
   /* Both of these take a LIST and land as ONE undo step, because "duplicate
@@ -391,7 +318,7 @@ export default function App() {
   const duplicateMany = useCallback(
     (ids: string[]) => {
       const made: string[] = [];
-      edit("layers", (ls) => {
+      editLayers((ls) => {
         let next = ls;
         for (const id of ids) {
           const r = duplicateLayer(next, id);
@@ -402,130 +329,80 @@ export default function App() {
       });
       if (made.length) setSelection(made);
     },
-    [edit],
+    [editLayers],
   );
 
   const dropMany = useCallback(
     (ids: string[]) => {
-      edit("layers", (ls) => ls.filter((l) => !ids.includes(l.id)));
+      editLayers((ls) => ls.filter((l) => !ids.includes(l.id)));
       setSelection((s) => s.filter((id) => !ids.includes(id)));
     },
-    [edit],
+    [editLayers],
   );
 
   const dropLayer = useCallback((id: string) => dropMany([id]), [dropMany]);
 
   const restack = useCallback(
-    (id: string, delta: number) => edit("layers", (ls) => reorderLayer(ls, id, delta)),
-    [edit],
-  );
-
-  /* ------------------------------------------------------- the transforms */
-
-  const setTransform = useCallback(
-    (
-      id: string,
-      patch: Partial<{ x: number; y: number; scale: number; rotation: number }>,
-      tag: string | null = null,
-    ) => edit("transforms", (t) => ({ ...t, [id]: { ...t[id], ...patch } }), tag),
-    [edit],
-  );
-
-  const clearTransform = useCallback(
-    (id: string) =>
-      edit("transforms", (t) => {
-        const next = { ...t };
-        delete next[id];
-        return next;
-      }),
-    [edit],
-  );
-
-  /* Put everything back to what the layout would do for this format. The layout
-     is the default arrangement now rather than the only one, so this is how you
-     get it back after moving things around. Layers are untouched: they were
-     never in the layout, so it has nothing to say about where they go. */
-  const autoArrange = useCallback(() => edit("transforms", {}), [edit]);
-
-  const setElementInk = useCallback(
-    (id: string, mode: InkMode | null) =>
-      edit("inkOverrides", (o) => {
-        const next = { ...o };
-        if (mode) next[id] = mode;
-        else delete next[id];
-        return next;
-      }),
-    [edit],
+    (id: string, delta: number) => editLayers((ls) => reorderLayer(ls, id, delta)),
+    [editLayers],
   );
 
   /* ---------------------------------------------------- what the artboard
      is allowed to change, without knowing which kind of thing it holds */
 
+  /* What the artboard is allowed to change.
+   *
+   * This used to translate between two storage shapes, because a template
+   * element carried a scale MULTIPLIER against whatever the layout chose while
+   * a layer carried its size outright. There is one shape now, so most of this
+   * is a straight read and write. */
   const manip: Manipulator = useMemo(
     () => ({
       pos: (id, fallback) => {
         const l = findLayer(content.layers, id);
-        if (l) return { x: l.x, y: l.y };
-        const tr = content.transforms[id] ?? {};
-        return { x: tr.x ?? fallback.x, y: tr.y ?? fallback.y };
+        return l ? { x: l.x, y: l.y } : fallback;
       },
-      setPos: (id, x, y, tag) => {
-        const t = tag ?? `drag:${id}`;
-        if (findLayer(content.layers, id)) patchLayer(id, { x, y }, t);
-        else setTransform(id, { x, y }, t);
-      },
+      setPos: (id, x, y, tag) => patchLayer(id, { x, y }, tag ?? `drag:${id}`),
       scale: (id) => {
         const l = findLayer(content.layers, id);
-        if (!l) return content.transforms[id]?.scale ?? 1;
+        if (!l) return 1;
         return l.kind === "text" ? l.size : l.w;
       },
-      setScale: (id, v, gestureTag) => {
+      setScale: (id, v, tag) => {
         const l = findLayer(content.layers, id);
-        const tag = gestureTag ?? `size:${id}`;
-        /* The wordmark has a floor. The bible sets a minimum size "so the
-           arrow-I signpost stops reading", and it is enforced HERE rather than
-           on the slider because a corner handle is now another way to get
-           below it - a limit that only one of two paths respects is not a
-           limit. */
-        if (id === "wordmark") return setTransform(id, { scale: Math.max(minMarkScale(format), v) }, tag);
-        if (!l) return setTransform(id, { scale: v }, tag);
+        if (!l) return;
+        const t = tag ?? `size:${id}`;
         // A corner is proportional, so the OTHER dimension follows by the same
         // ratio: a text box keeps its measure as the type grows, and a shape
         // keeps its proportions instead of turning into a different shape.
         if (l.kind === "text") {
           const r = v / (l.size || 1);
-          patchLayer(id, { size: v, w: l.w * r }, tag);
+          patchLayer(id, { size: v, w: l.w * r }, t);
         } else if (l.kind === "shape") {
           const r = v / (l.w || 1);
-          patchLayer(id, { w: v, h: l.h * r }, tag);
-        } else if (l.kind === "image" && l.frameH !== null) {
-          // A frame keeps its shape under a corner drag; the crop inside it is
-          // unaffected, because the focal point is stored on the artwork.
-          const r = v / (l.w || 1);
-          patchLayer(id, { w: v, frameH: l.frameH * r }, tag);
+          patchLayer(id, { w: v, h: l.h * r }, t);
         } else {
-          patchLayer(id, { w: v }, tag);
+          /* The wordmark's floor, and it is enforced HERE because it belongs to
+             the ARTWORK rather than to any slot: the bible's "so the arrow-I
+             signpost stops reading" would be just as true of the same file
+             dropped in from a desktop. Every path that can shrink an image goes
+             through this one, so the limit cannot be walked around. */
+          const floor = minLayerWidth(l.file, format);
+          const w = Math.max(floor, v);
+          if (l.frameH !== null) patchLayer(id, { w, frameH: l.frameH * (w / (l.w || 1)) }, t);
+          else patchLayer(id, { w }, t);
         }
       },
-      rot: (id) => {
-        const l = findLayer(content.layers, id);
-        return l ? l.rotation : (content.transforms[id]?.rotation ?? 0);
-      },
-      setRot: (id, deg, tag) => {
-        const t = tag ?? `rot:${id}`;
-        if (findLayer(content.layers, id)) patchLayer(id, { rotation: deg }, t);
-        else setTransform(id, { rotation: deg }, t);
-      },
+      rot: (id) => findLayer(content.layers, id)?.rotation ?? 0,
+      setRot: (id, deg, tag) => patchLayer(id, { rotation: deg }, tag ?? `rot:${id}`),
       extent: (id) => {
         const l = findLayer(content.layers, id);
         if (!l) return null;
         // A text box has a width you set and a height it works out; a shape has
-        // both; an image has the artwork's aspect and stretching it is not
-        // something this tool offers.
+        // both; a framed image has a crop you can reshape. Unframed artwork has
+        // the aspect the artwork came with, and stretching it is not offered.
         if (l.kind === "text") return { w: l.w, h: null };
         if (l.kind === "shape") return { w: l.w, h: l.h };
-        // A FRAME can be reshaped on either axis - that is what cropping is.
-        // Unframed artwork cannot: its aspect is the artwork's own.
         if (l.kind === "image" && l.frameH !== null) return { w: l.w, h: l.frameH };
         return null;
       },
@@ -535,16 +412,13 @@ export default function App() {
         const t = tag ?? `size:${id}`;
         if (l.kind === "text") patchLayer(id, { w }, t);
         else if (l.kind === "shape") patchLayer(id, { w, h }, t);
-        else if (l.kind === "image") patchLayer(id, { w, frameH: h }, t);
+        else patchLayer(id, { w: Math.max(minLayerWidth(l.file, format), w), frameH: h }, t);
       },
       locked: (id) => findLayer(content.layers, id)?.locked === true,
-      /* Only text LAYERS can be typed into on the artboard, and the reason is
-         not squeamishness: a layer's size is a number you set, so a caret can
-         be placed at exactly the size the canvas draws. The template's headline
-         and supporting line are FITTED to a zone, so their size changes as you
-         type - a caret would need the autofit re-run per keystroke to stay
-         where the letters are, and would still jump every time the fit stepped.
-         The panel field is honest about what is happening there. */
+      /* Only text layers can be typed into on the artboard. That used to also
+         exclude the template's fitted headline, whose size moved as you typed;
+         there is no such thing any more, so the exclusion is simply "this is
+         not text". */
       editable: (id) => {
         const l = findLayer(content.layers, id);
         if (!l || l.kind !== "text" || l.locked) return null;
@@ -568,7 +442,7 @@ export default function App() {
       },
       setText: (id, value) => patchLayer(id, { text: value }, `text:${id}`),
     }),
-    [content, format, patchLayer, setTransform],
+    [content, format, patchLayer],
   );
 
   /* ------------------------------------------------------------ the boot */
@@ -577,17 +451,22 @@ export default function App() {
     let live = true;
     (async () => {
       try {
-        const [, grain, cream, charcoal, wave, ride] = await Promise.all([
+        /* Brand artwork is loaded into the SAME map as folder files and
+           uploads, under its own keys. There is no separate slot for BUZZ or
+           the wordmark any more, because there is nothing that would read
+           one - they are images a layer points at, like any other. */
+        const [, grain, ...art] = await Promise.all([
           loadBrandFonts(),
           loadImage(assetUrl("/brand/grain.webp")),
-          loadImage(assetUrl("/brand/studioland-wordmark-cream.png")),
-          loadImage(assetUrl("/brand/studioland-wordmark-charcoal.png")),
-          loadImage(assetUrl("/brand/buzz-wave.webp")),
-          loadImage(assetUrl("/brand/buzz-ride.webp")),
+          ...BRAND_ASSETS.map((a) => loadImage(assetUrl(a.path))),
         ]);
         if (!live) return;
         prepareGrain(grain);
-        setAssets({ buzz: { wave, ride }, wordmark: { cream, charcoal }, images: {} });
+        const images: Record<string, HTMLImageElement> = {};
+        BRAND_ASSETS.forEach((a, i) => {
+          images[a.key] = art[i];
+        });
+        setAssets({ images });
       } catch (e) {
         if (live) setError(e instanceof Error ? e.message : String(e));
       }
@@ -609,7 +488,7 @@ export default function App() {
      the folder is connected, which is the moment a restored design's images can
      finally draw; before that they are names with nothing behind them. */
   const attachArtwork = useCallback(
-    async (sh: SocialAdContent, ov: Record<string, Partial<SocialAdContent>>) => {
+    async (sh: DesignContent, ov: Record<string, Partial<DesignContent>>) => {
       const refs = artworkNames(sh, ov);
       if (!refs.length) return;
       const loaded: Record<string, HTMLImageElement> = {};
@@ -630,15 +509,64 @@ export default function App() {
     [],
   );
 
+  /* The standard social ad, composed for one artboard and handed back as
+     layers. A 2D context is needed to fit the headline the way the old template
+     did, so it is made here rather than guessed at. */
+  const composeStarter = useCallback(
+    (fmt: Format, cw: Colorway, copy = DEFAULT_COPY): Layer[] => {
+      if (!assets) return [];
+      const c = document.createElement("canvas").getContext("2d");
+      return socialAdStarter(fmt, cw, assets.images, c, copy);
+    },
+    [assets],
+  );
+
   const applyDesign = useCallback(
     (d: ReturnType<typeof hydrate>) => {
       if (!d) return;
+      /* A design written before the roles were deleted arrives with five named
+         fields and no layers. Compose the arrangement it described, then put
+         back whatever had been moved, resized or turned - so an old design
+         opens looking like itself rather than like an empty ground. */
+      let shared = d.shared;
+      if (d.legacy && !shared.layers.length) {
+        const composed = composeStarter(d.format, d.colorway, d.legacy.copy);
+        const byRole: Record<string, string> = {
+          BUZZ: "buzz",
+          Wordmark: "wordmark",
+          Headline: "headline",
+          "Supporting line": "body",
+          "Call to action": "cta",
+        };
+        shared = {
+          layers: composed.map((l) => {
+            const role = byRole[l.name];
+            const tr = role ? d.legacy!.transforms[role] : undefined;
+            const ink = role ? (d.legacy!.ink[role] ?? null) : null;
+            if (!tr && !ink) return l;
+            const scaled = { ...l, ink };
+            if (tr?.x !== undefined) scaled.x = tr.x;
+            if (tr?.y !== undefined) scaled.y = tr.y;
+            if (tr?.rotation !== undefined) scaled.rotation = tr.rotation;
+            if (tr?.scale !== undefined && tr.scale !== 1) {
+              if (scaled.kind === "text") {
+                scaled.size *= tr.scale;
+                scaled.w *= tr.scale;
+              } else {
+                scaled.w *= tr.scale;
+                if (scaled.kind === "shape") scaled.h *= tr.scale;
+              }
+            }
+            return scaled;
+          }),
+        };
+      }
       /* RESET rather than push: the states before this belong to a different
          document, and undoing into them would take you out of the design you
          just opened with no way to tell what happened. */
       setHist((h) =>
         resetHistory(h, {
-          shared: d.shared,
+          shared,
           overrides: d.overrides,
           colorway: d.colorway.key,
           ink: d.ink,
@@ -650,9 +578,9 @@ export default function App() {
       setFormat(d.format);
       setSelected(null);
       setScope("all");
-      void attachArtwork(d.shared, d.overrides);
+      void attachArtwork(shared, d.overrides);
     },
-    [attachArtwork],
+    [attachArtwork, composeStarter],
   );
 
   /* Restore the draft once, before the first autosave can run. `restored` gates
@@ -674,7 +602,7 @@ export default function App() {
         /* no custom sizes is a fine state to open in */
       }
       try {
-        const d = hydrate(await loadDraft(), DEFAULT_CONTENT, known);
+        const d = hydrate(await loadDraft(), EMPTY, known);
         if (d) applyDesign(d);
       } finally {
         setRestored(true);
@@ -824,16 +752,23 @@ export default function App() {
   );
 
   const placeImage = useCallback(
-    async (file: string, src: "library" | "upload", label?: string) => {
+    async (file: string, src: "library" | "upload" | "brand", label?: string) => {
       try {
-        const img = src === "upload" ? await loadUpload(file) : await loadFromLibrary(file);
+        // Brand artwork is already decoded and in the map from boot.
+        const img =
+          src === "brand"
+            ? assets?.images[file]
+            : src === "upload"
+              ? await loadUpload(file)
+              : await loadFromLibrary(file);
+        if (!img) throw new Error(`${label ?? file} is not loaded`);
         setAssets((prev) => (prev ? { ...prev, images: { ...prev.images, [file]: img } } : prev));
         addNew(newImage(file, src, label ? { name: label } : {}));
       } catch (e) {
         setLibError(e instanceof Error ? e.message : String(e));
       }
     },
-    [addNew],
+    [addNew, assets],
   );
 
   const takeFiles = useCallback(
@@ -870,7 +805,14 @@ export default function App() {
   /* --------------------------------------------------- designs and presets */
 
   const doSave = async () => {
-    const name = designName.trim() || content.headline.trim().slice(0, 60) || "Untitled";
+    /* A design names itself after its first line of type if you do not, which
+       is nearly always the headline - but it is found by looking rather than by
+       asking a slot, because there are no slots. */
+    const firstText = content.layers.find((l) => l.kind === "text" && l.text.trim());
+    const name =
+      designName.trim() ||
+      (firstText && firstText.kind === "text" ? firstText.text.trim().slice(0, 60) : "") ||
+      "Untitled";
     await saveDesign(name, { ...doc, updated: Date.now(), format: format.key });
     setDesigns(await listDesigns());
     setDesignName("");
@@ -879,16 +821,13 @@ export default function App() {
   };
 
   const doLoad = async (id: string) =>
-    applyDesign(hydrate(await loadDesign(id), DEFAULT_CONTENT, formats));
+    applyDesign(hydrate(await loadDesign(id), EMPTY, formats));
 
   const savePresetNow = async () => {
     const name = presetName.trim() || `${format.label} arrangement`;
     await savePreset(name, {
       updated: Date.now(),
-      transforms: content.transforms,
-      inkOverrides: content.inkOverrides,
       layers: content.layers,
-      buzz: content.buzz,
       colorway: colorway.key,
       ink: doc.ink,
       curtain: doc.curtain,
@@ -902,35 +841,22 @@ export default function App() {
   const applyPreset = async (id: string) => {
     const pr = hydratePreset(await loadPreset(id));
     if (!pr) return;
-    /* The words are left alone on purpose - that is what separates a preset from
-       a saved design. It lands as ONE undo step rather than five, because
-       "apply preset" is one thing you did. */
-    commit((d) => {
-      const patch = {
-        transforms: pr.transforms,
-        inkOverrides: pr.inkOverrides,
-        layers: pr.layers,
-        buzz: pr.buzz,
-      };
-      if (scope === "all") {
-        const overrides: Record<string, Partial<SocialAdContent>> = {};
-        for (const [key, p] of Object.entries(d.overrides)) {
-          const rest = { ...p };
-          for (const k of Object.keys(patch)) delete rest[k as keyof SocialAdContent];
-          if (Object.keys(rest).length) overrides[key] = rest;
-        }
-        return { ...d, shared: { ...d.shared, ...patch }, colorway: pr.colorway, ink: pr.ink, curtain: pr.curtain, overrides };
-      }
-      return {
-        ...d,
-        colorway: pr.colorway,
-        ink: pr.ink,
-        curtain: pr.curtain,
-        overrides: { ...d.overrides, [format.key]: { ...(d.overrides[format.key] ?? {}), ...patch } },
-      };
-    });
-    setSelected(null);
-    void attachArtwork({ ...doc.shared, layers: pr.layers }, doc.overrides);
+    /* A preset now carries the whole stack, so applying one REPLACES the
+       design's layers rather than merging an arrangement into named slots. It
+       lands as one undo step, because "apply preset" is one thing you did.
+       That it takes the words with it is a change from before, and an honest
+       one: with no roles there is no way to tell which text was "the headline"
+       and therefore no way to keep yours while taking someone else's layout. */
+    commit((d) => ({
+      ...d,
+      shared: { layers: pr.layers },
+      overrides: {},
+      colorway: pr.colorway,
+      ink: pr.ink,
+      curtain: pr.curtain,
+    }));
+    setSelection([]);
+    void attachArtwork({ layers: pr.layers }, {});
   };
 
   const addSize = () => {
@@ -958,7 +884,7 @@ export default function App() {
      hydrate() will not recognise the key next time either. That is the right
      call for a deliberate delete - the alternative is a ghost override on a
      format nobody can select - but it is worth doing loudly rather than
-     silently, so the overrides go now rather than at the next page load. */
+     silently, so the override goes now rather than at the next page load. */
   const removeSize = (f: Format) => {
     const next = custom.filter((c) => c.key !== f.key);
     setCustom(next);
@@ -992,23 +918,28 @@ export default function App() {
   const missingUploads = missingArt.filter((r) => r.src === "upload").length;
 
   const active = findLayer(content.layers, selected);
-  const selectedLabel = selected ? (LABELS[selected] ?? active?.name ?? "Selected") : "";
+  const selectedLabel = active?.name ?? "Selected";
   const selectedRegion = regions.find((r) => r.id === selected) ?? null;
 
-  /* What can carry ink at all. Text never boils - that is the rule, not a
-     default - so offering a toggle on a headline would be offering a control
-     that cannot do anything. */
-  const canInk = (id: string) =>
-    !["headline", "body"].includes(id) && active?.kind !== "text";
+  /* Text never boils - that is the rule, not a default - so a text layer has no
+     ink control at all rather than one that cannot do anything. */
+  const canInk = active !== null && active.kind !== "text";
 
-  const clearField = (k: keyof SocialAdContent) =>
-    commit((d) => {
-      const { [k]: _drop, ...rest } = d.overrides[format.key] ?? {};
-      const overrides = { ...d.overrides };
-      if (Object.keys(rest).length) overrides[format.key] = rest;
-      else delete overrides[format.key];
-      return { ...d, overrides };
-    });
+  /* Replace the stack with the standard social ad, composed for the shape you
+     are in. This is what the template used to do on every draw, and it is the
+     honest replacement for it: switching format no longer re-composes by
+     itself, so re-composing is a thing you ask for and can undo. */
+  /** A floor on how small this layer may go, in the units the slider works in. */
+  const floorFor = (l: Layer): number =>
+    l.kind === "image" ? minLayerWidth(l.file, format) : 0;
+
+  const standardArrangement = () => {
+    const composed = composeStarter(format, colorway);
+    if (composed.length) {
+      editLayers(composed);
+      setSelection([]);
+    }
+  };
 
   const resetFormat = () =>
     commit((d) => {
@@ -1136,6 +1067,22 @@ export default function App() {
           <button type="button" className="ghost" onClick={() => fileRef.current?.click()}>
             Upload image
           </button>
+        </div>
+        {/* The brand's own artwork, added the same way as anything else. BUZZ
+            and the wordmark used to be slots the template owned; they are files
+            now, and the only thing that still knows one of them is special is
+            the wordmark's minimum size, which belongs to the artwork. */}
+        <div className="row">
+          {BRAND_ASSETS.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              className="ghost"
+              onClick={() => void placeImage(a.key, "brand", a.label)}
+            >
+              {a.label}
+            </button>
+          ))}
           <input
             ref={fileRef}
             type="file"
@@ -1149,9 +1096,10 @@ export default function App() {
           />
         </div>
         <p className="hint">
-          Everything you add is a layer: dragged, resized, rotated and stacked. The template&rsquo;s
-          own five &mdash; headline, supporting line, badge, BUZZ, wordmark &mdash; behave the same
-          way, they just start where the layout put them.
+          Everything on the artboard is a layer &mdash; dragged, resized, rotated, stacked, given
+          its own paper, and deleted. There are no special pieces: BUZZ and the wordmark are
+          artwork you add, the headline is text you type, the badge is a shape. Nothing here knows
+          which is which.
         </p>
 
         {selection.length > 1 && (
@@ -1516,20 +1464,21 @@ export default function App() {
               </>
             )}
 
-            {active?.kind !== "text" && (
+            {active && active.kind !== "text" && (
               <label>
                 Size
                 <input
                   type="range"
-                  min={selected === "wordmark" ? Math.round(minMarkScale(format) * 100) : active ? 1 : 20}
-                  max={active ? 200 : 250}
-                  value={Math.round(manip.scale(selected) * 100)}
-                  onChange={(e) => manip.setScale(selected, Number(e.target.value) / 100)}
+                  min={Math.max(1, Math.round(floorFor(active) * 100))}
+                  max={200}
+                  value={Math.round(manip.scale(selected!) * 100)}
+                  onChange={(e) => manip.setScale(selected!, Number(e.target.value) / 100)}
                 />
-                {selected === "wordmark" && (
+                {floorFor(active) > 0 && (
                   <em className="floor">
-                    Stops at {Math.round(minMarkScale(format) * 100)}% &mdash; below that the arrow-I
-                    signpost stops reading.
+                    Stops at {Math.round(floorFor(active) * 100)}% &mdash; below that the arrow-I
+                    signpost stops reading. That is a rule about this artwork, so it holds wherever
+                    the mark is used.
                   </em>
                 )}
               </label>
@@ -1588,7 +1537,7 @@ export default function App() {
               </>
             )}
 
-            {canInk(selected) && (
+            {canInk && (
               <>
                 <div className="modes small">
                   {(
@@ -1602,14 +1551,8 @@ export default function App() {
                     <button
                       key={label}
                       type="button"
-                      className={
-                        (active ? active.ink : (content.inkOverrides[selected] ?? null)) === mode
-                          ? "mode on"
-                          : "mode"
-                      }
-                      onClick={() =>
-                        active ? patchLayer(active.id, { ink: mode }) : setElementInk(selected, mode)
-                      }
+                      className={active!.ink === mode ? "mode on" : "mode"}
+                      onClick={() => patchLayer(active!.id, { ink: mode })}
                     >
                       {label}
                     </button>
@@ -1619,23 +1562,16 @@ export default function App() {
               </>
             )}
 
-            <div className="row">
-              {!active && content.transforms[selected] && (
-                <button type="button" className="ghost" onClick={() => clearTransform(selected)}>
-                  Back to auto
+            {active && (
+              <div className="row">
+                <button type="button" className="ghost" onClick={() => duplicateMany([active.id])}>
+                  Duplicate
                 </button>
-              )}
-              {active && (
-                <>
-                  <button type="button" className="ghost" onClick={() => duplicateMany([active.id])}>
-                    Duplicate
-                  </button>
-                  <button type="button" className="ghost" onClick={() => dropLayer(active.id)}>
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
+                <button type="button" className="ghost" onClick={() => dropLayer(active.id)}>
+                  Delete
+                </button>
+              </div>
+            )}
           </>
         )}
 
@@ -1714,37 +1650,26 @@ export default function App() {
         </div>
         {scope === "format" && (
           <p className="hint warn">
-            Changes below apply to <strong>{format.label}</strong> alone. Everything else keeps the
-            shared value.
+            <strong>{format.label}</strong> is carrying its own stack of layers. Everything else
+            keeps the shared one.
           </p>
         )}
 
-        <Field label="Headline" name="headline" overridden={overridden} onClear={clearField}>
-          <textarea
-            rows={3}
-            value={content.headline}
-            onChange={(e) => edit("headline", e.target.value, "text:headline")}
-          />
-        </Field>
-        <Field label="Supporting line" name="body" overridden={overridden} onClear={clearField}>
-          <textarea
-            rows={3}
-            value={content.body}
-            onChange={(e) => edit("body", e.target.value, "text:body")}
-          />
-        </Field>
-        <Field label="Call to action" name="cta" overridden={overridden} onClear={clearField}>
-          <input value={content.cta} onChange={(e) => edit("cta", e.target.value, "text:cta")} />
-        </Field>
-        <Field label="BUZZ" name="buzz" overridden={overridden} onClear={clearField}>
-          <select value={content.buzz} onChange={(e) => edit("buzz", e.target.value as BuzzPose)}>
-            {BUZZ_POSES.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="row">
+          <button type="button" className="ghost" onClick={standardArrangement}>
+            Standard arrangement
+          </button>
+        </div>
+        <p className="hint">
+          Composes the standard social ad for this shape and hands it over as layers &mdash; a
+          headline, BUZZ, the wordmark, a badge. Nothing it makes is special afterwards: every
+          piece is an ordinary layer you can retype, restyle, move or delete. It replaces what is
+          on the artboard, and it is one undo.
+        </p>
+        <p className="hint">
+          Switching format re-scales what is here rather than re-composing it. Ask for the standard
+          arrangement again to get a layout worked out for the shape you are now in.
+        </p>
 
         </Section>
         <Section title="Color">
@@ -2039,14 +1964,10 @@ export default function App() {
           </p>
         </details>
         <div className="row" style={{ marginTop: 10 }}>
-          <button type="button" className="ghost" onClick={autoArrange}>
-            Auto-arrange
+          <button type="button" className="ghost" onClick={standardArrangement}>
+            Standard arrangement
           </button>
         </div>
-        <p className="hint">
-          Auto-arrange puts the template&rsquo;s five back to what the layout would do here. Layers
-          are left alone &mdash; they were never in the layout, so it has nothing to say about them.
-        </p>
         {doc.overrides[format.key] ? (
           <p className="hint">
             <button type="button" className="undo" onClick={resetFormat}>

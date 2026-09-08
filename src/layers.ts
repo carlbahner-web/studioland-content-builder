@@ -1,17 +1,28 @@
-/* Free layers - the thing you add, rather than the thing the template placed.
+/* Layers. A design is a ground and an ordered list of these, and nothing else.
  *
- * The template still owns five named elements (headline, supporting line, CTA,
- * BUZZ, wordmark) and composes them per format, which is what makes a new design
- * on-brand in one second. That is worth keeping, so it was kept. What it cannot
- * do is let you put a second block of text somewhere, or a rule under a word, or
- * three photos in a row - and a tool meant to replace a general-purpose design
- * app has to.
+ * IT USED TO BE A TEMPLATE PLUS LAYERS. Five elements - headline, supporting
+ * line, CTA, BUZZ, wordmark - were named ROLES that the template owned: it
+ * placed them, sized them, and drew them from their own branch of the drawing
+ * code, and they carried their positions in a separate `transforms` map keyed
+ * by role name. Layers were the things you added on top.
  *
- * So a design is now the template PLUS an ordered list of layers drawn over it.
- * Both kinds are selected, dragged, resized and rotated by the same machinery;
- * the difference is only that a template element falls back to a computed
- * position when it has no transform of its own, and a layer always knows where
- * it is.
+ * That split earned its keep for exactly as long as the template was a cage. It
+ * stopped the moment every element became freely placeable, and after that it
+ * was only a source of exceptions: a headline could not be deleted, BUZZ could
+ * not take a different amount of paper, the wordmark had controls no other
+ * image had and lacked ones every other image had, and half the panel existed
+ * to edit five things the other half could not touch. Every one of those was
+ * the role, not the artwork.
+ *
+ * So the roles are gone. The headline is a text layer. BUZZ and the wordmark
+ * are image layers pointing at brand artwork. The CTA badge is a starburst
+ * shape. Each can be added, moved, restyled, duplicated and deleted like
+ * anything else, because there is no code left that knows which is which.
+ *
+ * What the template knew is not lost - it moved. `starters/` composes that
+ * arrangement for a given format and hands back layers, so "the standard social
+ * ad, laid out for this shape" is a thing you ASK FOR rather than a thing you
+ * are stuck inside.
  *
  * TWO CONVENTIONS HOLD FOR EVERY LAYER, and both are inherited from the sticker
  * rule they replace, for its reasons:
@@ -153,8 +164,10 @@ export type ImageLayer = Base & {
    * the file you dragged in - so uploads silently drew nothing. `name` is
    * yours to rename; `file` is never shown and never edited. */
   file: string;
-  /** Where the bytes come from, so the UI can say what is missing and why. */
-  src: "library" | "upload";
+  /* Where the bytes come from, so the UI can say what is missing and why.
+   * "brand" is artwork that ships with the tool - BUZZ, the wordmark - and is
+   * always available; the other two can go missing in ways worth distinguishing. */
+  src: "library" | "upload" | "brand";
   /** Width, as a fraction of the short edge. */
   w: number;
   /** Frame height, as a fraction of the short edge. null means no frame: the

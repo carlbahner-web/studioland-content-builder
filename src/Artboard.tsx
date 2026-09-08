@@ -30,13 +30,13 @@ import { snapBox, snapTargets, snapThreshold, type Box, type Guide } from "./sna
 import { TEXT_PLACEHOLDER } from "./layers.ts";
 import { FIRST_BASELINE } from "./render.ts";
 import {
-  drawSocialAd,
+  drawSheet,
   hitRegion,
   LOOP_FRAMES,
   type Assets,
+  type Design,
   type Region,
-  type SocialAdContent,
-} from "./templates/socialAd.ts";
+} from "./sheet.ts";
 
 /* What the artboard can be asked to change about an element, without knowing
  * whether it is one of the template's five or a layer you added.
@@ -310,7 +310,7 @@ export function Artboard({
 }: {
   size: Format;
   colorway: Colorway;
-  content: SocialAdContent;
+  content: Design;
   assets: Assets;
   animate: boolean;
   curtain: boolean;
@@ -368,7 +368,7 @@ export function Artboard({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (!animate) {
-      regions.current = drawSocialAd(ctx, size, colorway, content, assets, {
+      regions.current = drawSheet(ctx, size, colorway, content, assets, {
         ink,
         hide: editing,
         transparent,
@@ -385,7 +385,7 @@ export function Artboard({
     const tick = (now: number) => {
       if (!start) start = now;
       const frame = Math.floor(((now - start) / 1000) * FPS) % LOOP_FRAMES;
-      regions.current = drawSocialAd(ctx, size, colorway, content, assets, {
+      regions.current = drawSheet(ctx, size, colorway, content, assets, {
         frame,
         ink,
         curtain,
@@ -1003,7 +1003,7 @@ export function Artboard({
     c.height = size.h;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    drawSocialAd(ctx, size, colorway, content, assets, { ink, transparent, grain });
+    drawSheet(ctx, size, colorway, content, assets, { ink, transparent, grain });
     c.toBlob(async (blob) => {
       if (!blob) return;
       const how = await saveFile(`studioland-social-${size.key}-${colorway.key}.png`, blob);
@@ -1034,7 +1034,7 @@ export function Artboard({
            black rather than as a hole. Painting the ground back in is the
            honest answer, and the panel says so where the option is. */
         draw: (frame) =>
-          drawSocialAd(octx, size, colorway, content, assets, { frame, ink, curtain, grain }),
+          drawSheet(octx, size, colorway, content, assets, { frame, ink, curtain, grain }),
         onProgress: (done, total) => setBusy(`${Math.round((done / total) * 100)}%`),
       });
       await saveFile(`studioland-social-${size.key}-${colorway.key}.mp4`, blob);

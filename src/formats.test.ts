@@ -3,17 +3,9 @@ import { test } from "node:test";
 import { customKey, formatProblem, isCustom, MAX_SIDE, MIN_SIDE } from "./formats.ts";
 import { FORMATS } from "./brand.ts";
 import { hydrate } from "./store.ts";
-import type { SocialAdContent } from "./templates/socialAd.ts";
+import type { Design } from "./sheet.ts";
 
-const base: SocialAdContent = {
-  headline: "",
-  body: "",
-  cta: "",
-  buzz: "wave",
-  layers: [],
-  transforms: {},
-  inkOverrides: {},
-};
+const base: Design = { layers: [] };
 
 test("a custom key can never collide with a built-in format", () => {
   const built = new Set(FORMATS.map((f) => f.key));
@@ -45,14 +37,15 @@ test("sizes outside the workable range are refused with a reason", () => {
  * loses it unless hydrate is told that size exists. */
 test("overrides for a custom format survive when hydrate is told about it", () => {
   const mine = { key: "x-abc", label: "Client one-pager", where: "Custom size", w: 1200, h: 1200 };
-  const raw = { overrides: { "x-abc": { headline: "kept" } }, format: "x-abc" };
+  const kept = { kind: "image", id: "k", file: "kept.svg" };
+  const raw = { overrides: { "x-abc": { layers: [kept] } }, format: "x-abc" };
 
   const blind = hydrate(raw, base)!;
   assert.deepEqual(blind.overrides, {}, "without the list, the work is dropped");
   assert.equal(blind.format.key, FORMATS[0].key);
 
   const told = hydrate(raw, base, [...FORMATS, mine])!;
-  assert.equal(told.overrides["x-abc"].headline, "kept");
+  assert.equal(told.overrides["x-abc"].layers?.[0].id, "k");
   assert.equal(told.format.key, "x-abc");
 });
 

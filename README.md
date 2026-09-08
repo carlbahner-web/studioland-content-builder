@@ -1,9 +1,10 @@
 # StudioLand content builder
 
 Make an on-brand asset in whatever proportion you need, without deciding
-anything the brand has already decided — and then keep going, because a template
-that composes the first ninety percent is no use if the last ten is impossible.
-A first template — the social ad — a layer editor over it, and the machinery the
+anything the brand has already decided — and then keep going, because an
+arrangement that composes the first ninety percent is no use if the last ten is
+impossible.
+A layer editor, a starting arrangement for the social ad, and the machinery the
 rest will share.
 
 ```
@@ -126,11 +127,11 @@ anything extra.
 
 ## How it renders, and why not the DOM
 
-Templates draw to a `<canvas>` at true output pixels. The preview element *is*
+The design draws to a `<canvas>` at true output pixels. The preview element *is*
 the artboard — only its CSS box is scaled — so what you see is what exports, with
 no second rendering path to drift out of step.
 
-The obvious alternative is to lay templates out in HTML and rasterise them, which
+The obvious alternative is to lay the design out in HTML and rasterise it, which
 is roughly what the Kit tool this was modelled on appears to do. Three things
 about StudioLand's brand push the other way:
 
@@ -184,30 +185,71 @@ is a different shape, and stacking a headline over a character in it leaves both
 cramped. There the headline takes the left, BUZZ takes the right, and the badge
 tucks between them.
 
-## Two things on one artboard
+## Everything is a layer
 
-A design is **the template plus a list of layers**, and the split is the load-bearing
-idea in the whole tool.
+A design is **a ground and an ordered list of layers**, and that is the whole
+model. There is no second kind of thing.
 
-The **template** owns five named elements — headline, supporting line, CTA badge,
-BUZZ, wordmark — and composes them per format. That is what makes a new asset
-on-brand in one second and what makes switching format re-lay out rather than
-crop. It is worth keeping and it was kept.
+**It used to be a template plus layers.** Five elements — headline, supporting
+line, CTA badge, BUZZ, wordmark — were named *roles* the template owned: it
+placed them, sized them, drew them from their own branch, and stored their
+positions in a `transforms` map keyed by role name. Layers were what you added
+on top.
 
-**Layers** are what you add: text boxes, rules, rectangles, ellipses, the brand's
-own starburst, and images. They sit over whatever the template composed, in the
-order you stacked them, under the grain. They are the answer to everything the
-five slots cannot express — a second block of copy, a rule under a word, three
-photos in a row — and without them the tool could produce one shape of thing
-very well and nothing else at all.
+That split earned its keep for exactly as long as the template was a cage. It
+stopped the moment every element became freely placeable, and after that it was
+only a generator of exceptions:
 
-The two are stored differently and it matters. A template element carries a
-*scale multiplier* against whatever the layout chose for this format, so an
-untouched one still composes itself and a nudged one keeps its nudge. A layer
-carries its size outright, because nothing ever chose one for it. Everywhere
-else that difference is invisible: `Manipulator` in `Artboard.tsx` is the single
-place the two are translated, so selection, dragging, handles, snapping, undo
-and the keyboard are written once and work on both.
+- a headline could not be deleted, only emptied;
+- BUZZ could not be given a different amount of paper, because per-element grain
+  was a layer property;
+- the wordmark had controls no other image had, and lacked several every other
+  image had;
+- half the panel existed to edit five things the other half could not touch;
+- `Manipulator` existed largely to translate between two storage shapes.
+
+Every one of those was the *role*, not the artwork. So the roles are gone. The
+headline is a text layer. BUZZ and the wordmark are image layers pointing at
+brand artwork. The badge is a starburst shape. Each can be added, restyled,
+duplicated and deleted like anything else, because there is no code left that
+knows which is which.
+
+**What the template knew was not lost — it moved.** `starters/socialAd.ts` still
+holds every line of the zone reasoning, and hands the arrangement back as
+ordinary layers. "The standard social ad, composed for this shape" became a
+thing you *ask for* rather than a thing you are inside, and a design it produced
+is indistinguishable from one built by hand.
+
+### What that cost, honestly
+
+**Switching format no longer re-composes.** The five used to reflow per format —
+the headline autofitting into whatever space BUZZ and the badge had not claimed,
+landscape composing differently from square — and now a format switch re-scales
+what is there instead. That is a real loss and worth being clear about rather
+than discovering.
+
+It is smaller than it sounds. Re-composition only ever applied to elements
+nobody had touched: the moment you moved one, it kept its absolute position
+across formats anyway. So for any design past the first minute of work, the
+promise was already mostly not being kept. **Standard arrangement** re-runs the
+composition for the shape you are in, and it is one undo.
+
+Two other things went with the roles:
+
+- **A preset now carries the whole stack**, words and all, because with no roles
+  there is no way to tell which text was "the headline" and therefore no way to
+  keep yours while taking someone else's layout.
+- **Per-format overrides are per design**, not per field — a format either
+  carries its own stack of layers or shares the common one.
+
+### What survived, and where it went
+
+The wordmark's minimum size — the bible's "so the arrow-I signpost stops
+reading" — is **attached to the artwork** in `brandAssets.ts`, not to a slot. It
+would be just as true of the same file dropped in from a desktop, so that is
+where it belongs, and it is enforced on every path that can shrink an image
+rather than on one slider. A rule that belongs to a drawing should not evaporate
+because the drawing stopped being a slot.
 
 Layers are constrained exactly where the brand is:
 
@@ -252,7 +294,7 @@ Two details on the overlay are worth keeping:
   colourway.
 
 Hit regions still come from the **last draw** rather than a second copy of the
-layout maths, which is the rule the template already followed and the reason the
+layout maths, which is the rule the drawing code already followed and the reason the
 overlay effect is declared after the drawing effect: effects run in declaration
 order, so the handles are placed on regions the draw has just produced.
 
@@ -371,8 +413,8 @@ cmd-A selects everything, and it deliberately sits *above* the "nothing is
 selected" guard — an empty selection is exactly the state you press it in, which
 it did not do at first.
 
-Only layers are deletable. The template's five are part of the composition; the
-way to be rid of one is to empty its text.
+Everything is deletable, because everything is a layer. That was not true when
+five of them were roles the template owned.
 
 ### Typing on the artboard
 
@@ -409,11 +451,13 @@ place where canvas and CSS quietly disagree:
   tall however much you typed. The layout effect owns the whole geometry; React
   owns the typography.
 
-The caret is offered **only where it can be honest**. The template's headline and
-supporting line are fitted to a zone, so their size changes as you type; a caret
-there would need the autofit re-run per keystroke to stay on the letters, and
-would still jump every time the fit stepped. Those keep the panel field, which
-does not pretend otherwise.
+The caret is offered on any text layer, which since the roles were deleted means
+any text at all. It used to exclude the template's headline and supporting line,
+because those were fitted to a zone and their size moved as you typed — a caret
+there needed the autofit re-run per keystroke to stay on the letters and still
+jumped every time the fit stepped. The starter now fits the headline **once**, at
+compose time, and hands over a concrete size; nothing resizes itself under the
+caret any more.
 
 ## Balanced headlines
 
@@ -922,14 +966,10 @@ self-service gap this tool was built to close.
 - **Tier 2 texture.** The whole-sheet weathering plates. `wild-ride` has eight;
   none are copied here yet. Use each sheet whole and fitted, never cropped and
   tiled. The per-layer paper control is tier 1 only.
-- **Per-element paper on the template's five.** The headline, BUZZ and the
-  wordmark take the sheet's grain and cannot opt out of it; only layers you add
-  can. Redrawing a template element after the grain means re-running its layout,
-  which the drawing code is not currently shaped for.
-- **More templates.** `templates/` takes one file per template; the carousel,
-  reel word-cards and the EDU title slide are all specified in bible 3.2. Layers
-  are template-agnostic, so a new one gets the whole editor for free by calling
-  `drawLayers`.
+- **More starting arrangements.** `starters/` takes one file per arrangement;
+  the carousel, reel word-cards and the EDU title slide are all specified in
+  bible 3.2. A starter only has to return layers, so a new one gets the whole
+  editor for nothing.
 - **Grouping.** Several things can be selected and moved together, but the
   grouping is not a thing that persists — reselect them next time.
 - **Non-uniform group resize.** A group scales uniformly from a corner; there
@@ -941,6 +981,6 @@ self-service gap this tool was built to close.
 
 ## Assets
 
-Everything the templates draw lives in `public/brand/`, documented in the README
+Everything the tool draws lives in `public/brand/`, documented in the README
 there — including that the wordmark is currently keyed from a screenshot and
 wants replacing with its real master.

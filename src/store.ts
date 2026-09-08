@@ -15,7 +15,8 @@
 import { COLORWAYS, FORMATS, type Colorway, type Format } from "./brand.ts";
 import { kvDelete, kvGet, kvKeys, kvSet } from "./kv.ts";
 import type { InkMode } from "./boil.ts";
-import type { SocialAdContent } from "./templates/socialAd.ts";
+import type { Design as DesignContent } from "./sheet.ts";
+import type { StarterCopy } from "./starters/socialAd.ts";
 import { DEFAULT_CUTOUT } from "./cutout.ts";
 import { GRAIN_ALPHA } from "./render.ts";
 import {
@@ -38,8 +39,8 @@ export type Design = {
   version: 1;
   name: string;
   updated: number;
-  shared: SocialAdContent;
-  overrides: Record<string, Partial<SocialAdContent>>;
+  shared: DesignContent;
+  overrides: Record<string, Partial<DesignContent>>;
   colorway: string;
   format: string;
   ink: InkMode;
@@ -140,7 +141,8 @@ function hydrateLayer(raw: unknown): Layer | null {
        falling back to `name` reads those correctly. */
     const file = str(raw.file, str(raw.name, ""));
     if (!file) return null;
-    return newImage(file, raw.src === "upload" ? "upload" : "library", {
+    const src = raw.src === "upload" || raw.src === "brand" ? raw.src : "library";
+    return newImage(file, src, {
       ...common,
       file,
       name: str(raw.name, file),
@@ -204,17 +206,49 @@ function hydrateLayers(raw: unknown, legacyStickers: unknown, fallback: Layer[])
   return fallback;
 }
 
-export function hydrateContent(raw: unknown, base: SocialAdContent): SocialAdContent {
+export function hydrateContent(raw: unknown, base: DesignContent): DesignContent {
   if (!isObj(raw)) return base;
-  const buzz = str(raw.buzz, base.buzz);
+  return { layers: hydrateLayers(raw.layers, raw.stickers, base.layers) };
+}
+
+/* --------------------------------------------------- the roles that were
+
+   A design written before the roles were deleted carries five named fields and
+   a `transforms` map keyed by role. Those cannot be turned into layers in here:
+   composing the arrangement needs the artboard's shape, the colourway, the
+   decoded artwork and a context to measure text with, none of which a pure
+   hydrator has. So the legacy copy is CARRIED OUT instead, and the caller - which
+   has all four - composes it and applies the stored transforms on top.
+
+   The alternative was to drop the five and open an old design as an empty
+   ground. That is not a migration, it is data loss with a changelog. */
+export type LegacyRoles = {
+  copy: StarterCopy;
+  transforms: Record<string, { x?: number; y?: number; scale?: number; rotation?: number }>;
+  ink: Record<string, InkMode>;
+};
+
+const BUZZ_KEYS: Record<string, string | null> = {
+  wave: "brand:buzz-wave",
+  ride: "brand:buzz-ride",
+  none: null,
+};
+
+function readLegacy(raw: unknown): LegacyRoles | null {
+  if (!isObj(raw)) return null;
+  // Layers already present means it was written after the change.
+  if (Array.isArray(raw.layers) && raw.layers.length) return null;
+  if (typeof raw.headline !== "string" && typeof raw.body !== "string") return null;
+  const buzz = str(raw.buzz, "wave");
   return {
-    headline: str(raw.headline, base.headline),
-    body: str(raw.body, base.body),
-    cta: str(raw.cta, base.cta),
-    buzz: buzz as SocialAdContent["buzz"],
-    layers: hydrateLayers(raw.layers, raw.stickers, base.layers),
-    transforms: hydrateTransforms(raw.transforms, raw.nudges, raw.scales),
-    inkOverrides: hydrateInk(raw.inkOverrides),
+    copy: {
+      headline: str(raw.headline, ""),
+      body: str(raw.body, ""),
+      cta: str(raw.cta, ""),
+      buzz: buzz in BUZZ_KEYS ? BUZZ_KEYS[buzz] : "brand:buzz-wave",
+    },
+    transforms: hydrateTransforms(raw.transforms, raw.nudges, raw.scales) as LegacyRoles["transforms"],
+    ink: hydrateInk(raw.inkOverrides) as Record<string, InkMode>,
   };
 }
 
@@ -227,12 +261,12 @@ function hydrateTransforms(
   raw: unknown,
   legacyNudges: unknown,
   legacyScales: unknown,
-): SocialAdContent["transforms"] {
-  const out: SocialAdContent["transforms"] = {};
+): LegacyRoles["transforms"] {
+  const out: LegacyRoles["transforms"] = {};
   if (isObj(raw)) {
     for (const [id, v] of Object.entries(raw)) {
       if (!isObj(v)) continue;
-      const tr: NonNullable<SocialAdContent["transforms"][string]> = {};
+      const tr: LegacyRoles["transforms"][string] = {};
       if (typeof v.x === "number" && Number.isFinite(v.x)) tr.x = clamp(v.x, -0.5, 1.5);
       if (typeof v.y === "number" && Number.isFinite(v.y)) tr.y = clamp(v.y, -0.5, 1.5);
       if (typeof v.scale === "number" && Number.isFinite(v.scale)) tr.scale = clamp(v.scale, 0.05, 4);
@@ -253,8 +287,8 @@ function hydrateTransforms(
   return out;
 }
 
-function hydrateInk(raw: unknown): SocialAdContent["inkOverrides"] {
-  const out: SocialAdContent["inkOverrides"] = {};
+function hydrateInk(raw: unknown): Record<string, InkMode> {
+  const out: Record<string, InkMode> = {};
   if (!isObj(raw)) return out;
   for (const [id, v] of Object.entries(raw)) {
     if (v === "off" || v === "still" || v === "live") out[id] = v;
@@ -262,17 +296,9 @@ function hydrateInk(raw: unknown): SocialAdContent["inkOverrides"] {
   return out;
 }
 
-function hydratePartial(raw: unknown): Partial<SocialAdContent> {
+function hydratePartial(raw: unknown): Partial<DesignContent> {
   if (!isObj(raw)) return {};
-  const out: Partial<SocialAdContent> = {};
-  if (typeof raw.headline === "string") out.headline = raw.headline;
-  if (typeof raw.body === "string") out.body = raw.body;
-  if (typeof raw.cta === "string") out.cta = raw.cta;
-  if (typeof raw.buzz === "string") out.buzz = raw.buzz as SocialAdContent["buzz"];
-  if (isObj(raw.transforms) || isObj(raw.scales)) {
-    out.transforms = hydrateTransforms(raw.transforms, raw.nudges, raw.scales);
-  }
-  if (isObj(raw.inkOverrides)) out.inkOverrides = hydrateInk(raw.inkOverrides);
+  const out: Partial<DesignContent> = {};
   if (Array.isArray(raw.layers) || Array.isArray(raw.stickers)) {
     out.layers = hydrateLayers(raw.layers, raw.stickers, []);
   }
@@ -280,8 +306,10 @@ function hydratePartial(raw: unknown): Partial<SocialAdContent> {
 }
 
 export type Restored = {
-  shared: SocialAdContent;
-  overrides: Record<string, Partial<SocialAdContent>>;
+  shared: DesignContent;
+  overrides: Record<string, Partial<DesignContent>>;
+  /** Set when the design predates layers and still has to be composed. */
+  legacy: LegacyRoles | null;
   colorway: Colorway;
   format: Format;
   ink: InkMode;
@@ -298,12 +326,12 @@ export type Restored = {
  * hydrating anything - see formats.ts. */
 export function hydrate(
   raw: unknown,
-  base: SocialAdContent,
+  base: DesignContent,
   formats: Format[] = FORMATS,
 ): Restored | null {
   if (!isObj(raw)) return null;
   const known = formats.length ? formats : FORMATS;
-  const overrides: Record<string, Partial<SocialAdContent>> = {};
+  const overrides: Record<string, Partial<DesignContent>> = {};
   if (isObj(raw.overrides)) {
     for (const [key, patch] of Object.entries(raw.overrides)) {
       // An override for a format that no longer exists is dropped, not kept as
@@ -316,6 +344,7 @@ export function hydrate(
   const ink = str(raw.ink, "still");
   return {
     shared: hydrateContent(raw.shared, base),
+    legacy: readLegacy(raw.shared),
     overrides,
     colorway: COLORWAYS.find((c) => c.key === raw.colorway) ?? COLORWAYS[0],
     format: known.find((f) => f.key === raw.format) ?? known[0],
@@ -335,16 +364,19 @@ export function hydrate(
  * missing because it is not in this browser - a design opened on the phone that
  * was made at the desk. Guessing from the name would collapse those into one
  * unhelpful "could not be found". */
-export type ArtworkRef = { name: string; src: "library" | "upload" };
+export type ArtworkRef = { name: string; src: "library" | "upload" | "brand" };
 
 export function artworkNames(
-  shared: SocialAdContent,
-  overrides: Record<string, Partial<SocialAdContent>>,
+  shared: DesignContent,
+  overrides: Record<string, Partial<DesignContent>>,
 ): ArtworkRef[] {
   const seen = new Map<string, ArtworkRef>();
   const collect = (layers: Layer[] | undefined) => {
     for (const l of layers ?? []) {
-      if (l.kind === "image" && !seen.has(l.file)) seen.set(l.file, { name: l.file, src: l.src });
+      // Brand artwork always resolves, so it is never "missing" and never listed.
+      if (l.kind === "image" && l.src !== "brand" && !seen.has(l.file)) {
+        seen.set(l.file, { name: l.file, src: l.src });
+      }
     }
   };
   collect(shared.layers);
@@ -411,10 +443,7 @@ export type Preset = {
   version: 1;
   name: string;
   updated: number;
-  transforms: SocialAdContent["transforms"];
-  inkOverrides: SocialAdContent["inkOverrides"];
   layers: Layer[];
-  buzz: SocialAdContent["buzz"];
   colorway: string;
   ink: InkMode;
   curtain: boolean;
@@ -424,21 +453,10 @@ export type SavedPreset = Preset & { id: string };
 
 export function hydratePreset(raw: unknown): Omit<Preset, "version" | "name" | "updated"> | null {
   if (!isObj(raw)) return null;
-  const partial = hydrateContent(raw, {
-    headline: "",
-    body: "",
-    cta: "",
-    buzz: "wave",
-    layers: [],
-    transforms: {},
-    inkOverrides: {},
-  });
+  const partial = hydrateContent(raw, { layers: [] });
   const ink = str(raw.ink, "still");
   return {
-    transforms: partial.transforms,
-    inkOverrides: partial.inkOverrides,
     layers: partial.layers,
-    buzz: partial.buzz,
     colorway: COLORWAYS.find((c) => c.key === raw.colorway)?.key ?? COLORWAYS[0].key,
     ink: (["off", "still", "live"].includes(ink) ? ink : "still") as InkMode,
     curtain: typeof raw.curtain === "boolean" ? raw.curtain : true,
