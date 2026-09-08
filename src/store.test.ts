@@ -90,6 +90,7 @@ test("layers are repaired where they can be and dropped where they cannot", () =
     zoom: 1,
     focusX: 0.5,
     focusY: 0.5,
+    cutout: null,
     flipX: false,
     flipY: false,
   });
@@ -144,6 +145,25 @@ test("an upload keeps an opaque key and a readable label, and they differ", () =
   const l = c.layers[0];
   assert.equal(l.kind === "image" && l.file, "upload:k3f");
   assert.equal(l.name, "beach.jpg");
+});
+
+/* null is a real value for cutout too - "leave the artwork as it came" - and a
+ * malformed one falls back to the defaults rather than to a broken shape. */
+test("a background cutout survives a round trip and is clamped", () => {
+  const c = hydrateContent(
+    {
+      layers: [
+        { kind: "image", id: "a", file: "p.jpg", cutout: { tolerance: 0.3, feather: 4 } },
+        { kind: "image", id: "b", file: "q.jpg", cutout: { tolerance: 99, feather: -2 } },
+        { kind: "image", id: "c", file: "r.jpg", cutout: "yes please" },
+      ],
+    },
+    base,
+  );
+  const [a, b, cc] = c.layers;
+  assert.deepEqual(a.kind === "image" && a.cutout, { tolerance: 0.3, feather: 4 });
+  assert.deepEqual(b.kind === "image" && b.cutout, { tolerance: 1, feather: 0 });
+  assert.equal(cc.kind === "image" && cc.cutout, null, "a non-object is no cutout at all");
 });
 
 test("an unknown layer kind is dropped", () => {
