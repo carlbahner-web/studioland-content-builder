@@ -1,0 +1,5 @@
+# The content builder is unlisted: nothing links to it and it is not meant to
+# turn up in search results. That is not secrecy - this is housekeeping, not a
+# security measure, and a crawler that ignores this file is not stopped by it.
+User-agent: *
+Disallow: /

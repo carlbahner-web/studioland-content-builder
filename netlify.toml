@@ -1,0 +1,22 @@
+# Optional. Nothing is deployed from this repo today - the honest answer for a
+# one-person tool is `npm run dev`, or the single-file build. This is here so
+# that hosting it is a five-minute job when it is wanted, and so the two things
+# that must be true when it is hosted are written down rather than remembered.
+#
+# THIS TOOL HAS NO SIGN-IN. Before pointing anything public at it, put something
+# in front: Netlify password protection, Clerk (the CRM's approach - there is a
+# working version in the prototype history), or a Cloudflare Access rule. The
+# bundle holds no customer data, no key and no write path, so the worst a finder
+# could do is make a StudioLand-looking graphic - but that is a decision to take
+# deliberately rather than to arrive at by connecting a repo.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Keep it out of search results. The meta tag in index.html covers the page;
+# this header also covers the JS and the brand images, which are separately
+# fetchable URLs and would otherwise be indexable on their own.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

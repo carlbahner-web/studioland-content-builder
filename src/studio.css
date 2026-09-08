@@ -1,0 +1,429 @@
+/* The tool's own chrome. Deliberately quiet: this is a workbench, not an asset.
+   It borrows the brand's cream and charcoal so it does not fight the previews,
+   but the previews are the only things here meant to look designed. */
+@font-face {
+  font-family: "TAYWingman";
+  src: url("/fonts/TAYWingman.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --cream: #fcf7e8;
+  --charcoal: #2c2c2a;
+  --teal: #3a6168;
+  --line: #dcd5c2;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #eee8d8;
+  color: var(--charcoal);
+  font-family: "TAYWingman", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.boot-msg { padding: 40px; font-size: 15px; }
+
+.studio { display: flex; min-height: 100vh; align-items: flex-start; }
+
+/* ---- left panel ---- */
+.panel {
+  width: 340px;
+  flex: none;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 28px 24px 48px;
+  background: var(--cream);
+  border-right: 1px solid var(--line);
+}
+.panel h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+.panel .sub { margin: 4px 0 0; font-size: 13px; opacity: 0.65; }
+.panel h2 {
+  margin: 28px 0 12px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.panel label { display: block; margin-bottom: 14px; font-size: 13px; }
+.panel textarea,
+.panel input[type="text"],
+.panel input:not([type]),
+.panel select {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  resize: vertical;
+}
+.panel textarea:focus, .panel input:focus, .panel select:focus {
+  outline: 2px solid var(--teal);
+  outline-offset: -1px;
+}
+.hint { margin: 10px 0 0; font-size: 11.5px; line-height: 1.5; opacity: 0.6; }
+
+.check { display: flex; align-items: center; gap: 9px; margin-bottom: 9px !important; }
+.check input { flex: none; }
+.check span { flex: 1; margin-right: 8px; }
+.check em { font-style: normal; font-size: 11.5px; opacity: 0.5; }
+
+/* ---- colorway swatches ---- */
+.swatches { display: flex; gap: 9px; flex-wrap: wrap; }
+.sw {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+.sw span {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.28);
+}
+.sw.on { outline: 2px solid var(--charcoal); outline-offset: 2px; }
+
+/* ---- stage ---- */
+.stage { flex: 1; min-width: 0; padding: 24px 28px 64px; }
+.bar { margin-bottom: 20px; }
+button.primary {
+  padding: 10px 18px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cream);
+  background: var(--charcoal);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+button.primary:disabled { opacity: 0.4; cursor: default; }
+
+/* One artboard, given the room to be judged. Capped by height as well as width
+   so a 1080x1920 story does not run off the bottom of the screen. */
+.solo { max-width: min(620px, 46vw); }
+/* The card shrinks to whatever width the canvas actually takes, so the caption
+   and its export buttons stay attached to the artboard instead of stretching to
+   the container. A story is much narrower than the column; a thumbnail is not. */
+.solo .card { width: fit-content; max-width: 100%; }
+.solo .card canvas { max-height: calc(100vh - 200px); width: auto; max-width: 100%; }
+
+.bar { display: flex; align-items: center; gap: 14px; }
+
+.card { margin: 0; }
+.card figcaption {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.card figcaption strong { display: block; font-size: 13px; }
+.card figcaption span { font-size: 11.5px; opacity: 0.55; }
+.card figcaption button {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 11.5px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.card figcaption button:hover { background: #fff; }
+.card canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  box-shadow: 0 2px 14px rgba(44, 44, 42, 0.16);
+}
+
+.card figcaption .acts { display: flex; gap: 6px; flex: none; }
+.card figcaption .tag {
+  margin-left: 7px;
+  padding: 1px 6px;
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: var(--teal);
+  border-radius: 4px;
+  vertical-align: 1.5px;
+}
+.card figcaption button:disabled { opacity: 0.65; cursor: default; }
+
+.modes { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.modes .mode {
+  flex: 1;
+  padding: 8px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: #fff;
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+}
+.modes .mode:last-child { border-right: 0; }
+.modes .mode.on { color: var(--cream); background: var(--teal); font-weight: 700; }
+
+/* ---- artwork library ---- */
+.row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.ghost {
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ghost:hover { background: var(--cream); }
+.folder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tray {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.chip {
+  aspect-ratio: 1;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.chip:hover { border-color: var(--teal); }
+.chip img { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* Placeholder while a thumbnail is still being made. */
+.chip span { width: 100%; height: 100%; background: var(--line); border-radius: 4px; opacity: 0.5; }
+.panel input[type="range"] { width: 100%; margin-top: 6px; accent-color: var(--teal); }
+.hint.bad { color: #a33; opacity: 1; }
+.card canvas { touch-action: none; }
+
+/* ---- format picker ---- */
+.formats { display: flex; flex-direction: column; gap: 6px; }
+.fmt {
+  display: block;
+  width: 100%;
+  padding: 9px 11px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.fmt:hover { border-color: var(--teal); }
+.fmt strong { display: block; font-size: 13px; }
+.fmt span { display: block; font-size: 11.5px; opacity: 0.6; }
+.fmt em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  opacity: 0.45;
+}
+.fmt.on { background: var(--teal); border-color: var(--teal); color: var(--cream); }
+.fmt.on span, .fmt.on em { opacity: 0.82; }
+
+/* Export belongs to the artboard, and is the primary action on this screen. */
+.card figcaption button.go {
+  color: var(--cream);
+  background: var(--charcoal);
+  border-color: var(--charcoal);
+  font-weight: 700;
+}
+.card figcaption button.go:hover { background: #000; }
+.stage { padding-top: 28px; }
+
+/* ---- edit scope ----
+   The toggle is modal, so the non-default mode is loud and everything it
+   produces is marked. Rust rather than teal: this is the state you want to
+   notice you are in. */
+.scope { display: flex; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.scope .sc {
+  flex: 1;
+  padding: 8px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: #fff;
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scope .sc:last-child { border-right: 0; }
+.scope .sc.on { color: var(--cream); background: var(--teal); font-weight: 700; }
+.scope[data-scope="format"] .sc.on { background: #bf7538; }
+.hint.warn {
+  padding: 8px 10px;
+  color: #7a4a1c;
+  background: #f6e6d3;
+  border-radius: 6px;
+  opacity: 1;
+}
+
+.fld .lbl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fld.forked textarea, .fld.forked input, .fld.forked select { border-color: #bf7538; }
+.undo {
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: #7a4a1c;
+  background: #f6e6d3;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.undo:hover { background: #eed6bb; }
+.fmt .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  vertical-align: 1px;
+  background: #bf7538;
+  border-radius: 50%;
+}
+.fmt.on .dot { background: var(--cream); }
+
+/* ---- saved designs ---- */
+.saved { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.saved li { display: flex; align-items: stretch; gap: 5px; }
+.saved .open {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.saved .open:hover { border-color: var(--teal); }
+.saved .open strong { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved .open span { display: block; font-size: 10.5px; opacity: 0.5; }
+.saved .undo { padding: 0 9px; font-size: 13px; }
+.row input { flex: 1; min-width: 0; }
+
+/* ---- phone and tablet ----
+   The two-column layout assumes a desktop. On a narrow screen it stacks, and
+   the ARTBOARD goes on top and stays there while the controls scroll under it:
+   editing a headline you cannot see is guesswork, and the preview is the whole
+   point of the tool. The panel loses its own sticky scroll so the page scrolls
+   as one thing, which is what a thumb expects. */
+@media (max-width: 860px) {
+  .studio { flex-direction: column; align-items: stretch; }
+
+  .stage {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 12px 14px 14px;
+    background: #eee8d8;
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 6px 18px rgba(44, 44, 42, 0.07);
+  }
+  .solo { max-width: 100%; margin: 0 auto; }
+  /* Enough of the screen to judge the design, never so much that the control
+     you are reaching for is pushed off the bottom. */
+  .solo .card canvas { max-height: 42vh; margin: 0 auto; }
+  .solo .card figcaption { margin-bottom: 7px; }
+
+  .panel {
+    width: auto;
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    padding: 20px 16px 56px;
+  }
+  .panel h1 { font-size: 20px; }
+
+  /* Comfortable touch targets, and inputs at 16px so iOS does not zoom the
+     page in when one takes focus. */
+  .panel textarea,
+  .panel input:not([type="checkbox"]):not([type="range"]),
+  .panel select { font-size: 16px; padding: 11px; }
+  .fmt { padding: 11px; }
+  .modes .mode, .scope .sc { padding: 11px 4px; }
+  .sw { width: 52px; height: 52px; }
+  .tray { grid-template-columns: repeat(5, 1fr); max-height: none; }
+  .check { padding: 3px 0; }
+}
+
+@media (max-width: 460px) {
+  .solo .card canvas { max-height: 38vh; }
+  .tray { grid-template-columns: repeat(4, 1fr); }
+  .card figcaption { flex-wrap: wrap; }
+}
+
+
+/* Hold-to-save, shown only where a programmatic download is unreliable. */
+.held {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px;
+  background: rgba(44, 44, 42, 0.92);
+  color: var(--cream);
+  text-align: center;
+}
+.held img {
+  max-width: 100%;
+  max-height: 64vh;
+  border-radius: 4px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+.held p { margin: 0; font-size: 13px; max-width: 300px; line-height: 1.6; }
+
+.modes.small { margin-bottom: 8px; }
+.modes.small .mode { padding: 7px 3px; font-size: 11.5px; }
+
+.floor { display: block; margin-top: 4px; font-style: normal; font-size: 10.5px; opacity: 0.55; line-height: 1.5; }
