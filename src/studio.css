@@ -16,6 +16,16 @@
 
 * { box-sizing: border-box; }
 
+/* The artboard is a drag surface at the top of a long scrolling page, which is
+   the worst possible neighbour for overscroll: dragging a layer downward from
+   near the top would rubber-band the document on iOS and arm pull-to-refresh on
+   Android, so the page moved instead of the thing being dragged. `none` keeps
+   the scroll from chaining out to the viewport at all. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   background: #eee8d8;
@@ -230,7 +240,15 @@ button.primary:disabled { opacity: 0.4; cursor: default; }
 .chip span { width: 100%; height: 100%; background: var(--line); border-radius: 4px; opacity: 0.5; }
 .panel input[type="range"] { width: 100%; margin-top: 6px; accent-color: var(--teal); }
 .hint.bad { color: #a33; opacity: 1; }
-.card canvas { touch-action: none; }
+/* No panning, and no long-press menu. A press-and-hold on the artboard is how
+   you pick a layer up; on iOS it is also how you summon the image callout and
+   start a text selection, and both fire mid-drag over a canvas. */
+.card canvas {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 
 /* ---- format picker ---- */
 .formats { display: flex; flex-direction: column; gap: 6px; }

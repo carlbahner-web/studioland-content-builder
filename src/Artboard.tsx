@@ -619,6 +619,32 @@ export function Artboard({
     if (editing && !manip.editable(editing)) setEditing(null);
   }, [editing, manip]);
 
+  /* Stop a drag on the artboard from scrolling the page under it.
+   *
+   * `touch-action: none` on this canvas is supposed to be the whole answer, and
+   * on desktop it is. On a phone it is not enough on its own: the gesture still
+   * reaches the document, so a drag downward from near the top of the page
+   * rubber-bands the whole thing (and on Chrome for Android arms pull-to-
+   * refresh), which reads as the page walking away from under your thumb while
+   * the layer you grabbed stays put.
+   *
+   * It has to be a native listener with `passive: false`. React registers its
+   * `onTouchMove` at the root as passive, so `preventDefault()` from a synthetic
+   * handler is ignored with a console warning and nothing else - the reason
+   * this is an effect and not another prop on the canvas below.
+   *
+   * Unconditional, not just while a gesture is live: this canvas already
+   * declares `touch-action: none`, so the browser owes it no panning at all,
+   * and a press that has not yet been classified as a drag is exactly when the
+   * page would otherwise steal it. */
+  useEffect(() => {
+    const el = overlay.current;
+    if (!el) return;
+    const swallow = (e: TouchEvent) => e.preventDefault();
+    el.addEventListener("touchmove", swallow, { passive: false });
+    return () => el.removeEventListener("touchmove", swallow);
+  }, []);
+
   /* ------------------------------------------------------------- pointers */
 
   const toArtboard = (e: { clientX: number; clientY: number; currentTarget: HTMLCanvasElement }) => {
