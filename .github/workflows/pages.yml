@@ -74,12 +74,11 @@ jobs:
       # files and folders whose names start with an underscore.
       - run: touch dist/.nojekyll
 
-      # `enablement` turns the Pages site on the first time this runs, using the
-      # pages: write permission above, so there is no settings click to remember
-      # and no first run that builds fine and then has nowhere to publish to.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      # No actions/configure-pages here. Its one useful output is the base path,
+      # which this build takes from the repo name instead, and its `enablement`
+      # input - which would have saved a settings click - is refused for the
+      # workflow's own token: "Create Pages site failed. Resource not accessible
+      # by integration". Turning Pages on is an owner action, once, by hand.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
