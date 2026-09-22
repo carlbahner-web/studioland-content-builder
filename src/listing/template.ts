@@ -1,0 +1,271 @@
+/* The listing template: where everything sits, and the arithmetic that puts it
+ * there.
+ *
+ * Every number here was MEASURED off the artwork exports in assets/listing-src/
+ * rather than eyeballed, because the whole point of a template editor is that
+ * the person using it never has to nudge anything. If the art is redrawn, these
+ * are re-measured - `node scripts/chroma-key.mjs` prints the layer boxes, and
+ * the two below that it cannot know (the photo band and the address box) come
+ * from the green hole in the frame and from the blue guide rectangle the
+ * designer shipped for exactly this purpose.
+ *
+ * Kept free of DOM and canvas so the layout can be tested at a desk.
+ */
+
+export type Box = { x: number; y: number; w: number; h: number };
+export type TextAlign = "left" | "center" | "right";
+
+/** Instagram portrait. The art is drawn at this size; nothing else is offered. */
+export const CANVAS = { w: 1080, h: 1350 } as const;
+
+/* The hole the frame leaves for the listing photo. The frame art starts at
+ * y=605 (the arch) but does not become a solid horizon until y=705, so the
+ * photo has to fill down to 705 and is then covered by the arch and the navy
+ * field. Filling only to 605 leaves a 100px seam that is invisible against a
+ * pale photo and glaring against a dark one. */
+export const PHOTO_BAND: Box = { x: 0, y: 0, w: 1080, h: 705 };
+
+/* The designer's blue guide rectangle, to the pixel. */
+export const ADDRESS_BOX: Box = { x: 578, y: 874, w: 482, h: 338 };
+
+/* CENTRED, not right-aligned, which is not what it looks like.
+ *
+ * Every line in the example ends at a different x - 1026, 1002, 989, 949 - and a
+ * right margin that wanders by 77px reads as ragged-right at a glance. But all
+ * six lines share a centre at x 819.5, which is the guide box's own centre to
+ * within a pixel. They are centred, and the ragged right edge is just where the
+ * letterforms happen to stop. Setting this to "right" lines the six lines up on
+ * an edge the design does not have, and pulls the whole block sideways. */
+export const ADDRESS_ALIGN: TextAlign = "center";
+
+/* Type.
+ *
+ * Tracking is the one value the Character panel gives that survives contact with
+ * the artwork: -100, which Photoshop counts in 1/1000 em, so -0.1em - the same
+ * figure layers.ts already carries for this face.
+ *
+ * The other two panel values do NOT describe what this repo can draw, and it is
+ * worth saying why rather than quietly carrying numbers that do not work. The
+ * panel says 50.51pt; setting that here makes the longest line 561px wide in a
+ * 482px box. Measuring each line's ink in the example against what TAY Wingman
+ * actually renders puts the design at ~46.2px for the first four lines and
+ * ~42.9px for the last two - two sizes, and neither of them 50.5. The likeliest
+ * explanation is that the artwork was set in a different cut of the face than
+ * the .woff2 in public/fonts/, and rather than guess at that, these are derived
+ * from the font that ships:
+ *
+ *   - ADDRESS_SIZE clears the 482px box on every seeded line with a little to
+ *     spare, so nothing shrinks on a fresh document and a rounding difference
+ *     between browsers cannot start a reflow. One size across the
+ *     whole block, where the artwork used two; the difference is ~3px on two
+ *     lines, and one address in one text field is the point of the tool.
+ *   - CAP_RATIO is measured (actualBoundingBoxAscent of "H") rather than assumed,
+ *     because it is what puts the first line's capitals ON the box's top edge.
+ *   - LINE_HEIGHT is the artwork's own 42.25px pitch expressed against that size.
+ *
+ * tests/browser/listing.test.ts re-measures all three in a real browser, so a
+ * swapped font file fails a test instead of quietly reflowing every graphic.
+ */
+export const FONT_FAMILY = "TAYWingman";
+export const TRACKING = -0.1;
+export const ADDRESS_SIZE = 43;
+export const LINE_HEIGHT = 0.973;
+export const CAP_RATIO = 0.67;
+
+/* Pink fill, navy outline - the badge art's colors, sampled from it.
+ *
+ * The outline in the address export could not be sampled the same way: it is
+ * semi-transparent and the export baked it against the green backing, so the
+ * flat #505923 sitting in that file is a blend, not a color anyone chose. The
+ * badges, which are opaque, are the honest source for what the design means by
+ * "outlined", and both are editable in the UI anyway. */
+export const INK = "#ffe6ea";
+export const OUTLINE = "#0b1c40";
+
+/** Outline weight in em. The address's outline measures ~2.6px at ~43px type. */
+export const OUTLINE_EM = 0.06;
+
+/* ------------------------------------------------------------------- layers */
+
+/** A keyed layer, placed by the box scripts/chroma-key.mjs cropped it to. */
+export type Placement = { x: number; y: number; w: number; h: number };
+
+export const HEADSHOTS = [
+  { key: "arch", label: "Leaning", layer: "headshot-arch" },
+  { key: "sitting", label: "Sitting", layer: "headshot-sitting" },
+] as const;
+
+export type Headshot = (typeof HEADSHOTS)[number]["key"];
+
+export const BADGES = [
+  { key: "none", label: "No badge", layer: null },
+  { key: "sold", label: "SOLD!", layer: "badge-sold" },
+  { key: "pending", label: "PENDING!", layer: "badge-pending" },
+] as const;
+
+export type Badge = (typeof BADGES)[number]["key"];
+
+/* ---------------------------------------------------------------- the photo */
+
+/** How the uploaded photo is framed inside the band, before the user's nudge. */
+export type PhotoFit = { zoom: number; offsetX: number; offsetY: number };
+
+export const PHOTO_FIT: PhotoFit = { zoom: 1, offsetX: 0, offsetY: 0 };
+
+/* Cover, not contain: the band has no background of its own, so a photo that
+ * does not fill it leaves the page showing through. Zoom multiplies the cover
+ * scale, so zoom 1 is always exactly full and can never be too small however
+ * odd the photo's proportions. */
+export function coverRect(imgW: number, imgH: number, band: Box, fit: PhotoFit): Box {
+  if (imgW <= 0 || imgH <= 0) return { ...band };
+  const scale = Math.max(band.w / imgW, band.h / imgH) * Math.max(fit.zoom, 0.01);
+  const w = imgW * scale;
+  const h = imgH * scale;
+  return {
+    x: band.x + (band.w - w) / 2 + fit.offsetX,
+    y: band.y + (band.h - h) / 2 + fit.offsetY,
+    w,
+    h,
+  };
+}
+
+/* How far the photo may be dragged: to the edge of the slack and no further, so
+ * it can never be pulled off the band and leave a gap. At zoom 1 there is slack
+ * on at most one axis and the other is pinned, which is correct. */
+export function clampPhotoFit(imgW: number, imgH: number, band: Box, fit: PhotoFit): PhotoFit {
+  const zoom = Math.min(4, Math.max(1, fit.zoom));
+  const placed = coverRect(imgW, imgH, band, { ...fit, zoom, offsetX: 0, offsetY: 0 });
+  const slackX = Math.max(0, (placed.w - band.w) / 2);
+  const slackY = Math.max(0, (placed.h - band.h) / 2);
+  // `+ 0` normalises the negative zero that clamping to a zero-width range
+  // produces, so a pinned axis reads as 0 rather than -0 wherever this value is
+  // compared, serialised or shown.
+  return {
+    zoom,
+    offsetX: Math.min(slackX, Math.max(-slackX, fit.offsetX)) + 0,
+    offsetY: Math.min(slackY, Math.max(-slackY, fit.offsetY)) + 0,
+  };
+}
+
+/* ----------------------------------------------------------------- the text */
+
+export type TextBlock = {
+  id: string;
+  text: string;
+  /** Top-left of the block's box, canvas px. Width is what it is allowed to use. */
+  box: Box;
+  /** Size in canvas px, before any shrink-to-fit. */
+  size: number;
+  align: TextAlign;
+  fill: string;
+  outline: string | null;
+  /** Off for a block the user wants plain. */
+  lineHeight: number;
+};
+
+export type LaidOutLine = {
+  text: string;
+  /** Where to start drawing, given ctx.textAlign set from the block's align. */
+  x: number;
+  /** Alphabetic baseline. */
+  y: number;
+};
+
+export type LaidOutText = {
+  lines: LaidOutLine[];
+  /** The size actually used - the block's size, or less if it had to shrink. */
+  size: number;
+};
+
+/** Width of a line at a given size. Supplied by the caller so this stays pure. */
+export type Measure = (line: string, size: number) => number;
+
+/* Shrink-to-fit rather than overflow.
+ *
+ * A template editor's one job is that whatever gets typed still looks composed,
+ * and the realistic failure here is a long street name, not a novel: the address
+ * box is sized for "373 Meetinghouse Ln" and someone will type "1247 Old
+ * Gettysburg Pike Suite 210". Overflowing runs the type off the artwork; wrapping
+ * silently re-breaks an address the person deliberately arranged into lines. So
+ * the size gives, and the arrangement they typed survives.
+ *
+ * Bisection rather than a step-down loop because `measure` is a canvas call and
+ * a 40px block of 8 lines would otherwise cost hundreds of them per keystroke.
+ */
+export function layoutText(block: TextBlock, measure: Measure): LaidOutText {
+  const lines = block.text.split("\n");
+  const fits = (size: number): boolean => {
+    const height = (lines.length - 1) * size * block.lineHeight + size * CAP_RATIO;
+    if (height > block.box.h) return false;
+    for (const line of lines) {
+      if (line && measure(line, size) > block.box.w) return false;
+    }
+    return true;
+  };
+
+  let size = block.size;
+  if (!fits(size)) {
+    let lo = 1;
+    let hi = size;
+    // 12 halvings takes a 200px block to under a tenth of a pixel of doubt.
+    for (let i = 0; i < 12; i++) {
+      const mid = (lo + hi) / 2;
+      if (fits(mid)) lo = mid;
+      else hi = mid;
+    }
+    size = lo;
+  }
+
+  const anchorX =
+    block.align === "right"
+      ? block.box.x + block.box.w
+      : block.align === "center"
+        ? block.box.x + block.box.w / 2
+        : block.box.x;
+
+  return {
+    size,
+    lines: lines.map((text, i) => ({
+      text,
+      x: anchorX,
+      // First baseline sits a cap height below the box's top edge, so the top of
+      // the capitals lands ON the edge. Measuring a box to the top of the type
+      // is what a designer means by it; measuring to the em box is not.
+      y: block.box.y + size * CAP_RATIO + i * size * block.lineHeight,
+    })),
+  };
+}
+
+/** The drawn bounds of a laid-out block, for hit-testing and the selection ring. */
+export function textBounds(block: TextBlock, laid: LaidOutText, measure: Measure): Box {
+  const widths = laid.lines.map((l) => (l.text ? measure(l.text, laid.size) : 0));
+  const widest = Math.max(0, ...widths);
+  const x =
+    block.align === "right"
+      ? block.box.x + block.box.w - widest
+      : block.align === "center"
+        ? block.box.x + (block.box.w - widest) / 2
+        : block.box.x;
+  const last = laid.lines[laid.lines.length - 1];
+  return {
+    x,
+    y: block.box.y,
+    w: widest,
+    h: last.y - block.box.y + laid.size * (1 - CAP_RATIO),
+  };
+}
+
+export function hits(box: Box, x: number, y: number, pad = 12): boolean {
+  return (
+    x >= box.x - pad && x <= box.x + box.w + pad && y >= box.y - pad && y <= box.y + box.h + pad
+  );
+}
+
+/** Keep a block's box on the artboard, so nothing can be dragged out of sight. */
+export function clampBox(box: Box): Box {
+  return {
+    ...box,
+    x: Math.min(CANVAS.w - 40, Math.max(40 - box.w, box.x)),
+    y: Math.min(CANVAS.h - 40, Math.max(0, box.y)),
+  };
+}

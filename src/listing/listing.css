@@ -1,0 +1,223 @@
+/* Chrome for the listing builder. Same quiet workbench as studio.css - cream
+   panel, charcoal type - so the two tools do not look like different products.
+   The one departure is the stage, which is navy: the artwork's own ground, so
+   the graphic is judged against something like where it will be seen rather
+   than against cream, which flatters the pale type unfairly. */
+
+.listing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.listing-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+}
+.listing-head h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.listing-elsewhere {
+  font-size: 13px;
+  color: var(--teal);
+  text-decoration: none;
+}
+.listing-elsewhere:hover { text-decoration: underline; }
+
+.listing-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+/* ---- stage ---- */
+
+.listing-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 24px 48px;
+  background: #101b30;
+}
+.listing-canvas {
+  width: min(540px, 100%);
+  max-height: calc(100vh - 140px);
+  border-radius: 4px;
+  box-shadow: 0 18px 44px rgb(0 0 0 / 45%);
+  /* The artboard is the drag surface; a text selection dragged out of it is
+     never what anyone meant. */
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.listing-canvas:active { cursor: grabbing; }
+.listing-hint {
+  margin: 0;
+  font-size: 12px;
+  color: rgb(252 247 232 / 55%);
+  text-align: center;
+}
+
+/* ---- panel ---- */
+
+.listing-panel {
+  width: 340px;
+  flex: none;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 24px 24px 48px;
+  background: var(--cream);
+  border-left: 1px solid var(--line);
+}
+.listing-panel section { margin-bottom: 26px; }
+.listing-panel h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.listing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.listing-spread { justify-content: space-between; }
+.listing-spread h2 { margin: 0; }
+
+.listing-panel button {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--charcoal);
+  cursor: pointer;
+}
+.listing-panel button:hover { border-color: #b9b099; }
+.listing-panel button.listing-on {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--cream);
+}
+.listing-panel button.listing-quiet {
+  background: transparent;
+  opacity: 0.7;
+}
+.listing-panel button:disabled { opacity: 0.45; cursor: default; }
+
+.listing-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* The real input is driven by its own button, so it is hidden rather than
+   styled - every browser draws it differently and none of them draw it well. */
+.listing-file { display: none; }
+
+.listing-filename {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  opacity: 0.6;
+  overflow-wrap: anywhere;
+}
+
+.listing-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+.listing-slider input { flex: 1; min-width: 0; }
+
+.listing-block textarea {
+  display: block;
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  resize: vertical;
+}
+
+.listing-swatch,
+.listing-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.listing-swatch input[type="color"] {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.listing-go {
+  width: 100%;
+  padding: 13px !important;
+  font-size: 14px !important;
+  background: var(--charcoal) !important;
+  border-color: var(--charcoal) !important;
+  color: var(--cream) !important;
+}
+.listing-go:disabled { opacity: 0.45; }
+
+.listing-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.listing-warn {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid #c0583833;
+  border-radius: 6px;
+  background: #c058381a;
+}
+
+@media (max-width: 900px) {
+  .listing-body { flex-direction: column; }
+  .listing-panel {
+    position: static;
+    width: 100%;
+    max-height: none;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+  .listing-stage { width: 100%; padding: 20px 16px 32px; }
+  .listing-canvas { max-height: none; }
+}

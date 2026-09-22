@@ -14,6 +14,7 @@
 import { build } from "esbuild";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import layers from "../src/listing/layers.json" with { type: "json" };
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const OUT = process.argv[2] ?? path.join(ROOT, "dist-single", "content-builder.html");
@@ -34,6 +35,10 @@ const ASSETS = [
   "/fonts/DWFairfield.woff2",
   "/fonts/DWFairfield-Narrow.woff2",
   "/fonts/TAYWingman.woff2",
+  // The listing template's keyed layers. Taken from the manifest rather than
+  // listed by hand, so adding artwork to assets/listing-src/ and re-running
+  // `npm run art` cannot leave this build silently one layer short.
+  ...Object.keys(layers).map((name) => `/listing/${name}.png`),
 ];
 
 async function dataUri(publicPath) {
@@ -47,7 +52,10 @@ const inline = {};
 for (const p of ASSETS) inline[p] = await dataUri(p);
 
 // The panel's own webfont is referenced from CSS, so swap that URL too.
-let css = await readFile(path.join(ROOT, "src/studio.css"), "utf8");
+let css = [
+  await readFile(path.join(ROOT, "src/studio.css"), "utf8"),
+  await readFile(path.join(ROOT, "src/listing/listing.css"), "utf8"),
+].join("\n");
 css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`);
 
 /* esbuild rather than Vite: one IIFE, no module graph, no import.meta - which
@@ -60,7 +68,10 @@ const bundled = await build({
   jsx: "automatic",
   target: ["es2022"],
   write: false,
-  loader: { ".css": "empty" }, // the CSS is inlined above, not imported
+  loader: { ".css": "empty", ".json": "json" }, // the CSS is inlined above, not imported
+  // One file means one script, so the listing builder's lazy import has to be
+  // folded back in rather than emitted as a chunk nothing will be there to fetch.
+  splitting: false,
   define: {
     "process.env.NODE_ENV": '"production"',
     // There is no import.meta in an IIFE, and assets.ts reads the deploy base

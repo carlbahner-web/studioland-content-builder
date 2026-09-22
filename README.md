@@ -5,14 +5,17 @@ anything the brand has already decided — and then keep going, because an
 arrangement that composes the first ninety percent is no use if the last ten is
 impossible.
 A layer editor, a starting arrangement for the social ad, and the machinery the
-rest will share.
+rest will share — plus a second, much smaller tool at `#/listing` for the one
+realtor template that is already designed and only needs filling in. See *The
+listing builder*.
 
 ```
 npm install
-npm run dev      # http://localhost:5173
-npm test         # the pure logic: brand rules, boil, layers, history, snapping, store
-npm run test:browser   # the editor, driven in a real Chromium
+npm run dev      # http://localhost:5173  (and /#/listing)
+npm test         # the pure logic: brand rules, boil, layers, history, snapping, store, the listing template
+npm run test:browser   # both tools, driven in a real Chromium
 npm run build    # typecheck + dist/
+npm run art      # re-key the listing artwork from assets/listing-src/
 ```
 
 Chrome or Edge. The MP4 export needs WebCodecs and the artwork folder needs the
@@ -168,6 +171,111 @@ Everything else does work there, including the editor: dragging, the resize and
 rotate handles and snapping are all pointer events, so they take touch without
 anything extra.
 
+## The listing builder
+
+There are two tools in this bundle, told apart by the hash:
+
+| | |
+| --- | --- |
+| *(nothing)* | the **content builder** — the general layer editor, the rest of this README |
+| `#/listing` | the **listing builder** — one realtor template, four controls |
+
+They share the repo, the fonts, the save path and the hash router in
+`main.tsx`, and nothing else. The listing builder is lazy-loaded, so opening the
+other tool does not pay for its artwork manifest.
+
+It exists because the two jobs are not the same job. The content builder's
+premise is that you are composing something and the brand rules keep you honest.
+The listing builder's premise is that the graphic is **already designed** — an
+Angela Rera listing post, drawn in Photoshop and handed over as flats — and the
+only things that change per listing are the address, which headshot, whether it
+says SOLD, and the photo of the house. Every control beyond those four is a way
+to get it wrong, so there is no layer list, no format picker and no undo stack.
+
+### Green screens in, transparent layers out
+
+The template arrived as five 1080×1350 flats with everything-that-isn't-this-
+layer painted pure green. `npm run art` (`scripts/chroma-key.mjs`) keys the green
+out, crops each layer to what survives, and writes the PNGs to `public/listing/`
+with a placement manifest to `src/listing/layers.json`. Sources stay in
+`assets/listing-src/`, so re-running it is the whole of "the art changed".
+
+Two things about it are worth knowing, because both are the kind of mistake that
+only shows up composited over a photo:
+
+- **The edge pixels are blended with the green, not merely near it.** An
+  antialiased edge holds `a·F + (1−a)·G`, so recovering the foreground is a
+  division, not a subtraction of some spill fudge. Skip it and every cutout wears
+  a green rim that is invisible against the green flat and obvious against a
+  listing photo. The backing colour is *measured* per file rather than hardcoded,
+  because the five exports turned out to hold two different greens.
+- **Cropping is most of the size win.** Four of the five layers are mostly empty;
+  the badges come out at 6kB against a 1.1MB frame.
+
+The codec is `scripts/lib/png.mjs` — enough of the PNG spec to read the exports
+and write the results, deliberately with no dependency, so this works from a
+clean clone. It costs the single-file build about 1.9MB of base64, which is the
+one real price: `content-builder.html` is now ~3.2MB rather than ~1.3MB.
+
+### Layer order is the whole trick
+
+```
+   the listing photo        filling the band the frame leaves open
+   the frame                keyed-out on top, opaque arch and navy below
+   the headshot             OVER the frame, not under it
+   the badge                SOLD! / PENDING!
+   the type
+```
+
+The tempting mistake is putting the headshot *behind* the frame, which sounds
+right and hides the arch completely: the "leaning" cut **is** the arch's fill and
+replaces the floral paper exactly, and the "sitting" cut is a free cutout that
+stands in front of it. A browser test samples inside the arch on both, because
+the wrong order is a perfectly correct-looking data structure.
+
+The photo band runs to y=705, not to y=605 where the frame art starts. The arch
+pokes up into the green above the horizon, so filling only to 605 leaves a 100px
+seam — invisible against a pale photo, glaring against a dark one.
+
+### What the artwork actually said, and what it didn't
+
+`src/listing/template.ts` holds every measured number, and three of them are not
+what the handover said they were:
+
+- **The address is centred, not right-aligned.** Its six lines end at x 1026,
+  1002, 989 and 949 — a right margin that wanders by 77px, which reads as
+  ragged-right. But all six share a centre at x 819.5, which is the designer's
+  own guide rectangle's centre to within a pixel. Setting it to `right` lines the
+  block up on an edge the design does not have.
+- **The Character panel's 50.51pt does not fit.** At that size the longest line
+  measures 561px in a 482px box. Measuring each line's ink against what
+  `public/fonts/TAYWingman.woff2` actually renders puts the artwork at ~46.2px
+  for the first four lines and ~42.9px for the last two — two sizes, and neither
+  of them 50.5. The likeliest explanation is that it was set in a different cut
+  of the face than the one that ships here. Rather than guess at that, the
+  constants are derived from the font in the repo: one size for the whole block,
+  chosen to clear the box with a little to spare. The tracking (−100, i.e.
+  −0.1em) is the one panel value that survives contact with the artwork, and it
+  already agreed with `layers.ts`.
+- **The address's outline colour could not be sampled.** It is semi-transparent
+  and the export baked it against the green, so the flat `#505923` sitting in
+  that file is a blend, not a colour anyone chose. The badges are opaque, so they
+  are the honest source for what "outlined" means here — pink `#ffe6ea` on navy
+  `#0b1c40` — and both are editable in the UI anyway.
+
+`tests/browser/listing.test.ts` re-measures the size, the cap ratio and the line
+pitch against the real font in a real browser, so swapping the font file fails a
+test rather than quietly reflowing every graphic anyone makes.
+
+### Long addresses shrink, they do not wrap
+
+The box is sized for "373 Meetinghouse Ln" and somebody will type "1247 Old
+Gettysburg Pike, Suite 210". Overflowing runs the type off the artwork; wrapping
+silently re-breaks an address that was deliberately arranged into lines. So the
+*size* gives and the arrangement survives — bisected rather than stepped down,
+because `measureText` is a real call and a keystroke should not cost hundreds of
+them.
+
 ## How it renders, and why not the DOM
 
 The design draws to a `<canvas>` at true output pixels. The preview element *is*
@@ -197,7 +305,7 @@ instead of inherited from CSS. That is most of `render.ts`.
 milliseconds. The boil's constants, the palette rulings, the cover maths, the
 cutout mask, every branch of hydration.
 
-`npm run test:browser` opens the tool in Chromium and presses it. It is slow by
+`npm run test:browser` opens both tools in Chromium and presses them. It is slow by
 comparison — half a minute — and it exists because **every bug that actually
 shipped was one the fast suite structurally could not catch**:
 
@@ -211,7 +319,10 @@ shipped was one the fast suite structurally could not catch**:
 - an undo tag keyed on the element rather than the gesture, so one group drag
   recorded dozens of steps;
 - a caret box floored at two rows by a `<textarea>`'s default, so a single line
-  of type was measured as two and sat half a line high while you edited it.
+  of type was measured as two and sat half a line high while you edited it;
+- an address laid out at the size the design tool reported, which the font that
+  actually ships renders 16% too wide — right in the fast suite, wrong on screen,
+  and only a browser that has loaded the face can tell the difference.
 
 Not one of those is a wrong return value. They are all "the thing on the screen
 does not do what it says", and the only way to catch them is to open the thing.
@@ -1079,9 +1190,22 @@ self-service gap this tool was built to close.
   because browsers drop simultaneous programmatic ones.
 - **Hosting.** Still local-only. No auth story yet, which is the main thing to
   settle before anyone else uses it.
+- **Drafts in the listing builder.** It keeps nothing across a reload — no
+  IndexedDB, no draft. That is fine while a listing graphic is a two-minute job
+  done in one sitting, and wrong the moment someone wants to come back to one.
+  The store next door already does this; it is not wired up because half of a
+  listing doc is an object URL for a file the browser will not hand back.
+- **A second listing template.** The geometry lives in one file per template
+  (`src/listing/template.ts`) and the art in one folder, so a second one is
+  those two plus an entry in the manifest — but nothing is parameterised for it
+  yet, and it should not be until there are two.
 
 ## Assets
 
-Everything the tool draws lives in `public/brand/`, documented in the README
-there — including that the wordmark is currently keyed from a screenshot and
-wants replacing with its real master.
+Everything the content builder draws lives in `public/brand/`, documented in the
+README there — including that the wordmark is currently keyed from a screenshot
+and wants replacing with its real master.
+
+The listing template's artwork is separate: the green-screen masters in
+`assets/listing-src/` are the source of truth, and `public/listing/` holds what
+`npm run art` makes of them. Edit the masters, never the output.
