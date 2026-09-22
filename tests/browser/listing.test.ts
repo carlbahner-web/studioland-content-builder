@@ -35,6 +35,8 @@ type Tool = {
   pixel: (x: number, y: number) => Promise<number[]>;
   /** A point on the preview, in artboard coordinates, as page coordinates. */
   at: (x: number, y: number) => Promise<{ x: number; y: number }>;
+  /** How many pale-pink (i.e. type) pixels are inside an artboard rectangle. */
+  ink: (box: { x: number; y: number; w: number; h: number }) => Promise<number>;
   close: () => Promise<void>;
 };
 
@@ -72,6 +74,30 @@ async function openTool(): Promise<Tool> {
       const box = (await page.locator(".listing-canvas").boundingBox())!;
       return { x: box.x + (x / 1080) * box.width, y: box.y + (y / 1350) * box.height };
     },
+    /* Counting over a region rather than probing one pixel. Type is mostly gaps
+       - a point picked from a slot's box lands between two words as often as on
+       a stem - and "is there type here" is the actual question. */
+    ink: (box) =>
+      page.evaluate(
+        ([bx, by, bw, bh]) => {
+          const c = document.querySelector(".listing-canvas") as HTMLCanvasElement;
+          const s = c.width / 1080;
+          const d = c
+            .getContext("2d")!
+            .getImageData(
+              Math.round(bx * s),
+              Math.round(by * s),
+              Math.round(bw * s),
+              Math.round(bh * s),
+            ).data;
+          let n = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i] > 200 && d[i + 1] > 180 && d[i + 2] > 180) n++;
+          }
+          return n;
+        },
+        [box.x, box.y, box.w, box.h],
+      ),
     close: () => page.close(),
   };
 }
@@ -220,18 +246,84 @@ test("a badge appears and disappears where the art puts it", async () => {
 
 /* ----------------------------------------------------------- the gestures */
 
-test("text can be dragged, and cannot be dragged off the artboard", async () => {
+/* Nothing on this artboard moves except the photo. A template whose address has
+ * drifted a few pixels between one graphic and the next is worse than one that
+ * could not be adjusted, and a drag that "mostly" does nothing is worse than
+ * one that plainly does nothing - so this drags right across the address and
+ * asserts the pixels are identical afterwards. */
+test("dragging the text does nothing at all", async () => {
   const t = await openTool();
-  const from = await t.at(900, 950); // in the address block
-  const to = await t.at(500, 600);
+  const sample = () => Promise.all([t.pixel(700, 900), t.pixel(820, 960), t.pixel(660, 1180)]);
+  const before = await sample();
+  const from = await t.at(820, 960); // squarely inside the address block
+  const to = await t.at(300, 500);
   await t.page.mouse.move(from.x, from.y);
   await t.page.mouse.down();
-  await t.page.mouse.move(to.x, to.y, { steps: 8 });
+  await t.page.mouse.move(to.x, to.y, { steps: 10 });
   await t.page.mouse.up();
   await t.page.waitForTimeout(400);
-  // It moved: the address's old home is back to bare navy.
-  const vacated = await t.pixel(1000, 890);
-  assert.ok(vacated[2] > vacated[0], `the address did not move: ${vacated}`);
+  assert.deepEqual(await sample(), before, "the address moved");
+  clean(t);
+  await t.close();
+});
+
+test("added text lands in a slot and moves only between slots", async () => {
+  const t = await openTool();
+  await t.page.getByRole("button", { name: "+ Add text" }).click();
+  await t.page.waitForTimeout(400);
+  const photoSlot = { x: 60, y: 72, w: 960, h: 240 };
+  const bannerSlot = { x: 578, y: 742, w: 482, h: 118 };
+  assert.ok((await t.ink(photoSlot)) > 500, "nothing was drawn in the photo slot");
+  assert.ok((await t.ink(bannerSlot)) < 200, "something was already on the navy line");
+
+  await t.page.getByRole("button", { name: "Beside the arch" }).click();
+  await t.page.waitForTimeout(400);
+  assert.ok((await t.ink(photoSlot)) < 200, "the text did not leave the photo slot");
+  assert.ok((await t.ink(bannerSlot)) > 500, "the text did not arrive on the navy line");
+  clean(t);
+  await t.close();
+});
+
+/* Pinch, driven as two real pointers. Playwright has no pinch helper, so the
+ * touches are dispatched directly - which is also the honest test, because the
+ * component's claim is about pointer events rather than about a gesture API. */
+test("pinching the photo zooms it, about the pinch rather than the centre", async () => {
+  const t = await openTool();
+  await uploadPhoto(t, "#ff00ff", 2000, 1500);
+  const zoom = () => t.page.locator(".listing-readout").textContent();
+  const before = await zoom();
+  await t.page.evaluate(() => {
+    const c = document.querySelector(".listing-canvas") as HTMLCanvasElement;
+    const r = c.getBoundingClientRect();
+    const send = (type: string, id: number, x: number, y: number) =>
+      c.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: id,
+          pointerType: "touch",
+          isPrimary: id === 1,
+          clientX: r.left + x,
+          clientY: r.top + y,
+          bubbles: true,
+        }),
+      );
+    // setPointerCapture on a synthetic id throws; the component only needs the
+    // events, so stub it rather than let the first one take the handler down.
+    c.setPointerCapture = () => {};
+    c.hasPointerCapture = () => false;
+    c.releasePointerCapture = () => {};
+    send("pointerdown", 1, 120, 100);
+    send("pointerdown", 2, 180, 140);
+    for (let i = 1; i <= 8; i++) {
+      send("pointermove", 1, 120 - i * 6, 100 - i * 4);
+      send("pointermove", 2, 180 + i * 6, 140 + i * 4);
+    }
+    send("pointerup", 1, 72, 68);
+    send("pointerup", 2, 228, 172);
+  });
+  await t.page.waitForTimeout(400);
+  const after = await zoom();
+  assert.notEqual(after, before, "the pinch did not change the scale");
+  assert.ok(parseInt(after!, 10) > parseInt(before!, 10), `spreading should zoom in: ${before} -> ${after}`);
   clean(t);
   await t.close();
 });
@@ -240,9 +332,6 @@ test("the photo can be repositioned inside its band", async () => {
   const t = await openTool();
   // Tall photo: the slack is vertical, so a vertical drag has somewhere to go.
   await uploadPhoto(t, "#ff00ff", 1000, 3000);
-  const fit = () =>
-    t.page.evaluate(() => (document.querySelector(".listing-canvas") as HTMLCanvasElement).width);
-  assert.ok((await fit()) > 0);
   const from = await t.at(540, 300);
   const to = await t.at(540, 60);
   await t.page.mouse.move(from.x, from.y);

@@ -16,15 +16,15 @@ import {
   INK,
   OUTLINE,
   PHOTO_BAND,
-  clampBox,
+  TEXT_SLOTS,
   clampPhotoFit,
   containZoom,
-  hits,
   layoutText,
   textBounds,
+  zoomAt,
 } from "./template.ts";
-import type { PhotoFit, TextAlign, TextBlock } from "./template.ts";
-import { addressBlock, emptyDoc, newBlock } from "./doc.ts";
+import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
+import { addressBlock, emptyDoc, moveToSlot, newBlock } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, measurer, renderFull } from "./draw.ts";
 import type { Art, LayerName } from "./draw.ts";
@@ -97,10 +97,6 @@ function useFontReady(): boolean {
   return ready;
 }
 
-type Drag =
-  | { kind: "photo"; startX: number; startY: number; fromX: number; fromY: number }
-  | { kind: "block"; id: string; startX: number; startY: number; fromX: number; fromY: number };
-
 /** `standalone` is the one-file build, where there is no other tool to link to. */
 export default function ListingBuilder({ standalone = false }: { standalone?: boolean }) {
   const [doc, setDoc] = useState<Doc>(emptyDoc);
@@ -111,7 +107,6 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
-  const dragRef = useRef<Drag | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { art, ready, failed } = useArt();
@@ -231,73 +226,114 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
     // whole point of tracking it: the first paint measures the fallback.
   }, [doc, art, block, fontReady]);
 
-  /* -------------------------------------------------------------- dragging */
+  /* ------------------------------------------------- placing the photo only */
 
-  const toArtboard = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
+  /* The ONLY thing on this artboard that moves. Text sits in the slots the
+   * template defines and cannot be dragged at all - a listing graphic whose
+   * contact details have drifted a few pixels from the last one is worse than
+   * one that could not be adjusted. The photo is the exception because it is
+   * the only element whose content is not known in advance: framing a house is
+   * a judgement nobody can make for you. */
+
+  const toArtboard = (e: { clientX: number; clientY: number }, el: HTMLCanvasElement): Point => {
+    const r = el.getBoundingClientRect();
     return {
       x: ((e.clientX - r.left) / r.width) * CANVAS.w,
       y: ((e.clientY - r.top) / r.height) * CANVAS.h,
     };
   };
 
+  /* Live pointers, by id. A pinch is simply "two of these", which is why they
+   * are tracked rather than handled as a separate gesture mode: a finger lifted
+   * mid-pinch then has to degrade to a drag with no seam, and any bookkeeping
+   * that is not just "how many are down" gets that wrong. */
+  const pointers = useRef(new Map<number, Point>());
+  const gesture = useRef<{ dist: number; mid: Point } | null>(null);
+
+  const spread = (pts: Point[]) => {
+    const [a, b] = pts;
+    return {
+      dist: Math.hypot(a.x - b.x, a.y - b.y),
+      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    };
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const { x, y } = toArtboard(e);
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    const measure = measurer(ctx);
-
-    // Topmost first, so a block sitting over another one wins the click.
-    for (const b of [...doc.blocks].reverse()) {
-      const bounds = textBounds(b, layoutText(b, measure), measure);
-      if (!hits(bounds, x, y)) continue;
-      setSelected(b.id);
-      dragRef.current = { kind: "block", id: b.id, startX: x, startY: y, fromX: b.box.x, fromY: b.box.y };
-      e.currentTarget.setPointerCapture(e.pointerId);
-      return;
-    }
-
-    if (doc.photo && y <= PHOTO_BAND.h) {
-      dragRef.current = {
-        kind: "photo",
-        startX: x,
-        startY: y,
-        fromX: doc.photo.fit.offsetX,
-        fromY: doc.photo.fit.offsetY,
-      };
-      e.currentTarget.setPointerCapture(e.pointerId);
-      return;
-    }
-    setSelected(null);
+    if (!doc.photo) return;
+    const pt = toArtboard(e, e.currentTarget);
+    // A one-finger drag starts only on the photo; two fingers may start
+    // anywhere, because a pinch is aimed at the picture as a whole and asking
+    // someone to land both thumbs inside a band is not a real requirement.
+    if (pointers.current.size === 0 && pt.y > PHOTO_BAND.h) return;
+    pointers.current.set(e.pointerId, pt);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const pts = [...pointers.current.values()];
+    gesture.current = pts.length === 2 ? spread(pts) : null;
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const drag = dragRef.current;
-    if (!drag) return;
-    const { x, y } = toArtboard(e);
-    const dx = x - drag.startX;
-    const dy = y - drag.startY;
-    if (drag.kind === "photo") {
-      setFit((fit) => ({ ...fit, offsetX: drag.fromX + dx, offsetY: drag.fromY + dy }));
-    } else {
-      setDoc((d) => ({
-        ...d,
-        blocks: d.blocks.map((b) =>
-          b.id === drag.id
-            ? { ...b, box: clampBox({ ...b.box, x: drag.fromX + dx, y: drag.fromY + dy }) }
-            : b,
-        ),
-      }));
+    if (!pointers.current.has(e.pointerId)) return;
+    const prev = pointers.current.get(e.pointerId)!;
+    const pt = toArtboard(e, e.currentTarget);
+    pointers.current.set(e.pointerId, pt);
+    const pts = [...pointers.current.values()];
+
+    if (pts.length >= 2) {
+      const now = spread(pts.slice(0, 2));
+      const was = gesture.current;
+      gesture.current = now;
+      if (!was || was.dist <= 0) return;
+      /* Incremental, frame to frame, rather than measured against where the
+       * fingers started. The two are identical until a finger is added or
+       * lifted, and then the "since the start" version jumps, because its
+       * baseline belongs to a gesture that no longer exists. */
+      const k = now.dist / was.dist;
+      const panX = now.mid.x - was.mid.x;
+      const panY = now.mid.y - was.mid.y;
+      setFit((fit) => {
+        const zoomed = zoomAt(fit, fit.zoom * k, now.mid, PHOTO_BAND);
+        return { ...zoomed, offsetX: zoomed.offsetX + panX, offsetY: zoomed.offsetY + panY };
+      });
+      return;
     }
+
+    setFit((fit) => ({
+      ...fit,
+      offsetX: fit.offsetX + (pt.x - prev.x),
+      offsetY: fit.offsetY + (pt.y - prev.y),
+    }));
   };
 
-  const endDrag = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!dragRef.current) return;
-    dragRef.current = null;
+  const endPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!pointers.current.delete(e.pointerId)) return;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
+    const pts = [...pointers.current.values()];
+    gesture.current = pts.length === 2 ? spread(pts) : null;
   };
+
+  /* Trackpad pinch arrives as a wheel event with ctrlKey set - there is no
+   * gesture event for it outside Safari - and it has to be preventDefault'd or
+   * the browser zooms the whole page instead. React attaches wheel passively at
+   * the root, where preventDefault is ignored, so this one is bound by hand.
+   * A plain wheel is left alone: that is the person scrolling the page. */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const at = toArtboard(e, canvas);
+      // deltaY is in the tens for a trackpad pinch; e^(-d/120) is the usual
+      // smooth mapping and keeps a fast pinch from overshooting the clamp.
+      // setFit clamps, so the zoom cannot run past the ends of its range here.
+      setFit((fit) => zoomAt(fit, fit.zoom * Math.exp(-e.deltaY / 120), at, PHOTO_BAND));
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* -------------------------------------------------------------- the edits */
 
@@ -387,16 +423,16 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
         >
           <canvas
             ref={canvasRef}
-            className="listing-canvas"
+            className={`listing-canvas${doc.photo ? " listing-grabbable" : ""}`}
             style={{ aspectRatio: `${CANVAS.w} / ${CANVAS.h}` }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
+            onPointerUp={endPointer}
+            onPointerCancel={endPointer}
           />
           <p className="listing-hint">
             {doc.photo
-              ? "Drag the photo to place it, Scale to resize it. Drag any text to move it."
+              ? "Drag or pinch the photo to frame it. Everything else is fixed to the template."
               : "Drop a photo of the house here, or choose one on the right."}
           </p>
         </div>
@@ -550,6 +586,36 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
                     onChange={(e) => patch(block.id, { size: Number(e.target.value) })}
                   />
                 </label>
+                {block.id !== "address" && (
+                  <>
+                    <h3 className="listing-sub">Where it sits</h3>
+                    <div className="listing-choices">
+                      {TEXT_SLOTS.filter((sl) => sl.key !== "address").map((sl) => (
+                        <button
+                          key={sl.key}
+                          type="button"
+                          aria-pressed={block.slot === sl.key}
+                          className={block.slot === sl.key ? "listing-on" : ""}
+                          onClick={() =>
+                            setDoc((d) => ({
+                              ...d,
+                              blocks: d.blocks.map((b) =>
+                                b.id === block.id ? moveToSlot(b, sl.key) : b,
+                              ),
+                            }))
+                          }
+                        >
+                          {sl.label}
+                        </button>
+                      ))}
+                    </div>
+                    {block.slot === "banner" && doc.badge !== "none" && (
+                      <p className="listing-note">
+                        The badge sits on this line too. Choose No badge to have it to yourself.
+                      </p>
+                    )}
+                  </>
+                )}
                 <div className="listing-choices">
                   {(["left", "center", "right"] as TextAlign[]).map((a) => (
                     <button

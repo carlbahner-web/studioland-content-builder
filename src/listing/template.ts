@@ -13,6 +13,7 @@
  */
 
 export type Box = { x: number; y: number; w: number; h: number };
+export type Point = { x: number; y: number };
 export type TextAlign = "left" | "center" | "right";
 
 /** Instagram portrait. The art is drawn at this size; nothing else is offered. */
@@ -167,12 +168,76 @@ export function clampPhotoFit(imgW: number, imgH: number, band: Box, fit: PhotoF
   };
 }
 
+/* Zoom about a POINT rather than about the band's centre.
+ *
+ * This is what makes a pinch feel like a pinch: whatever is under the two
+ * fingers has to stay under them. Zooming about the centre instead slides the
+ * picture away while you are trying to frame a detail with it, and on a photo
+ * held at 3x that is enough to make the gesture feel broken rather than
+ * imprecise.
+ *
+ * The algebra: a point sits at `u` from the band's centre and the photo's own
+ * centre sits at `offset`, so the point is `u - offset` from the photo's centre
+ * in artboard units. Scaling by `k` scales that distance by `k`, and the offset
+ * that keeps `u` where it is falls out as `u - (u - offset) * k`.
+ */
+export function zoomAt(fit: PhotoFit, nextZoom: number, anchor: Point, band: Box): PhotoFit {
+  if (!(fit.zoom > 0)) return { ...fit, zoom: nextZoom };
+  const k = nextZoom / fit.zoom;
+  const ux = anchor.x - (band.x + band.w / 2);
+  const uy = anchor.y - (band.y + band.h / 2);
+  return {
+    zoom: nextZoom,
+    offsetX: ux - (ux - fit.offsetX) * k,
+    offsetY: uy - (uy - fit.offsetY) * k,
+  };
+}
+
 /* ----------------------------------------------------------------- the text */
+
+/* Type sits in NAMED PLACES, and there is no dragging.
+ *
+ * This is a template, not a canvas: the address belongs where the designer put
+ * it, and a graphic whose contact details have drifted four pixels left of the
+ * last one is worse than one that cannot be adjusted at all. So a block picks a
+ * slot and the slot supplies the box.
+ *
+ * There are only two of them besides the address, because there are only two
+ * places in this artwork with room for type. Everything between the arch and
+ * the strapline is either the badge's line or the address's box, and the strip
+ * under the arch is 60px tall.
+ */
+export type Slot = {
+  key: string;
+  label: string;
+  box: Box;
+  align: TextAlign;
+  /** What a block moved into this slot is sized at, before shrink-to-fit. */
+  size: number;
+};
+
+export const TEXT_SLOTS: Slot[] = [
+  { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },
+  { key: "photo", label: "Over the photo", box: { x: 60, y: 72, w: 960, h: 240 }, align: "center", size: 112 },
+  /* The badge's own line, and the same column as the address below it - NOT the
+   * full width of the artboard. The arch reaches x=555 and the headshot inside
+   * it is a photograph, so type centred across the whole width lands half on a
+   * face; the navy only actually starts where this box does. The badge collides
+   * with this slot by design, being the same line, so the UI says so rather
+   * than offering a fourth place that does not exist. */
+  { key: "banner", label: "Beside the arch", box: { x: 578, y: 742, w: 482, h: 118 }, align: "center", size: 96 },
+];
+
+export function slotFor(key: string): Slot {
+  return TEXT_SLOTS.find((s) => s.key === key) ?? TEXT_SLOTS[0];
+}
 
 export type TextBlock = {
   id: string;
   text: string;
-  /** Top-left of the block's box, canvas px. Width is what it is allowed to use. */
+  /** Which of TEXT_SLOTS this sits in. The slot owns the position. */
+  slot: string;
+  /** The slot's box, copied in when the slot is set. Never edited by hand. */
   box: Box;
   /** Size in canvas px, before any shrink-to-fit. */
   size: number;
@@ -281,11 +346,3 @@ export function hits(box: Box, x: number, y: number, pad = 12): boolean {
   );
 }
 
-/** Keep a block's box on the artboard, so nothing can be dragged out of sight. */
-export function clampBox(box: Box): Box {
-  return {
-    ...box,
-    x: Math.min(CANVAS.w - 40, Math.max(40 - box.w, box.x)),
-    y: Math.min(CANVAS.h - 40, Math.max(0, box.y)),
-  };
-}

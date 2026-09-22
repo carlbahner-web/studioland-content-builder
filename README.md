@@ -289,6 +289,21 @@ what the handover said they were:
 pitch against the real font in a real browser, so swapping the font file fails a
 test rather than quietly reflowing every graphic anyone makes.
 
+### Nothing moves except the photo
+
+Type sits in **named slots**, and there is no dragging. This is a template, not
+a canvas: a graphic whose contact details have drifted four pixels left of the
+last one is worse than one that cannot be adjusted at all. A block picks a slot
+and the slot supplies the box, the size and the alignment.
+
+There are three, because there are three places in this artwork with room for
+type: the address's own box, the top band over the photo, and the badge's line
+beside the arch. That last one is **not** the full width of the artboard — the
+arch reaches x=555 and the headshot inside it is a photograph, so type centred
+across the whole width lands half on a face. It shares its line with the badge
+by design, being the same line, so the UI says so rather than pretending a
+fourth place exists.
+
 ### The photo is the bottom layer
 
 The listing photo sits under everything — the frame's keyed-out top is the hole
@@ -301,6 +316,21 @@ whatever shape it came in. A multiplier of the file's natural size would put the
 useful range somewhere different for a phone snap than for a 6000px camera file,
 and the slider would be useless on one of them.
 
+**Drag or pinch, and the pinch is anchored.** Zooming about a point rather than
+about the band's centre is what makes a pinch feel like a pinch: whatever is
+under the two fingers stays under them. Zooming about the centre slides the
+picture away while you are framing a detail with it, and at 3× that reads as
+broken rather than imprecise. A trackpad pinch arrives as a `wheel` event with
+`ctrlKey` set — there is no gesture event for it outside Safari — and it has to
+be `preventDefault`'d or the browser zooms the whole page; React attaches wheel
+passively at the root, where that is ignored, so that one listener is bound by
+hand.
+
+The pinch is computed frame to frame rather than against where the fingers
+started. The two are identical until a finger is added or lifted, and then the
+"since the start" version jumps, because its baseline belongs to a gesture that
+no longer exists.
+
 **The floor is "the whole photo", not 100%.** Listing photos are usually 3:2 or
 4:3 and the band is 1.53:1, so covering it crops the top and bottom — often the
 roofline and the yard, which are the point. Below 100% the photo letterboxes,
@@ -309,7 +339,7 @@ rather than a hole. That backdrop is painted unconditionally, before the photo
 rather than instead of it: skip that and zooming out punches a transparent hole
 through the top of the graphic, which the PNG then carries.
 
-Dragging is bounded by whichever axis has play in it — to the edge of the
+Panning is bounded by whichever axis has play in it — to the edge of the
 overhang where the photo is bigger than the band, and to the edge of the band
 where it is smaller, so an inset photo can be placed rather than stuck in the
 middle and an oversized one can never be pulled off to leave a gap.

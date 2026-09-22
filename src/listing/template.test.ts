@@ -11,16 +11,18 @@ import {
   CANVAS,
   CAP_RATIO,
   PHOTO_BAND,
-  clampBox,
+  TEXT_SLOTS,
   clampPhotoFit,
   containZoom,
   coverRect,
   hits,
   layoutText,
+  slotFor,
   textBounds,
+  zoomAt,
 } from "./template.ts";
 import type { TextBlock } from "./template.ts";
-import { ADDRESS_SEED, addressBlock, emptyDoc, newBlock } from "./doc.ts";
+import { ADDRESS_SEED, addressBlock, emptyDoc, moveToSlot, newBlock } from "./doc.ts";
 
 const measure = (line: string, size: number) => line.length * size * 0.5;
 
@@ -199,14 +201,93 @@ test("hit testing is forgiving around the edges but not far from them", () => {
   assert.ok(!hits(bounds, bounds.x - 200, bounds.y));
 });
 
-/* ---------------------------------------------------------------- the frame */
+/* ----------------------------------------------------------------- the slots */
 
-test("a block cannot be dragged off the artboard", () => {
-  const far = clampBox({ x: 99999, y: 99999, w: 400, h: 200 });
-  assert.ok(far.x < CANVAS.w && far.y < CANVAS.h);
-  const near = clampBox({ x: -99999, y: -99999, w: 400, h: 200 });
-  assert.ok(near.x + 400 >= 40, "dragged out to the left with nothing left on screen");
-  assert.equal(near.y, 0);
+test("every block sits in a slot, and the slot owns where it is", () => {
+  for (const b of [addressBlock(), newBlock()]) {
+    const slot = slotFor(b.slot);
+    assert.deepEqual(b.box, slot.box, `${b.id} is not where its slot says`);
+    assert.equal(b.align, slot.align);
+    assert.equal(b.size, slot.size);
+  }
+});
+
+test("moving to a slot takes the slot's box, size and alignment, and keeps the words", () => {
+  const before = newBlock("JUST LISTED!");
+  const after = moveToSlot(before, "banner");
+  const slot = slotFor("banner");
+  assert.equal(after.text, "JUST LISTED!");
+  assert.equal(after.id, before.id);
+  assert.deepEqual(after.box, slot.box);
+  assert.equal(after.size, slot.size);
+  assert.equal(after.align, slot.align);
+});
+
+test("an unknown slot falls back rather than leaving a block with no box", () => {
+  assert.equal(slotFor("nowhere").key, TEXT_SLOTS[0].key);
+});
+
+test("the slots are inside the artboard and do not overlap the address", () => {
+  const address = slotFor("address").box;
+  for (const slot of TEXT_SLOTS) {
+    const b = slot.box;
+    assert.ok(b.x >= 0 && b.y >= 0 && b.x + b.w <= CANVAS.w && b.y + b.h <= CANVAS.h, slot.key);
+    if (slot.key === "address") continue;
+    const overlaps =
+      b.x < address.x + address.w &&
+      b.x + b.w > address.x &&
+      b.y < address.y + address.h &&
+      b.y + b.h > address.y;
+    assert.ok(!overlaps, `${slot.key} runs into the address block`);
+  }
+});
+
+/* ------------------------------------------------------------- pinch to zoom */
+
+test("zooming about a point leaves that point on the same part of the photo", () => {
+  const band = PHOTO_BAND;
+  const start = { zoom: 1, offsetX: 0, offsetY: 0 };
+  // Where the anchor sits inside the photo, as a fraction of the photo's size.
+  const where = (fit: typeof start, at: { x: number; y: number }) => {
+    const r = coverRect(3000, 2000, band, fit);
+    return { u: (at.x - r.x) / r.w, v: (at.y - r.y) / r.h };
+  };
+  for (const at of [
+    { x: 100, y: 100 },
+    { x: 540, y: 352 },
+    { x: 1000, y: 640 },
+  ]) {
+    const before = where(start, at);
+    for (const zoom of [1.5, 2.75, 4]) {
+      const after = where(zoomAt(start, zoom, at, band), at);
+      assert.ok(
+        Math.abs(after.u - before.u) < 1e-9 && Math.abs(after.v - before.v) < 1e-9,
+        `the photo slipped under the pinch at ${JSON.stringify(at)}, zoom ${zoom}`,
+      );
+    }
+  }
+});
+
+test("zooming about the band's centre is the same as not anchoring at all", () => {
+  const band = PHOTO_BAND;
+  const centre = { x: band.x + band.w / 2, y: band.y + band.h / 2 };
+  const fit = { zoom: 1, offsetX: 0, offsetY: 0 };
+  assert.deepEqual(zoomAt(fit, 2, centre, band), { zoom: 2, offsetX: 0, offsetY: 0 });
+});
+
+test("an anchored zoom out is the exact inverse of the zoom in", () => {
+  const band = PHOTO_BAND;
+  const at = { x: 200, y: 500 };
+  const fit = { zoom: 1.4, offsetX: 30, offsetY: -12 };
+  const back = zoomAt(zoomAt(fit, 3.2, at, band), fit.zoom, at, band);
+  assert.ok(Math.abs(back.offsetX - fit.offsetX) < 1e-9, `offsetX drifted to ${back.offsetX}`);
+  assert.ok(Math.abs(back.offsetY - fit.offsetY) < 1e-9, `offsetY drifted to ${back.offsetY}`);
+});
+
+test("a zero zoom cannot make the anchored maths produce NaN", () => {
+  const out = zoomAt({ zoom: 0, offsetX: 5, offsetY: 5 }, 2, { x: 10, y: 10 }, PHOTO_BAND);
+  assert.ok(Number.isFinite(out.offsetX) && Number.isFinite(out.offsetY));
+  assert.equal(out.zoom, 2);
 });
 
 test("a fresh doc has the address and nothing else to go wrong", () => {

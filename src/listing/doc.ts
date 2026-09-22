@@ -6,12 +6,10 @@
  * than pretending to persist it.
  */
 import {
-  ADDRESS_ALIGN,
-  ADDRESS_BOX,
-  ADDRESS_SIZE,
   INK,
   LINE_HEIGHT,
   OUTLINE,
+  slotFor,
   type Badge,
   type Headshot,
 } from "./template.ts";
@@ -57,32 +55,36 @@ export const ADDRESS_SEED = [
   "Coldwell Banker Realty",
 ].join("\n");
 
-export function addressBlock(): TextBlock {
+/** A block in one of the template's fixed slots. The slot owns where and how big. */
+function inSlot(id: string, text: string, slotKey: string): TextBlock {
+  const slot = slotFor(slotKey);
   return {
-    id: "address",
-    text: ADDRESS_SEED,
-    box: { ...ADDRESS_BOX },
-    size: ADDRESS_SIZE,
-    align: ADDRESS_ALIGN,
+    id,
+    text,
+    slot: slot.key,
+    box: { ...slot.box },
+    size: slot.size,
+    align: slot.align,
     fill: INK,
     outline: OUTLINE,
     lineHeight: LINE_HEIGHT,
   };
 }
 
-/* A block added by hand starts wide, centred and low-ish on the navy - the one
- * region of the artwork with room for type that is not already spoken for. */
-export function newBlock(text = "Just listed!"): TextBlock {
-  return {
-    id: nextId("text"),
-    text,
-    box: { x: 80, y: 760, w: 920, h: 200 },
-    size: 96,
-    align: "center",
-    fill: INK,
-    outline: OUTLINE,
-    lineHeight: LINE_HEIGHT,
-  };
+export function addressBlock(): TextBlock {
+  return inSlot("address", ADDRESS_SEED, "address");
+}
+
+/* Added text starts over the photo rather than on the navy, because the navy
+ * line is also the badge's and most graphics have a badge on. */
+export function newBlock(text = "JUST LISTED!"): TextBlock {
+  return inSlot(nextId("text"), text, "photo");
+}
+
+/** Move a block to another slot: the slot supplies box, size and alignment. */
+export function moveToSlot(block: TextBlock, slotKey: string): TextBlock {
+  const slot = slotFor(slotKey);
+  return { ...block, slot: slot.key, box: { ...slot.box }, size: slot.size, align: slot.align };
 }
 
 export function emptyDoc(): Doc {
