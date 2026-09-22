@@ -41,6 +41,29 @@ function capability(): Promise<Downloads | null> {
   return pending;
 }
 
+/* Whether a generated file can actually be handed over HERE.
+ *
+ * Worth asking separately from saving, because the two environments that cannot
+ * download fail in opposite ways: iOS Safari ignores `download` on a blob and
+ * opens the image instead, which the person can at least press and hold; a
+ * claude.ai artifact frame makes the anchor silently INERT, so a tool that
+ * reports "saved" and did nothing is indistinguishable from a broken one. A
+ * caller that can say something truthful up front should.
+ *
+ * True where the viewer grants the capability; false where there is no
+ * capability AND the frame is one that will swallow the anchor.
+ */
+export async function canSaveFile(): Promise<boolean> {
+  if (await capability()) return true;
+  try {
+    // A top-level page downloads fine. Only a cross-origin frame is the problem,
+    // and reading a parent's origin from one throws - which is the test.
+    return window.self === window.top || !!window.top?.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 export type SaveOutcome =
   /** The viewer confirmed and the file was handed to their save surface. */
   | "saved"

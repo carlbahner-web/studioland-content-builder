@@ -86,6 +86,27 @@ export async function stop(): Promise<void> {
   server = null;
 }
 
+/* A bare page on the same dev server, for a tool that is not the layer editor.
+ * `open()` below knows the editor's chrome intimately - its canvas class, its
+ * IndexedDB name, its boot message - and none of that applies to the listing
+ * builder, so that spec drives its own page rather than bending this one. */
+export async function newPage(opts: { phone?: boolean } = {}): Promise<Page> {
+  await start();
+  /* `phone` is not cosmetic: it makes `(pointer: coarse)` match, which is the
+   * switch the export path reads to decide between an anchor download and the
+   * press-and-hold fallback. A narrow viewport alone leaves the pointer fine
+   * and tests the wrong branch. */
+  if (opts.phone) {
+    return browser!.newPage({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+      deviceScaleFactor: 3,
+    });
+  }
+  return browser!.newPage({ viewport: { width: 1440, height: 1000 } });
+}
+
 export type Editor = {
   page: Page;
   /** Every console error and uncaught exception seen so far. */

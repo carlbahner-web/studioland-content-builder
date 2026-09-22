@@ -1,0 +1,231 @@
+/* Chrome for the listing builder. Same quiet workbench as studio.css - cream
+   throughout, charcoal type - so the two tools do not look like different
+   products.
+
+   The stage was briefly a dark charcoal, on the theory that a graphic should be
+   judged against something nearer where it will be seen. In practice it just
+   made the thing you are working on harder to look at: a 540px artboard in a
+   large dark field is a bright rectangle you squint at rather than a picture you
+   read. Cream also happens to solve the problem the dark stage was picked to
+   avoid - a photo scaled below the band letterboxes in the artwork's navy, and
+   those bars are unmistakable against cream, where against a dark surround they
+   merged with it and the artboard lost its edges. */
+
+.listing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.listing-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+}
+/* Set in caps, so it takes positive tracking rather than the tight negative
+   the lowercase heading wanted, and is allowed to wrap on a narrow window
+   rather than forcing the header wider than the screen. */
+.listing-head h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-wrap: balance;
+}
+.listing-elsewhere {
+  font-size: 13px;
+  color: var(--teal);
+  text-decoration: none;
+}
+.listing-elsewhere:hover { text-decoration: underline; }
+
+.listing-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+/* ---- stage ---- */
+
+.listing-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 24px 48px;
+  background: var(--cream);
+}
+.listing-canvas {
+  width: min(540px, 100%);
+  max-height: calc(100vh - 140px);
+  border-radius: 4px;
+  /* Light enough not to read as a card. The artboard is navy-heavy and sits on
+     cream, so it needs separating from the page, not lifting off it. */
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+  /* The photo is dragged and pinched on this surface, so the browser must not
+     claim the gesture for panning, and a text selection dragged out of it is
+     never what anyone meant. */
+  touch-action: none;
+  user-select: none;
+}
+/* ---- panel ---- */
+
+.listing-panel {
+  width: 340px;
+  flex: none;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 24px 24px 48px;
+  background: var(--cream);
+  border-left: 1px solid var(--line);
+}
+.listing-panel section { margin-bottom: 26px; }
+.listing-panel h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.listing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.listing-spread { justify-content: space-between; }
+.listing-spread h2 { margin: 0; }
+
+.listing-panel button {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--charcoal);
+  cursor: pointer;
+}
+.listing-panel button:hover { border-color: #b9b099; }
+.listing-panel button.listing-on {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--cream);
+}
+.listing-panel button.listing-quiet {
+  background: transparent;
+  opacity: 0.7;
+}
+.listing-panel button:disabled { opacity: 0.45; cursor: default; }
+
+.listing-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* The real input is driven by its own button, so it is hidden rather than
+   styled - every browser draws it differently and none of them draw it well. */
+.listing-file { display: none; }
+
+.listing-filename {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  opacity: 0.6;
+  overflow-wrap: anywhere;
+}
+
+.listing-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+.listing-slider input { flex: 1; min-width: 0; }
+
+.listing-block textarea {
+  display: block;
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  resize: vertical;
+}
+
+.listing-go {
+  width: 100%;
+  padding: 13px !important;
+  font-size: 14px !important;
+  background: var(--charcoal) !important;
+  border-color: var(--charcoal) !important;
+  color: var(--cream) !important;
+}
+.listing-go:disabled { opacity: 0.45; }
+
+.listing-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.listing-warn {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid #c0583833;
+  border-radius: 6px;
+  background: #c058381a;
+}
+
+@media (max-width: 900px) {
+  .listing-body { flex-direction: column; }
+  .listing-panel {
+    position: static;
+    width: 100%;
+    max-height: none;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+  .listing-stage { width: 100%; padding: 20px 16px 32px; }
+  .listing-canvas { max-height: none; }
+}
+
+.listing-readout {
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* The drop target is the stage, not the canvas: a file dragged over a graphic
+   is aimed at the picture, and a 540px target inside a much larger dark area is
+   a needlessly precise thing to ask of a drag. */
+.listing-dropping {
+  outline: 2px dashed var(--teal);
+  outline-offset: -10px;
+}
+
+/* Only the photo is draggable, so only a photo turns the cursor into a grab.
+   A grab cursor over fixed artwork promises an interaction that is not there. */
+.listing-canvas { cursor: default; }
+.listing-canvas.listing-grabbable { cursor: grab; }
+.listing-canvas.listing-grabbable:active { cursor: grabbing; }
