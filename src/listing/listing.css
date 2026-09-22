@@ -1,8 +1,12 @@
 /* Chrome for the listing builder. Same quiet workbench as studio.css - cream
    panel, charcoal type - so the two tools do not look like different products.
-   The one departure is the stage, which is navy: the artwork's own ground, so
-   the graphic is judged against something like where it will be seen rather
-   than against cream, which flatters the pale type unfairly. */
+   The one departure is the stage, which is dark, so the graphic is judged
+   against something nearer where it will be seen than cream - which flatters
+   pale type unfairly. Dark, but deliberately NOT the artwork's navy: a photo
+   scaled below the band letterboxes in that navy, and on a navy stage the bars
+   merge with the surround and the artboard loses its edges exactly when you are
+   trying to judge where the picture stops. So the stage is a warm charcoal that
+   nothing in the artwork uses. */
 
 .listing {
   min-height: 100vh;
@@ -48,13 +52,13 @@
   align-items: center;
   gap: 12px;
   padding: 28px 24px 48px;
-  background: #101b30;
+  background: #1d1b18;
 }
 .listing-canvas {
   width: min(540px, 100%);
   max-height: calc(100vh - 140px);
   border-radius: 4px;
-  box-shadow: 0 18px 44px rgb(0 0 0 / 45%);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 55%);
   /* The artboard is the drag surface; a text selection dragged out of it is
      never what anyone meant. */
   touch-action: none;
@@ -65,7 +69,7 @@
 .listing-hint {
   margin: 0;
   font-size: 12px;
-  color: rgb(252 247 232 / 55%);
+  color: rgb(252 247 232 / 52%);
   text-align: center;
 }
 
@@ -220,4 +224,27 @@
   }
   .listing-stage { width: 100%; padding: 20px 16px 32px; }
   .listing-canvas { max-height: none; }
+}
+
+.listing-readout {
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* The drop target is the stage, not the canvas: a file dragged over a graphic
+   is aimed at the picture, and a 540px target inside a much larger dark area is
+   a needlessly precise thing to ask of a drag. */
+.listing-dropping {
+  outline: 2px dashed #7de3ff;
+  outline-offset: -10px;
+}
+
+/* The wordmark that stands in for the link back in the one-file build. */
+.listing-static {
+  opacity: 0.5;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 11px;
 }

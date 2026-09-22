@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types src/brand.test.ts src/boil.test.ts src/layerBox.test.ts src/store.test.ts src/layers.test.ts src/history.test.ts src/snap.test.ts src/formats.test.ts src/crop.test.ts src/cutout.test.ts src/listing/template.test.ts",
     "build:single": "node scripts/build-single.mjs",
+    "build:listing": "node scripts/build-single.mjs --only=listing",
     "art": "node scripts/chroma-key.mjs",
     "test:browser": "node --test --experimental-strip-types tests/browser/*.test.ts"
   },

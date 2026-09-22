@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
-import { saveFile } from "../save.ts";
+import { canSaveFile, saveFile } from "../save.ts";
 import {
   BADGES,
   CANVAS,
@@ -18,13 +18,14 @@ import {
   PHOTO_BAND,
   clampBox,
   clampPhotoFit,
+  containZoom,
   hits,
   layoutText,
   textBounds,
 } from "./template.ts";
-import type { TextAlign, TextBlock } from "./template.ts";
+import type { PhotoFit, TextAlign, TextBlock } from "./template.ts";
 import { addressBlock, emptyDoc, newBlock } from "./doc.ts";
-import type { Doc } from "./doc.ts";
+import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, measurer, renderFull } from "./draw.ts";
 import type { Art, LayerName } from "./draw.ts";
 import "./listing.css";
@@ -100,11 +101,13 @@ type Drag =
   | { kind: "photo"; startX: number; startY: number; fromX: number; fromY: number }
   | { kind: "block"; id: string; startX: number; startY: number; fromX: number; fromY: number };
 
-export default function ListingBuilder() {
+/** `standalone` is the one-file build, where there is no other tool to link to. */
+export default function ListingBuilder({ standalone = false }: { standalone?: boolean }) {
   const [doc, setDoc] = useState<Doc>(emptyDoc);
   const [selected, setSelected] = useState<string | null>("address");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dropping, setDropping] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
@@ -113,6 +116,19 @@ export default function ListingBuilder() {
 
   const { art, ready, failed } = useArt();
   const fontReady = useFontReady();
+  const [canSave, setCanSave] = useState(true);
+
+  /* Asked once, and never during the first synchronous run: the download
+   * capability is resolved asynchronously by the viewer and is documented never
+   * to arrive before then. Optimistic until it answers, so the button is not
+   * disabled on a page that can in fact save. */
+  useEffect(() => {
+    let live = true;
+    canSaveFile().then((ok) => live && setCanSave(ok));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const block = doc.blocks.find((b) => b.id === selected) ?? null;
 
@@ -148,6 +164,20 @@ export default function ListingBuilder() {
       setNote(`Could not read ${file.name}.`);
     };
     img.src = src;
+  }, []);
+
+  /* Every photo control goes through here, so the clamp cannot be forgotten by
+   * one of them. Passing a function rather than a value lets the slider and the
+   * drag both work from the CURRENT fit without closing over a stale one. */
+  const setFit = useCallback((change: (fit: PhotoFit, photo: Photo) => PhotoFit) => {
+    setDoc((d) => {
+      if (!d.photo) return d;
+      const next = change(d.photo.fit, d.photo);
+      return {
+        ...d,
+        photo: { ...d.photo, fit: clampPhotoFit(d.photo.w, d.photo.h, PHOTO_BAND, next) },
+      };
+    });
   }, []);
 
   const clearPhoto = useCallback(() => {
@@ -248,21 +278,7 @@ export default function ListingBuilder() {
     const dx = x - drag.startX;
     const dy = y - drag.startY;
     if (drag.kind === "photo") {
-      setDoc((d) =>
-        d.photo
-          ? {
-              ...d,
-              photo: {
-                ...d.photo,
-                fit: clampPhotoFit(d.photo.w, d.photo.h, PHOTO_BAND, {
-                  ...d.photo.fit,
-                  offsetX: drag.fromX + dx,
-                  offsetY: drag.fromY + dy,
-                }),
-              },
-            }
-          : d,
-      );
+      setFit((fit) => ({ ...fit, offsetX: drag.fromX + dx, offsetY: drag.fromY + dy }));
     } else {
       setDoc((d) => ({
         ...d,
@@ -326,7 +342,9 @@ export default function ListingBuilder() {
       if (!blob) throw new Error("the canvas would not encode");
       const outcome = await saveFile(filename, blob);
       if (outcome === "declined") setNote("Save cancelled.");
-      else setNote(`Saved ${filename}`);
+      else if (outcome === "browser" && !canSave) {
+        setNote(`This viewer will not let the page save files. Open it in its own tab to get ${filename}.`);
+      } else setNote(`Saved ${filename}`);
     } catch (err) {
       setNote(`Could not export: ${(err as Error).message}`);
     } finally {
@@ -340,13 +358,33 @@ export default function ListingBuilder() {
     <div className="listing">
       <header className="listing-head">
         <h1>Listing builder</h1>
-        <a href="#/" className="listing-elsewhere">
-          Brand content builder →
-        </a>
+        {standalone ? (
+          <span className="listing-elsewhere listing-static">StudioLand</span>
+        ) : (
+          <a href="#/" className="listing-elsewhere">
+            Brand content builder →
+          </a>
+        )}
       </header>
 
       <div className="listing-body">
-        <div className="listing-stage">
+        <div
+          className={`listing-stage${dropping ? " listing-dropping" : ""}`}
+          onDragOver={(e) => {
+            // Without preventDefault on BOTH dragover and drop, the browser
+            // navigates to the dropped file and the tool is simply gone.
+            e.preventDefault();
+            setDropping(true);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDropping(false);
+            onPickPhoto(e.dataTransfer.files?.[0]);
+          }}
+        >
           <canvas
             ref={canvasRef}
             className="listing-canvas"
@@ -358,8 +396,8 @@ export default function ListingBuilder() {
           />
           <p className="listing-hint">
             {doc.photo
-              ? "Drag the photo to reposition it. Drag any text to move it."
-              : "Add a photo of the house, then drag text to move it."}
+              ? "Drag the photo to place it, Scale to resize it. Drag any text to move it."
+              : "Drop a photo of the house here, or choose one on the right."}
           </p>
         </div>
 
@@ -394,33 +432,46 @@ export default function ListingBuilder() {
             </div>
             {doc.photo && (
               <>
-                <p className="listing-filename">{doc.photo.name}</p>
+                <p className="listing-filename">
+                  {doc.photo.name} · {doc.photo.w}×{doc.photo.h}
+                </p>
                 <label className="listing-slider">
-                  Zoom
+                  Scale
                   <input
                     type="range"
-                    min={1}
+                    min={containZoom(doc.photo.w, doc.photo.h, PHOTO_BAND)}
                     max={4}
-                    step={0.01}
+                    step={0.005}
                     value={doc.photo.fit.zoom}
-                    onChange={(e) =>
-                      setDoc((d) =>
-                        d.photo
-                          ? {
-                              ...d,
-                              photo: {
-                                ...d.photo,
-                                fit: clampPhotoFit(d.photo.w, d.photo.h, PHOTO_BAND, {
-                                  ...d.photo.fit,
-                                  zoom: Number(e.target.value),
-                                }),
-                              },
-                            }
-                          : d,
-                      )
-                    }
+                    onChange={(e) => {
+                      const zoom = Number(e.target.value);
+                      setFit((fit) => ({ ...fit, zoom }));
+                    }}
                   />
+                  <span className="listing-readout">{Math.round(doc.photo.fit.zoom * 100)}%</span>
                 </label>
+                <div className="listing-row">
+                  <button
+                    type="button"
+                    className="listing-quiet"
+                    onClick={() => setFit(() => ({ zoom: 1, offsetX: 0, offsetY: 0 }))}
+                  >
+                    Fill the band
+                  </button>
+                  <button
+                    type="button"
+                    className="listing-quiet"
+                    onClick={() =>
+                      setFit((_fit, photo) => ({
+                        zoom: containZoom(photo.w, photo.h, PHOTO_BAND),
+                        offsetX: 0,
+                        offsetY: 0,
+                      }))
+                    }
+                  >
+                    Whole photo
+                  </button>
+                </div>
               </>
             )}
           </section>

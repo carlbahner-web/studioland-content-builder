@@ -112,10 +112,13 @@ export type PhotoFit = { zoom: number; offsetX: number; offsetY: number };
 
 export const PHOTO_FIT: PhotoFit = { zoom: 1, offsetX: 0, offsetY: 0 };
 
-/* Cover, not contain: the band has no background of its own, so a photo that
- * does not fill it leaves the page showing through. Zoom multiplies the cover
- * scale, so zoom 1 is always exactly full and can never be too small however
- * odd the photo's proportions. */
+/* Zoom is a MULTIPLE OF COVER, not of the photo's own pixels.
+ *
+ * That is what makes 1 mean the same thing for every photo: exactly filling the
+ * band, whatever shape it came in. A multiplier of the photo's natural size
+ * would put the useful range in a different place for a phone snap than for a
+ * 6000px camera file, and the slider would be useless on one of them.
+ */
 export function coverRect(imgW: number, imgH: number, band: Box, fit: PhotoFit): Box {
   if (imgW <= 0 || imgH <= 0) return { ...band };
   const scale = Math.max(band.w / imgW, band.h / imgH) * Math.max(fit.zoom, 0.01);
@@ -129,14 +132,31 @@ export function coverRect(imgW: number, imgH: number, band: Box, fit: PhotoFit):
   };
 }
 
-/* How far the photo may be dragged: to the edge of the slack and no further, so
- * it can never be pulled off the band and leave a gap. At zoom 1 there is slack
- * on at most one axis and the other is pinned, which is correct. */
+/* The zoom at which the WHOLE photo is inside the band - contain rather than
+ * cover, letterboxed on one axis. Always at or below 1.
+ *
+ * This is the floor of the zoom range rather than 1, because a listing photo is
+ * usually 3:2 or 4:3 and the band is 1.53:1, so covering it crops the top and
+ * bottom - which is often exactly the roofline and the yard someone wants. The
+ * letterbox is filled with the artwork's own navy, so zooming out reads as a
+ * deliberate inset rather than as a hole. */
+export function containZoom(imgW: number, imgH: number, band: Box): number {
+  if (imgW <= 0 || imgH <= 0) return 1;
+  const cover = Math.max(band.w / imgW, band.h / imgH);
+  const contain = Math.min(band.w / imgW, band.h / imgH);
+  return contain / cover;
+}
+
+/* How far the photo may be dragged. Where it overflows the band, to the edge of
+ * the overhang and no further, so it can never be pulled off and leave a gap;
+ * where it is smaller than the band, to the edge of the band, so an inset photo
+ * can be placed rather than stuck in the middle. Hence the absolute value: both
+ * are the same "how much play is there on this axis" question. */
 export function clampPhotoFit(imgW: number, imgH: number, band: Box, fit: PhotoFit): PhotoFit {
-  const zoom = Math.min(4, Math.max(1, fit.zoom));
+  const zoom = Math.min(4, Math.max(containZoom(imgW, imgH, band), fit.zoom));
   const placed = coverRect(imgW, imgH, band, { ...fit, zoom, offsetX: 0, offsetY: 0 });
-  const slackX = Math.max(0, (placed.w - band.w) / 2);
-  const slackY = Math.max(0, (placed.h - band.h) / 2);
+  const slackX = Math.abs(placed.w - band.w) / 2;
+  const slackY = Math.abs(placed.h - band.h) / 2;
   // `+ 0` normalises the negative zero that clamping to a zero-width range
   // produces, so a pinned axis reads as 0 rather than -0 wherever this value is
   // compared, serialised or shown.

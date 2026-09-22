@@ -16,6 +16,7 @@ npm test         # the pure logic: brand rules, boil, layers, history, snapping,
 npm run test:browser   # both tools, driven in a real Chromium
 npm run build    # typecheck + dist/
 npm run art      # re-key the listing artwork from assets/listing-src/
+npm run build:listing   # the listing builder alone, as one file (the artifact copy)
 ```
 
 Chrome or Edge. The MP4 export needs WebCodecs and the artwork folder needs the
@@ -192,6 +193,27 @@ only things that change per listing are the address, which headshot, whether it
 says SOLD, and the photo of the house. Every control beyond those four is a way
 to get it wrong, so there is no layer list, no format picker and no undo stack.
 
+### Two one-file builds
+
+`npm run build:single` packs both tools behind the hash router.
+`npm run build:listing` packs the listing builder alone, from its own entry at
+`src/listing/main.tsx`, and that is what gets published as a Claude artifact —
+there is no router there, no way to reach the layer editor, and no reason to
+make someone download 250kB of it plus every brand asset before a page they
+opened to change an address can paint. 2.8MB against 3.2MB, and no dead code.
+
+Two things that build has to get right, both invisible until they are wrong:
+
+- The artifact host wraps the fragment in a skeleton that pads the root by the
+  phone's safe-area insets. A child sized in `vh` ignores that padding and
+  overflows by exactly the inset, putting a scrollbar on a page that fits — so
+  the one-screen measurements are restated against the element.
+- **A download the page starts itself is inert in that frame.** `<a download>`
+  does nothing and throws nothing, so a tool that reports "saved" and did not is
+  indistinguishable from a broken one. `canSaveFile()` in `save.ts` asks first —
+  the viewer's `downloads` capability where there is one, otherwise whether this
+  is a frame that will swallow the anchor — and the button says which it got.
+
 ### Green screens in, transparent layers out
 
 The template arrived as five 1080×1350 flats with everything-that-isn't-this-
@@ -266,6 +288,31 @@ what the handover said they were:
 `tests/browser/listing.test.ts` re-measures the size, the cap ratio and the line
 pitch against the real font in a real browser, so swapping the font file fails a
 test rather than quietly reflowing every graphic anyone makes.
+
+### The photo is the bottom layer
+
+The listing photo sits under everything — the frame's keyed-out top is the hole
+it shows through — and it can be dropped onto the stage, dragged to place and
+scaled from 100% down to the whole photo and up to 4×.
+
+**Scale is a multiple of cover, not of the photo's own pixels.** That is what
+makes 100% mean the same thing for every photo: exactly filling the band,
+whatever shape it came in. A multiplier of the file's natural size would put the
+useful range somewhere different for a phone snap than for a 6000px camera file,
+and the slider would be useless on one of them.
+
+**The floor is "the whole photo", not 100%.** Listing photos are usually 3:2 or
+4:3 and the band is 1.53:1, so covering it crops the top and bottom — often the
+roofline and the yard, which are the point. Below 100% the photo letterboxes,
+and the letterbox is filled with the artwork's own navy, so it reads as an inset
+rather than a hole. That backdrop is painted unconditionally, before the photo
+rather than instead of it: skip that and zooming out punches a transparent hole
+through the top of the graphic, which the PNG then carries.
+
+Dragging is bounded by whichever axis has play in it — to the edge of the
+overhang where the photo is bigger than the band, and to the edge of the band
+where it is smaller, so an inset photo can be placed rather than stuck in the
+middle and an oversized one can never be pulled off to leave a gap.
 
 ### Long addresses shrink, they do not wrap
 

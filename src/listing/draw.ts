@@ -110,7 +110,7 @@ function place(ctx: CanvasRenderingContext2D, art: Art, name: LayerName): void {
 export type DrawOptions = {
   /** Canvas px per artboard px. The export passes 1. */
   scale?: number;
-  /** Fills the photo band when there is no photo yet. */
+  /** The band's backdrop: behind the photo, and all of it before there is one. */
   placeholder?: string;
 };
 
@@ -126,6 +126,14 @@ export function drawDoc(
   ctx.scale(scale, scale);
   ctx.clearRect(0, 0, CANVAS.w, CANVAS.h);
 
+  /* The band's backdrop goes down FIRST and unconditionally, not as an
+   * either/or with the photo. A photo zoomed below cover is letterboxed, and the
+   * letterbox has to be the artwork's navy rather than whatever the canvas was
+   * cleared to - otherwise zooming out punches a transparent hole through the
+   * top of the graphic and the export carries it. */
+  ctx.fillStyle = placeholder;
+  ctx.fillRect(PHOTO_BAND.x, PHOTO_BAND.y, PHOTO_BAND.w, PHOTO_BAND.h);
+
   if (photo && doc.photo) {
     const r = coverRect(doc.photo.w, doc.photo.h, PHOTO_BAND, doc.photo.fit);
     ctx.save();
@@ -137,9 +145,6 @@ export function drawDoc(
     ctx.clip();
     ctx.drawImage(photo, r.x, r.y, r.w, r.h);
     ctx.restore();
-  } else {
-    ctx.fillStyle = placeholder;
-    ctx.fillRect(PHOTO_BAND.x, PHOTO_BAND.y, PHOTO_BAND.w, PHOTO_BAND.h);
   }
 
   place(ctx, art, "frame");

@@ -13,6 +13,7 @@ import {
   PHOTO_BAND,
   clampBox,
   clampPhotoFit,
+  containZoom,
   coverRect,
   hits,
   layoutText,
@@ -51,6 +52,7 @@ test("cover centres the overflow rather than favouring one edge", () => {
 test("a degenerate image falls back to the band instead of dividing by zero", () => {
   const r = coverRect(0, 0, PHOTO_BAND, { zoom: 1, offsetX: 0, offsetY: 0 });
   assert.deepEqual(r, { ...PHOTO_BAND });
+  assert.equal(containZoom(0, 0, PHOTO_BAND), 1);
 });
 
 test("the photo cannot be dragged off the band", () => {
@@ -76,9 +78,39 @@ test("dragging is bounded on whichever axis actually has slack", () => {
 
 test("zoom is clamped to the useful range", () => {
   const near = (v: number) => clampPhotoFit(3000, 2000, PHOTO_BAND, { zoom: v, offsetX: 0, offsetY: 0 }).zoom;
-  assert.equal(near(0.1), 1, "below 1 would stop covering the band");
   assert.equal(near(99), 4);
   assert.equal(near(2.5), 2.5);
+  // The floor is "the whole photo is showing", not 1 - see containZoom.
+  assert.equal(near(0.001), containZoom(3000, 2000, PHOTO_BAND));
+});
+
+test("the whole photo is inside the band at its contain zoom, and touching an edge", () => {
+  for (const [w, h] of [
+    [3000, 2000],
+    [1000, 3000],
+    [705, 705],
+    [6000, 100],
+  ]) {
+    const zoom = containZoom(w, h, PHOTO_BAND);
+    assert.ok(zoom <= 1 + 1e-9, `${w}x${h}: contain should never be larger than cover`);
+    const r = coverRect(w, h, PHOTO_BAND, { zoom, offsetX: 0, offsetY: 0 });
+    assert.ok(r.w <= PHOTO_BAND.w + 1e-6 && r.h <= PHOTO_BAND.h + 1e-6, `${w}x${h} overflows`);
+    // Contain, not merely "smaller": one axis has to reach the band exactly.
+    const snug =
+      Math.abs(r.w - PHOTO_BAND.w) < 1e-6 || Math.abs(r.h - PHOTO_BAND.h) < 1e-6;
+    assert.ok(snug, `${w}x${h} left slack on both axes, so it is not contained`);
+  }
+});
+
+test("a photo smaller than the band can still be moved around inside it", () => {
+  const zoom = containZoom(1000, 3000, PHOTO_BAND);
+  const fit = clampPhotoFit(1000, 3000, PHOTO_BAND, { zoom, offsetX: 9999, offsetY: 0 });
+  assert.ok(fit.offsetX > 0, "an inset photo should not be pinned to the centre");
+  const r = coverRect(1000, 3000, PHOTO_BAND, fit);
+  assert.ok(
+    r.x + r.w <= PHOTO_BAND.w + 1e-6,
+    `an inset photo was allowed outside the band: ${JSON.stringify(r)}`,
+  );
 });
 
 /* ----------------------------------------------------------------- the text */
