@@ -21,9 +21,7 @@
 import {
   CANVAS,
   FONT_FAMILY,
-  OUTLINE_EM,
   PHOTO_BAND,
-  TRACKING,
   coverRect,
   layoutText,
 } from "./template.ts";
@@ -53,19 +51,21 @@ export function supportsLetterSpacing(): boolean {
 
 const HAS_LETTER_SPACING = /* @__PURE__ */ supportsLetterSpacing();
 
-export function applyFont(ctx: CanvasRenderingContext2D, size: number): void {
+export function applyFont(ctx: CanvasRenderingContext2D, size: number, tracking: number): void {
   ctx.font = `${size}px "${FONT_FAMILY}", sans-serif`;
-  if (HAS_LETTER_SPACING) ctx.letterSpacing = `${TRACKING * size}px`;
+  if (HAS_LETTER_SPACING) ctx.letterSpacing = `${tracking * size}px`;
 }
 
 /** A Measure bound to a context. Cheap, but called per bisection step, so cached. */
 export function measurer(ctx: CanvasRenderingContext2D): Measure {
   const cache = new Map<string, number>();
-  return (line, size) => {
-    const key = `${size}\u0000${line}`;
+  return (line, size, tracking) => {
+    // Tracking is in the key: the badge and the address are set at different
+    // values, and a cache that ignores it hands one block the other's widths.
+    const key = `${size}\u0000${tracking}\u0000${line}`;
     const hit = cache.get(key);
     if (hit !== undefined) return hit;
-    applyFont(ctx, size);
+    applyFont(ctx, size, tracking);
     const w = ctx.measureText(line).width;
     cache.set(key, w);
     return w;
@@ -75,7 +75,7 @@ export function measurer(ctx: CanvasRenderingContext2D): Measure {
 export function drawBlock(ctx: CanvasRenderingContext2D, block: TextBlock, measure: Measure): void {
   const laid = layoutText(block, measure);
   ctx.save();
-  applyFont(ctx, laid.size);
+  applyFont(ctx, laid.size, block.tracking);
   ctx.textAlign = block.align;
   ctx.textBaseline = "alphabetic";
   // Round join and miter cap, or the outline grows spikes off every sharp
@@ -90,7 +90,7 @@ export function drawBlock(ctx: CanvasRenderingContext2D, block: TextBlock, measu
       // glyph, and filling afterwards hands that half back. Stroking after the
       // fill instead thins every stem by the outline weight.
       ctx.strokeStyle = block.outline;
-      ctx.lineWidth = laid.size * OUTLINE_EM * 2;
+      ctx.lineWidth = laid.size * block.outlineEm * 2;
       ctx.strokeText(line.text, line.x, line.y);
     }
     ctx.fillStyle = block.fill;

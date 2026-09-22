@@ -351,14 +351,28 @@ block's centre to within half a pixel. So the badge is the same column, centred,
 sitting directly above the address — not a right-aligned thing that happens to
 vary, which is what a glance at the two files suggests.
 
-**It does not match the old artwork exactly, and cannot.** Measured off those
-flats, SOLD! is 273px wide with an 88px cap height; TAY Wingman renders the same
-word at 265px wide with a 67px cap — roughly 27% taller for the same width, so
-the badges were set in a heavier, more condensed cut that is not in this repo.
-The live badge therefore reads lighter than the picture did, and matches the
-address and the strapline instead, which is the trade. The originals are kept in
-`assets/listing-src/reference/` as the record; `chroma-key.mjs` skips that folder
-because it only reads the PNGs directly beside it.
+**It is the same face as everything else, set tight.** This was got wrong once
+and is worth writing down. Measured against TAY Wingman's advance widths at the
+address's −0.1em tracking, SOLD! came out 27% too narrow for its height, and the
+conclusion drawn was that the badges had been set in a heavier condensed cut this
+repo does not have. They had not. Two errors compounded: the artwork was measured
+as an **ink box** and compared against the font's **advance width**, which is
+wider by the side bearings; and the badge was assumed to share the address's
+tracking, because the one Character panel that shipped happened to be the
+address's.
+
+The badge is TAY Wingman at **130px with −0.2em tracking** — twice as tight as
+the address — with a 7px stroke. At those values the font reproduces the flats
+almost exactly: SOLD! renders a 274×89 ink box against the artwork's 272×87, and
+PENDING! 440×90 against 440×87. Tracking and outline weight are therefore
+per-block rather than template-wide, and a browser test pins the rendered ink box
+to the artwork's own measurements.
+
+The way to measure a stroked flat is to separate the **cream fill** from the
+navy around it: the fill is the unstroked glyph, and the difference is the
+stroke. The originals are kept in `assets/listing-src/reference/` for exactly
+that; `chroma-key.mjs` skips the folder because it only reads the PNGs beside
+it.
 
 One behaviour worth knowing: the outline is a fixed fraction of the type size,
 so a badge shrunk far enough for a whole sentence closes over its own fill.

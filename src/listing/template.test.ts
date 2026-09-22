@@ -13,8 +13,11 @@ import {
   PHOTO_BAND,
   ARCH_RIGHT,
   BADGE_BOX,
+  ADDRESS_SIZE,
   BADGE_PRESETS,
   BADGE_SIZE,
+  BADGE_TRACKING,
+  TRACKING,
   GUTTER,
   TEXT_SLOTS,
   clampPhotoFit,
@@ -27,7 +30,8 @@ import {
 import type { TextBlock } from "./template.ts";
 import { ADDRESS_SEED, addressBlock, badgeBlock, emptyDoc } from "./doc.ts";
 
-const measure = (line: string, size: number) => line.length * size * 0.5;
+const measure = (line: string, size: number, tracking: number) =>
+  line.length * size * (0.5 + tracking + 0.1);
 
 function block(over: Partial<TextBlock> = {}): TextBlock {
   return { ...addressBlock(), ...over };
@@ -160,7 +164,7 @@ test("a long street address shrinks instead of running off the artwork", () => {
   const b = block({ text: "1247 Old Gettysburg Pike, Suite 210, Mechanicsburg" });
   const laid = layoutText(b, measure);
   assert.ok(laid.size < b.size, "it should have shrunk");
-  assert.ok(measure(b.text, laid.size) <= b.box.w + 1e-6, "still too wide after shrinking");
+  assert.ok(measure(b.text, laid.size, b.tracking) <= b.box.w + 1e-6, "still too wide after shrinking");
 });
 
 test("too many lines shrink too", () => {
@@ -294,15 +298,26 @@ test("the badge shares the address's centre line, which is the whole of its plac
   assert.ok(BADGE_BOX.y + BADGE_BOX.h <= ADDRESS_BOX.y, "the badge overlaps the address");
 });
 
-test("both presets fit the badge box at its designed size", () => {
-  // Using the artwork's own measured widths per 100px of type, so this fails if
-  // the box or the size is changed to something the words no longer fit.
-  const perHundred = { "SOLD!": 2.65, "PENDING!": 4.248 };
+test("both presets fit the badge box at its designed size and tracking", () => {
+  /* The artwork's own ink widths at 130px / -0.2em, which is what the badge is
+     set at - so this fails if the box, the size or the tracking is changed to
+     something the words no longer fit. Whether TAY Wingman still renders them
+     at those widths is asked in the browser suite. */
+  const inkAt130 = { "SOLD!": 274, "PENDING!": 440 };
+  assert.equal(BADGE_SIZE, 130, "the measured widths below are for 130px type");
   for (const preset of BADGE_PRESETS) {
     if (!preset.text) continue;
-    const width = perHundred[preset.text as keyof typeof perHundred] * BADGE_SIZE;
-    assert.ok(width <= BADGE_BOX.w, `${preset.text} is ${width.toFixed(0)}px in ${BADGE_BOX.w}px`);
+    const width = inkAt130[preset.text as keyof typeof inkAt130];
+    assert.ok(width <= BADGE_BOX.w, `${preset.text} is ${width}px in ${BADGE_BOX.w}px`);
   }
+});
+
+test("the badge is tracked tighter than the address, and outlined heavier", () => {
+  // Not a stylistic choice - both are measured off the flats. See TRACKING.
+  assert.ok(BADGE_TRACKING < TRACKING, "the badge should be the tighter of the two");
+  assert.equal(badgeBlock("SOLD!").tracking, BADGE_TRACKING);
+  assert.equal(addressBlock().tracking, TRACKING);
+  assert.ok(badgeBlock("SOLD!").outlineEm * BADGE_SIZE > addressBlock().outlineEm * ADDRESS_SIZE);
 });
 
 test("an empty badge lays out to nothing anyone can see", () => {
@@ -318,6 +333,6 @@ test("a long badge shrinks rather than running into the arch", () => {
   const b = badgeBlock("UNDER CONTRACT!");
   const laid = layoutText(b, measure);
   assert.ok(laid.size < BADGE_SIZE, "it should have shrunk");
-  assert.ok(measure(b.text, laid.size) <= BADGE_BOX.w + 1e-6);
+  assert.ok(measure(b.text, laid.size, b.tracking) <= BADGE_BOX.w + 1e-6);
 });
 

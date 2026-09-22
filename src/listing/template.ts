@@ -57,13 +57,13 @@ export const ARCH_RIGHT = 555;
  * Between the photo's bottom edge and the strapline there is a fixed 573px, and
  * two blocks of type to put in it. The artwork spent that space 41 / 28 / 64,
  * but both blocks are shorter here than the flats were - the badge by 31px
- * because it was set in a condensed face this repo does not have, the address
- * by 30px because the column was narrowed to the gutter - so 61px of type
- * became slack, and all of it pooled at the bottom. The column read as drifting
- * up away from the strapline.
+ * by 30px, because the column was narrowed to the gutter - so the slack pooled
+ * at the bottom and the column read as drifting up away from the strapline.
+ * (The badge was briefly short too, from being set at the wrong size and
+ * tracking; that is fixed, and these numbers are the corrected ones.)
  *
- * So the gaps are equal instead: 573 - 70 (badge ink) - 308 (address ink) = 195,
- * over three gaps, is 65px each. The y values below are those targets converted
+ * So the gaps are equal instead: 573 - 86 (badge ink) - 306 (address ink) = 181,
+ * over three gaps, is 60px each. The y values below are those targets converted
  * through what the font actually renders - the badge's cream cap lands 2px under
  * its box, the address's 1px over - which is why they are not simply 705+65 and
  * its successor. A browser test measures the three gaps on the real canvas and
@@ -72,11 +72,11 @@ export const ARCH_RIGHT = 555;
  */
 export const HORIZON = 705;
 export const STRAPLINE_TOP = 1278;
-export const COLUMN_GAP = 65;
+export const COLUMN_GAP = 60;
 
 export const ADDRESS_BOX: Box = {
   x: ARCH_RIGHT + 1 + GUTTER,
-  y: 906,
+  y: 911,
   w: CANVAS.w - GUTTER - (ARCH_RIGHT + 1 + GUTTER),
   h: 338,
 };
@@ -120,7 +120,23 @@ export const ADDRESS_ALIGN: TextAlign = "center";
  * swapped font file fails a test instead of quietly reflowing every graphic.
  */
 export const FONT_FAMILY = "TAYWingman";
+
+/* Tracking is PER BLOCK, because the artwork's two pieces of type do not share
+ * it. The address is the Character panel's -100, i.e. -0.1em. The badge is
+ * twice as tight, -0.2em, which is the whole reason it looked like a different
+ * typeface for a while: measured against TAY Wingman's advance widths at -0.1em
+ * it came out 27% too narrow for its height, and "a heavier condensed cut" is a
+ * tidier explanation than the true one. It is not a different face. At 130px
+ * and -0.2em this font renders SOLD! as a 274x89 ink box against the artwork's
+ * 272x87, and PENDING! as 440x90 against 440x87 - the same letters, set tight.
+ *
+ * Two mistakes compounded into that wrong answer, and both are worth naming:
+ * the artwork was measured as an INK box and compared against the font's
+ * ADVANCE width, which is wider by the side bearings; and the badge was assumed
+ * to share the address's tracking because the one Character panel that shipped
+ * happened to be the address's. */
 export const TRACKING = -0.1;
+export const BADGE_TRACKING = -0.2;
 export const ADDRESS_SIZE = 40;
 export const LINE_HEIGHT = 0.973;
 export const CAP_RATIO = 0.67;
@@ -142,8 +158,12 @@ export const CAP_RATIO = 0.67;
 export const INK = "#ffe6ea";
 export const OUTLINE = "#0b1c40";
 
-/** Outline weight in em. The address's outline measures ~2.6px at ~43px type. */
-export const OUTLINE_EM = 0.06;
+/* Outline weight in em, outward from the glyph - also per block, because the
+ * artwork's two strokes are not the same weight relative to their type. Both
+ * are measured off the flats by separating the cream fill from the navy around
+ * it: the address's sticks out 3px at ~45px type, the badge's 7px at 130px. */
+export const OUTLINE_EM = 0.065;
+export const BADGE_OUTLINE_EM = 0.054;
 
 /* ------------------------------------------------------------------- layers */
 
@@ -282,10 +302,12 @@ export type Slot = {
  * neither left nor right edge shared. But both centre on x 819.5, which is the
  * address block's centre to within half a pixel. So it is the same column,
  * centred, sitting directly above it, and the size is the largest that clears
- * that column once it has been pulled in to the gutter on both sides: at 104px
- * "PENDING!" measures 442 in a 450 box. */
-export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 768, w: ADDRESS_BOX.w, h: 120 };
-export const BADGE_SIZE = 104;
+ * that column once it has been pulled in to the gutter on both sides. At 130px
+ * and -0.2em tracking "PENDING!" measures a 440px ink box in a 450px column -
+ * which is the artwork's own width, to the pixel, because it is the artwork's
+ * own size and tracking. */
+export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 763, w: ADDRESS_BOX.w, h: 140 };
+export const BADGE_SIZE = 130;
 
 export const TEXT_SLOTS: Slot[] = [
   { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },
@@ -313,6 +335,10 @@ export type TextBlock = {
   outline: string | null;
   /** Off for a block the user wants plain. */
   lineHeight: number;
+  /** Letter-spacing in em. Not shared: see TRACKING. */
+  tracking: number;
+  /** Outline weight in em, outward from the glyph. */
+  outlineEm: number;
 };
 
 export type LaidOutLine = {
@@ -329,8 +355,8 @@ export type LaidOutText = {
   size: number;
 };
 
-/** Width of a line at a given size. Supplied by the caller so this stays pure. */
-export type Measure = (line: string, size: number) => number;
+/** Width of a line at a given size and tracking. Supplied so this stays pure. */
+export type Measure = (line: string, size: number, tracking: number) => number;
 
 /* Shrink-to-fit rather than overflow.
  *
@@ -350,7 +376,7 @@ export function layoutText(block: TextBlock, measure: Measure): LaidOutText {
     const height = (lines.length - 1) * size * block.lineHeight + size * CAP_RATIO;
     if (height > block.box.h) return false;
     for (const line of lines) {
-      if (line && measure(line, size) > block.box.w) return false;
+      if (line && measure(line, size, block.tracking) > block.box.w) return false;
     }
     return true;
   };

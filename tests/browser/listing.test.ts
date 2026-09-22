@@ -19,6 +19,8 @@ import {
   ADDRESS_SIZE,
   ARCH_RIGHT,
   BADGE_BOX,
+  BADGE_SIZE,
+  BADGE_TRACKING,
   CANVAS,
   CAP_RATIO,
   COLUMN_GAP,
@@ -333,6 +335,60 @@ test("a long badge shrinks instead of reaching the arch or the edge", async () =
   assert.ok(after[1] <= before[1] + 40, `the badge reached the edge (${before[1]} -> ${after[1]})`);
   // And it did draw somewhere - a shrink-to-nothing would pass the two above.
   assert.ok((await t.ink(BADGE_BOX)) > 800, "the badge drew nothing");
+  clean(t);
+  await t.close();
+});
+
+/* THE BADGE IS THE SAME FACE AS EVERYTHING ELSE, SET TIGHT.
+ *
+ * It looked for a while like the artwork's badges were a heavier, condensed cut
+ * that this repo did not have - measured against TAY Wingman's ADVANCE widths at
+ * the address's -0.1em tracking, SOLD! came out 27% too narrow for its height.
+ * Two errors compounded: an ink box was compared against an advance width, and
+ * the badge was assumed to share the address's tracking. At the badge's own
+ * 130px and -0.2em this font reproduces the flats almost exactly, and that is
+ * what this pins - against the numbers measured off the artwork by separating
+ * its cream fill from the navy stroke around it. */
+test("the badge renders at the artwork's own ink size", async () => {
+  const t = await openTool();
+  const measured = await t.page.evaluate(
+    ([size, tracking, words]) => {
+      const inkBox = (text: string) => {
+        const c = document.createElement("canvas");
+        c.width = 1600;
+        c.height = 400;
+        const ctx = c.getContext("2d")!;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 1600, 400);
+        ctx.font = `${size}px "TAYWingman", sans-serif`;
+        if ("letterSpacing" in ctx) ctx.letterSpacing = `${(tracking as number) * (size as number)}px`;
+        ctx.fillStyle = "#fff";
+        ctx.fillText(text, 60, 300);
+        const d = ctx.getImageData(0, 0, 1600, 400).data;
+        let x0 = 1600, x1 = -1, y0 = 400, y1 = -1;
+        for (let y = 0; y < 400; y++)
+          for (let x = 0; x < 1600; x++)
+            if (d[(y * 1600 + x) * 4] > 128) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+        return { w: x1 - x0 + 1, h: y1 - y0 + 1 };
+      };
+      return Object.fromEntries((words as readonly string[]).map((w) => [w, inkBox(w)]));
+    },
+    [BADGE_SIZE, BADGE_TRACKING, ["SOLD!", "PENDING!"]] as const,
+  );
+  // Fill-only boxes measured off assets/listing-src/reference/.
+  const artwork = { "SOLD!": { w: 272, h: 87 }, "PENDING!": { w: 440, h: 87 } };
+  for (const [word, want] of Object.entries(artwork)) {
+    const got = measured[word] as { w: number; h: number };
+    assert.ok(
+      Math.abs(got.w - want.w) <= 4 && Math.abs(got.h - want.h) <= 4,
+      `${word} renders ${got.w}x${got.h}, the artwork is ${want.w}x${want.h}`,
+    );
+  }
   clean(t);
   await t.close();
 });

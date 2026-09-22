@@ -5,7 +5,17 @@
  * is the one field that does NOT survive a reload, and the editor says so rather
  * than pretending to persist it.
  */
-import { INK, LINE_HEIGHT, OUTLINE, slotFor, type Headshot } from "./template.ts";
+import {
+  BADGE_OUTLINE_EM,
+  BADGE_TRACKING,
+  INK,
+  LINE_HEIGHT,
+  OUTLINE,
+  OUTLINE_EM,
+  TRACKING,
+  slotFor,
+  type Headshot,
+} from "./template.ts";
 import type { PhotoFit, TextBlock } from "./template.ts";
 
 export type Photo = {
@@ -47,6 +57,9 @@ export const ADDRESS_SEED = [
 /** A block in one of the template's fixed slots. The slot owns where and how big. */
 function inSlot(id: string, text: string, slotKey: string): TextBlock {
   const slot = slotFor(slotKey);
+  // The badge is set tighter and outlined heavier than the address. Both are
+  // measured off the artwork rather than shared - see TRACKING in template.ts.
+  const badge = slot.key === "badge";
   return {
     id,
     text,
@@ -57,6 +70,8 @@ function inSlot(id: string, text: string, slotKey: string): TextBlock {
     fill: INK,
     outline: OUTLINE,
     lineHeight: LINE_HEIGHT,
+    tracking: badge ? BADGE_TRACKING : TRACKING,
+    outlineEm: badge ? BADGE_OUTLINE_EM : OUTLINE_EM,
   };
 }
 
