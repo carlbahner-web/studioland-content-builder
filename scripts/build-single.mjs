@@ -15,6 +15,7 @@ import { build } from "esbuild";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import layers from "../src/listing/layers.json" with { type: "json" };
+import photos from "../src/listing/photos.json" with { type: "json" };
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
@@ -35,6 +36,7 @@ const MIME = {
   ".woff2": "font/woff2",
   ".webp": "image/webp",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
 };
 
 // The listing template's keyed layers. Taken from the manifest rather than
@@ -43,6 +45,13 @@ const MIME = {
 const LISTING_ASSETS = [
   "/fonts/TAYWingman.woff2",
   ...Object.keys(layers).map((name) => `/listing/${name}.png`),
+  // The arch mask, the photographed headshots and the mattes that key their
+  // backdrop out. None of these are keyed layers, so none are in layers.json.
+  // From the manifest, and de-duplicated the same way template.ts does it:
+  // two crops of one photograph share a file and a matte, and inlining a
+  // megabyte of JPEG twice would show up in the download.
+  photos.mask,
+  ...new Set(photos.shots.flatMap((s) => [s.file, s.matte].filter(Boolean))),
 ];
 
 /** Everything the running app asks for by path, as data URIs. */

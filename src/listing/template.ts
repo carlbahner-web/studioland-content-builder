@@ -12,6 +12,8 @@
  * Kept free of DOM and canvas so the layout can be tested at a desk.
  */
 
+import PHOTOS from "./photos.json" with { type: "json" };
+
 export type Box = { x: number; y: number; w: number; h: number };
 export type Point = { x: number; y: number };
 export type TextAlign = "left" | "center" | "right";
@@ -170,12 +172,53 @@ export const BADGE_OUTLINE_EM = 0.054;
 /** A keyed layer, placed by the box scripts/chroma-key.mjs cropped it to. */
 export type Placement = { x: number; y: number; w: number; h: number };
 
-export const HEADSHOTS = [
+/* Two kinds of headshot, because the source material is two kinds.
+ *
+ * The first two were handed over already cut out, as green flats, and are drawn
+ * straight from the keyed layer. The rest are photographs on a studio backdrop,
+ * and are CLIPPED into the arch rather than matted out of the grey - which is
+ * what the cut-out "Leaning" shot effectively already is, and avoids trying to
+ * separate hair from seamless paper.
+ *
+ * Their placements are not guesses. Each was framed by hand in the Headshot
+ * Positions tool and saved from there into photos.json, so re-cropping one is a
+ * gesture in that tool and a paste here, not an afternoon of nudging numbers. */
+export type Headshot = {
+  key: string;
+  label: string;
+  /** A pre-cut layer, placed by the manifest. */
+  layer?: string;
+  /** Or a photograph, keyed off its backdrop, clipped to the arch, and placed
+   *  by its saved fit. `matte` is the alpha; null where the crop shares another
+   *  entry's photograph. */
+  photo?: { file: string; matte: string | null; fit: PhotoFit };
+};
+
+export const HEADSHOTS: Headshot[] = [
   { key: "arch", label: "Leaning", layer: "headshot-arch" },
   { key: "sitting", label: "Sitting", layer: "headshot-sitting" },
-] as const;
+  ...PHOTOS.shots.map((s) => ({
+    key: s.key,
+    label: s.label,
+    photo: { file: s.file, matte: s.matte ?? null, fit: s.fit },
+  })),
+];
 
-export type Headshot = (typeof HEADSHOTS)[number]["key"];
+/** The alpha the photographed headshots are clipped by: the arch's own edge. */
+export const ARCH_MASK = PHOTOS.mask;
+
+/** Every image the tool loads that is not a keyed layer. */
+export const PHOTO_FILES = [
+  PHOTOS.mask,
+  ...new Set(PHOTOS.shots.flatMap((s) => [s.file, s.matte].filter((f): f is string => !!f))),
+];
+
+/** Which headshot a document has chosen. */
+export type HeadshotKey = string;
+
+export function headshotFor(key: HeadshotKey): Headshot {
+  return HEADSHOTS.find((h) => h.key === key) ?? HEADSHOTS[0];
+}
 
 /* The badge is TYPE, not artwork. What goes in it is these three to a click,
  * and anything else to a keystroke. */

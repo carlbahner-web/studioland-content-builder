@@ -14,7 +14,7 @@ import {
   OUTLINE_EM,
   TRACKING,
   slotFor,
-  type Headshot,
+  type HeadshotKey,
 } from "./template.ts";
 import type { PhotoFit, TextBlock } from "./template.ts";
 
@@ -29,7 +29,7 @@ export type Photo = {
 
 export type Doc = {
   photo: Photo | null;
-  headshot: Headshot;
+  headshot: HeadshotKey;
   /* The address and the badge, in that order. Fixed - this tool adds and
    * removes nothing - but a list, because drawing walks it and because a second
    * template may carry different ones. */

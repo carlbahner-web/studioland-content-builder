@@ -19,10 +19,12 @@
  * "behind the frame" sounds right - and it hides the arch entirely.
  */
 import {
+  ARCH_MASK,
   CANVAS,
   FONT_FAMILY,
   PHOTO_BAND,
   coverRect,
+  headshotFor,
   layoutText,
 } from "./template.ts";
 import type { Box, Measure, TextBlock } from "./template.ts";
@@ -32,7 +34,10 @@ import manifest from "./layers.json";
 export type LayerName = keyof typeof manifest;
 
 /** The placed layer art, already loaded. Missing entries are simply not drawn. */
-export type Art = Partial<Record<LayerName, CanvasImageSource>>;
+/* Keyed layers by their manifest name, plus the arch mask and the photographed
+ * headshots by their own paths and keys. One bag, because they all arrive the
+ * same way and are all optional until they land. */
+export type Art = Partial<Record<string, CanvasImageSource>>;
 
 export const LAYER_BOXES = manifest as Record<LayerName, Box & { frame: { w: number; h: number } }>;
 
@@ -106,6 +111,56 @@ function place(ctx: CanvasRenderingContext2D, art: Art, name: LayerName): void {
   ctx.drawImage(img, box.x, box.y, box.w, box.h);
 }
 
+/* The arch's box, and one scratch canvas to clip a photograph into it.
+ *
+ * Module-level rather than per draw: this runs on every frame of a photo drag,
+ * and allocating a 556x628 canvas sixty times a second to throw each one away
+ * is the kind of thing that only shows up as jank on the machine you are not
+ * testing on. Every draw is synchronous, so one is enough. */
+const ARCH = LAYER_BOXES["headshot-arch"];
+let scratch: HTMLCanvasElement | null = null;
+
+function drawHeadshot(ctx: CanvasRenderingContext2D, key: string, art: Art): void {
+  const shot = headshotFor(key);
+  if (shot.layer) {
+    place(ctx, art, shot.layer as LayerName);
+    return;
+  }
+  const img = art[shot.key];
+  const mask = art[ARCH_MASK];
+  if (!img || !mask || !shot.photo) return;
+
+  if (!scratch) {
+    scratch = document.createElement("canvas");
+    scratch.width = ARCH.w;
+    scratch.height = ARCH.h;
+  }
+  const sctx = scratch.getContext("2d");
+  if (!sctx) return;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.clearRect(0, 0, ARCH.w, ARCH.h);
+  const r = coverRect(
+    (img as HTMLImageElement).naturalWidth,
+    (img as HTMLImageElement).naturalHeight,
+    { x: 0, y: 0, w: ARCH.w, h: ARCH.h },
+    shot.photo.fit,
+  );
+  sctx.drawImage(img, r.x, r.y, r.w, r.h);
+
+  /* Two mattes, multiplied by two destination-in passes: the studio backdrop
+   * comes out first, so the arch's floral paper shows behind her, and then the
+   * arch confines what is left. Order does not matter mathematically - each
+   * pass multiplies the alpha - but the matte has to be drawn at the PHOTO's
+   * rect and the arch mask at the scratch canvas's, and drawing either at the
+   * other's is a mistake that still produces a picture. */
+  sctx.globalCompositeOperation = "destination-in";
+  const matte = shot.photo.matte ? art[shot.photo.matte] : undefined;
+  if (matte) sctx.drawImage(matte, r.x, r.y, r.w, r.h);
+  sctx.drawImage(mask, 0, 0, ARCH.w, ARCH.h);
+  sctx.globalCompositeOperation = "source-over";
+  ctx.drawImage(scratch, ARCH.x, ARCH.y);
+}
+
 export type DrawOptions = {
   /** Canvas px per artboard px. The export passes 1. */
   scale?: number;
@@ -147,7 +202,7 @@ export function drawDoc(
   }
 
   place(ctx, art, "frame");
-  place(ctx, art, doc.headshot === "sitting" ? "headshot-sitting" : "headshot-arch");
+  drawHeadshot(ctx, doc.headshot, art);
 
   const measure = measurer(ctx);
   for (const block of doc.blocks) drawBlock(ctx, block, measure);

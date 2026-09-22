@@ -14,6 +14,7 @@ import {
   CANVAS,
   HEADSHOTS,
   PHOTO_BAND,
+  PHOTO_FILES,
   clampPhotoFit,
   containZoom,
   zoomAt,
@@ -22,7 +23,7 @@ import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
 import { addressBlock, badgeBlock, emptyDoc } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
-import type { Art, LayerName } from "./draw.ts";
+import type { Art } from "./draw.ts";
 import "./listing.css";
 
 /* A programmatic download is not reliable everywhere, and this tool is used
@@ -48,26 +49,33 @@ const PREVIEW_SCALE = PREVIEW_W / CANVAS.w;
 function useArt(): { art: Art; ready: boolean; failed: string[] } {
   const [art, setArt] = useState<Art>({});
   const [failed, setFailed] = useState<string[]>([]);
-  const names = Object.keys(LAYER_BOXES) as LayerName[];
+  /* Keyed layers are named by the manifest and live at /listing/<name>.png; the
+     mask and the photographed headshots carry their own paths. Loaded together
+     because the artboard is not drawable until all of them are in. */
+  const wanted: { id: string; url: string }[] = [
+    ...Object.keys(LAYER_BOXES).map((name) => ({ id: name, url: `/listing/${name}.png` })),
+    ...PHOTO_FILES.map((file) => ({ id: file, url: file })),
+    ...HEADSHOTS.filter((h) => h.photo).map((h) => ({ id: h.key, url: h.photo!.file })),
+  ];
 
   useEffect(() => {
     let live = true;
     const loaded: Art = {};
     const bad: string[] = [];
     Promise.all(
-      names.map(
-        (name) =>
+      wanted.map(
+        ({ id, url }) =>
           new Promise<void>((done) => {
             const img = new Image();
             img.onload = () => {
-              loaded[name] = img;
+              loaded[id] = img;
               done();
             };
             img.onerror = () => {
-              bad.push(name);
+              bad.push(id);
               done();
             };
-            img.src = assetUrl(`/listing/${name}.png`);
+            img.src = assetUrl(url);
           }),
       ),
     ).then(() => {

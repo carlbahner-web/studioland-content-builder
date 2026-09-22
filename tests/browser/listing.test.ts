@@ -25,6 +25,7 @@ import {
   CAP_RATIO,
   COLUMN_GAP,
   GUTTER,
+  HEADSHOTS,
   HORIZON,
   LINE_HEIGHT,
   STRAPLINE_TOP,
@@ -270,6 +271,33 @@ test("the headshot sits in front of the frame, not behind it", async () => {
   await t.page.waitForTimeout(400);
   const sitting = await t.pixel(250, 800);
   assert.notDeepEqual(arch, sitting, "switching the headshot changed nothing");
+  clean(t);
+  await t.close();
+});
+
+/* The photographed headshots are CLIPPED to the arch rather than cut out, so
+ * the two things that can go wrong are the clip leaking - a rectangle of studio
+ * grey over the navy - and the saved placement not being applied. Both are
+ * invisible to a unit test and obvious here. */
+test("every headshot option draws inside the arch and nowhere else", async () => {
+  const t = await openTool();
+  const seen: string[] = [];
+  for (const shot of HEADSHOTS) {
+    await t.page.getByRole("button", { name: shot.label, exact: true }).click();
+    await t.page.waitForTimeout(450);
+    // Deep inside the arch: something is always drawn there.
+    const inside = await t.pixel(250, 900);
+    assert.ok(inside[3] === 255, `${shot.label} left the arch empty`);
+    seen.push(inside.join(","));
+    /* Just right of the arch, on the navy. A clip that leaked would put studio
+       grey or skin here; the artwork is navy, and navy is blue-dominant. */
+    const beside = await t.pixel(ARCH_RIGHT + 12, 900);
+    assert.ok(
+      beside[2] > beside[0] && beside[2] > beside[1],
+      `${shot.label} spilled past the arch: ${beside}`,
+    );
+  }
+  assert.equal(new Set(seen).size, HEADSHOTS.length, "two options render identically");
   clean(t);
   await t.close();
 });
