@@ -1,5 +1,5 @@
 {
-  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers. `file` is the untouched photo and `matte` its alpha, keyed off the studio backdrop by scripts/matte.mjs so the arch's floral paper shows behind her; the app multiplies the two and then clips to the arch. Two crops of one frame are two entries sharing a `file` and a `matte` - the script keys each photograph once and both builds inline it once. `tolerance` overrides the keyer's default for one photograph - the dress is a white-on-black print close enough to the seamless that the default walks in through it - and is only ever read by the script, never by the app. `fits` is a placement PER LAYOUT, saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU): zoom is a multiple of the scale that covers the arch, offsets are artboard px. Per layout because the two arches are not the same shape - the mirror's is 554px wide against the original's 556 - and because a crop that frames her nicely against one is not obliged to against the other. A layout with no entry falls back to `standard`. One source of truth - the app builds HEADSHOTS from this and build-single.mjs inlines the same paths.",
+  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers. `file` is the untouched photo and `matte` its alpha, keyed off the studio backdrop by scripts/matte.mjs so the arch's floral paper shows behind her; the app multiplies the two and then clips to the arch. Two crops of one frame are two entries sharing a `file` and a `matte` - the script keys each photograph once and both builds inline it once. `tolerance` overrides the keyer's default for one photograph - the dress is a white-on-black print close enough to the seamless that the default walks in through it - and is only ever read by the script, never by the app. `fits` is a placement PER LAYOUT, saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU): zoom is a multiple of the scale that covers the arch, offsets are artboard px. Per layout because the two arches are not the same shape - the mirror's is 554px wide against the original's 556 - and because a crop that frames her nicely against one is not obliged to against the other. A layout with no entry falls back to `standard`. Every shot here has been framed in both. One source of truth - the app builds HEADSHOTS from this and build-single.mjs inlines the same paths.",
   "mask": "/listing/arch-mask.png",
   "shots": [
     {
@@ -14,8 +14,8 @@
         },
         "mirrored": {
           "zoom": 1.554961768059457,
-          "offsetX": -21.12825161156954,
-          "offsetY": 54.46796660724087
+          "offsetX": 33.35782175799582,
+          "offsetY": 54.7155888898495
         }
       },
       "matte": "/listing/matte-standing-close.png"
@@ -32,8 +32,8 @@
         },
         "mirrored": {
           "zoom": 2.3034390456957143,
-          "offsetX": -47.1887981774189,
-          "offsetY": 150.21151955433808
+          "offsetX": -0.5807818730710324,
+          "offsetY": 150.83516085868595
         }
       },
       "matte": "/listing/matte-standing-wide.png"
@@ -49,9 +49,9 @@
           "offsetY": -73.52239055788013
         },
         "mirrored": {
-          "zoom": 1,
-          "offsetX": 0,
-          "offsetY": -73.52239055788013
+          "zoom": 1.2202228701282738,
+          "offsetX": 61.00173502553184,
+          "offsetY": -14.237693188533726
         }
       },
       "matte": "/listing/matte-dress-phone.png",
@@ -69,8 +69,8 @@
         },
         "mirrored": {
           "zoom": 2.6423498120568487,
-          "offsetX": 33.55367042471852,
-          "offsetY": 240.17751023962956
+          "offsetX": 79.90489325080551,
+          "offsetY": 240.8470075222382
         }
       },
       "matte": "/listing/matte-dress-phone.png",
@@ -88,8 +88,8 @@
         },
         "mirrored": {
           "zoom": 1.309905718643316,
-          "offsetX": -28.97054716282488,
-          "offsetY": 105.41533403869506
+          "offsetX": 20.718990880653372,
+          "offsetY": 120.53863566912992
         }
       },
       "matte": "/listing/matte-seated.png"
