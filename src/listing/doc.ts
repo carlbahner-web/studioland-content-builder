@@ -5,14 +5,7 @@
  * is the one field that does NOT survive a reload, and the editor says so rather
  * than pretending to persist it.
  */
-import {
-  INK,
-  LINE_HEIGHT,
-  OUTLINE,
-  slotFor,
-  type Badge,
-  type Headshot,
-} from "./template.ts";
+import { INK, LINE_HEIGHT, OUTLINE, slotFor, type Headshot } from "./template.ts";
 import type { PhotoFit, TextBlock } from "./template.ts";
 
 export type Photo = {
@@ -27,9 +20,9 @@ export type Photo = {
 export type Doc = {
   photo: Photo | null;
   headshot: Headshot;
-  badge: Badge;
-  /* A list of one - the address. It stays a list because drawing walks it and
-   * because a second template may carry more, not because this one can add. */
+  /* The address and the badge, in that order. Fixed - this tool adds and
+   * removes nothing - but a list, because drawing walks it and because a second
+   * template may carry different ones. */
   blocks: TextBlock[];
 };
 
@@ -71,6 +64,12 @@ export function addressBlock(): TextBlock {
   return inSlot("address", ADDRESS_SEED, "address");
 }
 
+/* Empty, so a fresh document carries no badge: most listings are neither sold
+ * nor pending yet, and drawBlock skips an empty line, so nothing is painted. */
+export function badgeBlock(text = ""): TextBlock {
+  return inSlot("badge", text, "badge");
+}
+
 export function emptyDoc(): Doc {
-  return { photo: null, headshot: "arch", badge: "none", blocks: [addressBlock()] };
+  return { photo: null, headshot: "arch", blocks: [addressBlock(), badgeBlock()] };
 }

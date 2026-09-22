@@ -229,3 +229,16 @@
 .listing-canvas { cursor: default; }
 .listing-canvas.listing-grabbable { cursor: grab; }
 .listing-canvas.listing-grabbable:active { cursor: grabbing; }
+
+/* Same field as the address's textarea, one line high. */
+.listing-text {
+  display: block;
+  width: 100%;
+  margin: 2px 0 0;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}

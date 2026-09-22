@@ -26,8 +26,60 @@ export const CANVAS = { w: 1080, h: 1350 } as const;
  * pale photo and glaring against a dark one. */
 export const PHOTO_BAND: Box = { x: 0, y: 0, w: 1080, h: 705 };
 
-/* The designer's blue guide rectangle, to the pixel. */
-export const ADDRESS_BOX: Box = { x: 578, y: 874, w: 482, h: 338 };
+/* The one spacing value in the template.
+ *
+ * It is the strapline's margin, measured off the artwork: "HIRE A REALTOR.
+ * CLOSE WITH A FRIEND." is set 37px from both edges of the artboard. Everything
+ * else in the type column now keeps the same distance from whatever it sits
+ * next to, which is what makes the block look placed rather than fitted. */
+export const GUTTER = 37;
+
+/* Where the arch stops, beside the address. Measured, not assumed: the arch is
+ * a curve, and at the address's first row it has not finished coming in
+ * (x=548), but for the rest of the block it is straight-sided at x=555. The
+ * widest point is what the gutter has to clear. */
+export const ARCH_RIGHT = 555;
+
+/* The designer's blue guide rectangle, with BOTH edges pulled in to the gutter.
+ *
+ * As drawn it ran from x=578 to x=1060 - 23px from the arch on one side, a 20px
+ * margin on the other - while the strapline under it used 37px. So the address
+ * sat closer to both the photograph and the edge than the line directly beneath
+ * it, which is the sort of near-miss that reads as sloppy without being
+ * obviously wrong.
+ *
+ * Narrowed rather than moved. Shifting the box would have kept the type size
+ * and simply traded one crowded side for the other; the gutter is only worth
+ * having on both. It costs 1.5px of type, which is why ADDRESS_SIZE is what it
+ * is, and 3% of a 40px face is nothing anyone can see. */
+/* The lower column is DISTRIBUTED, not inherited.
+ *
+ * Between the photo's bottom edge and the strapline there is a fixed 573px, and
+ * two blocks of type to put in it. The artwork spent that space 41 / 28 / 64,
+ * but both blocks are shorter here than the flats were - the badge by 31px
+ * because it was set in a condensed face this repo does not have, the address
+ * by 30px because the column was narrowed to the gutter - so 61px of type
+ * became slack, and all of it pooled at the bottom. The column read as drifting
+ * up away from the strapline.
+ *
+ * So the gaps are equal instead: 573 - 70 (badge ink) - 308 (address ink) = 195,
+ * over three gaps, is 65px each. The y values below are those targets converted
+ * through what the font actually renders - the badge's cream cap lands 2px under
+ * its box, the address's 1px over - which is why they are not simply 705+65 and
+ * its successor. A browser test measures the three gaps on the real canvas and
+ * fails if they drift apart, because that conversion is the part no arithmetic
+ * here can be trusted about.
+ */
+export const HORIZON = 705;
+export const STRAPLINE_TOP = 1278;
+export const COLUMN_GAP = 65;
+
+export const ADDRESS_BOX: Box = {
+  x: ARCH_RIGHT + 1 + GUTTER,
+  y: 906,
+  w: CANVAS.w - GUTTER - (ARCH_RIGHT + 1 + GUTTER),
+  h: 338,
+};
 
 /* CENTRED, not right-aligned, which is not what it looks like.
  *
@@ -55,9 +107,9 @@ export const ADDRESS_ALIGN: TextAlign = "center";
  * the .woff2 in public/fonts/, and rather than guess at that, these are derived
  * from the font that ships:
  *
- *   - ADDRESS_SIZE clears the 482px box on every seeded line with a little to
- *     spare, so nothing shrinks on a fresh document and a rounding difference
- *     between browsers cannot start a reflow. One size across the
+ *   - ADDRESS_SIZE clears the box on every seeded line with a little to spare,
+ *     so nothing shrinks on a fresh document and a rounding difference between
+ *     browsers cannot start a reflow. One size across the
  *     whole block, where the artwork used two; the difference is ~3px on two
  *     lines, and one address in one text field is the point of the tool.
  *   - CAP_RATIO is measured (actualBoundingBoxAscent of "H") rather than assumed,
@@ -69,7 +121,7 @@ export const ADDRESS_ALIGN: TextAlign = "center";
  */
 export const FONT_FAMILY = "TAYWingman";
 export const TRACKING = -0.1;
-export const ADDRESS_SIZE = 43;
+export const ADDRESS_SIZE = 40;
 export const LINE_HEIGHT = 0.973;
 export const CAP_RATIO = 0.67;
 
@@ -105,13 +157,13 @@ export const HEADSHOTS = [
 
 export type Headshot = (typeof HEADSHOTS)[number]["key"];
 
-export const BADGES = [
-  { key: "none", label: "No badge", layer: null },
-  { key: "sold", label: "SOLD!", layer: "badge-sold" },
-  { key: "pending", label: "PENDING!", layer: "badge-pending" },
+/* The badge is TYPE, not artwork. What goes in it is these three to a click,
+ * and anything else to a keystroke. */
+export const BADGE_PRESETS = [
+  { key: "none", label: "No badge", text: "" },
+  { key: "sold", label: "SOLD!", text: "SOLD!" },
+  { key: "pending", label: "PENDING!", text: "PENDING!" },
 ] as const;
-
-export type Badge = (typeof BADGES)[number]["key"];
 
 /* ---------------------------------------------------------------- the photo */
 
@@ -223,8 +275,21 @@ export type Slot = {
   size: number;
 };
 
+/* The badge sits on the address's own centre line, which is not obvious from
+ * the artwork and is the thing to get right.
+ *
+ * SOLD! spans x 677-962 and PENDING! spans 593-1047 - different widths, and
+ * neither left nor right edge shared. But both centre on x 819.5, which is the
+ * address block's centre to within half a pixel. So it is the same column,
+ * centred, sitting directly above it, and the size is the largest that clears
+ * that column once it has been pulled in to the gutter on both sides: at 104px
+ * "PENDING!" measures 442 in a 450 box. */
+export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 768, w: ADDRESS_BOX.w, h: 120 };
+export const BADGE_SIZE = 104;
+
 export const TEXT_SLOTS: Slot[] = [
   { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },
+  { key: "badge", label: "Badge", box: BADGE_BOX, align: "center", size: BADGE_SIZE },
 ];
 
 export function slotFor(key: string): Slot {

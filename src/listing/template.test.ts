@@ -11,6 +11,11 @@ import {
   CANVAS,
   CAP_RATIO,
   PHOTO_BAND,
+  ARCH_RIGHT,
+  BADGE_BOX,
+  BADGE_PRESETS,
+  BADGE_SIZE,
+  GUTTER,
   TEXT_SLOTS,
   clampPhotoFit,
   containZoom,
@@ -20,7 +25,7 @@ import {
   zoomAt,
 } from "./template.ts";
 import type { TextBlock } from "./template.ts";
-import { ADDRESS_SEED, addressBlock, emptyDoc } from "./doc.ts";
+import { ADDRESS_SEED, addressBlock, badgeBlock, emptyDoc } from "./doc.ts";
 
 const measure = (line: string, size: number) => line.length * size * 0.5;
 
@@ -252,15 +257,67 @@ test("a zero zoom cannot make the anchored maths produce NaN", () => {
   assert.equal(out.zoom, 2);
 });
 
-test("a fresh doc is the address and nothing else to go wrong", () => {
+test("a fresh doc is the address, an empty badge, and nothing else to go wrong", () => {
   const doc = emptyDoc();
   assert.equal(doc.photo, null);
   assert.equal(doc.headshot, "arch");
-  assert.equal(doc.badge, "none");
   assert.deepEqual(
     doc.blocks.map((b) => b.id),
-    ["address"],
-    "this template has one text block and no way to add another",
+    ["address", "badge"],
+    "this template has two text blocks and no way to add a third",
   );
+  assert.equal(doc.blocks[1].text, "", "a fresh listing is neither sold nor pending");
+});
+
+/* ----------------------------------------------------------------- the badge */
+
+test("the type column keeps the same gutter from the arch and from the edge", () => {
+  /* The strapline is baked into the frame art and set 37px from both edges.
+     The guide rectangle was drawn to 23px from the arch and 20px from the edge,
+     so the address sat closer to both than the line right under it. One value
+     governs all of it now, and the badge inherits the column. */
+  for (const box of [ADDRESS_BOX, BADGE_BOX]) {
+    assert.equal(box.x - (ARCH_RIGHT + 1), GUTTER, "gutter to the arch");
+    assert.equal(CANVAS.w - (box.x + box.w), GUTTER, "margin to the edge");
+  }
+});
+
+test("the arch never reaches into the gutter beside the address", () => {
+  // ARCH_RIGHT is measured off the keyed artwork; this is the guard that it
+  // still describes it, so re-drawn art cannot quietly overlap the type.
+  assert.ok(ARCH_RIGHT < ADDRESS_BOX.x, "the arch would overlap the address box");
+});
+
+test("the badge shares the address's centre line, which is the whole of its placement", () => {
+  const centre = (b: { x: number; w: number }) => b.x + b.w / 2;
+  assert.equal(centre(BADGE_BOX), centre(ADDRESS_BOX));
+  assert.ok(BADGE_BOX.y + BADGE_BOX.h <= ADDRESS_BOX.y, "the badge overlaps the address");
+});
+
+test("both presets fit the badge box at its designed size", () => {
+  // Using the artwork's own measured widths per 100px of type, so this fails if
+  // the box or the size is changed to something the words no longer fit.
+  const perHundred = { "SOLD!": 2.65, "PENDING!": 4.248 };
+  for (const preset of BADGE_PRESETS) {
+    if (!preset.text) continue;
+    const width = perHundred[preset.text as keyof typeof perHundred] * BADGE_SIZE;
+    assert.ok(width <= BADGE_BOX.w, `${preset.text} is ${width.toFixed(0)}px in ${BADGE_BOX.w}px`);
+  }
+});
+
+test("an empty badge lays out to nothing anyone can see", () => {
+  const laid = layoutText(badgeBlock(""), measure);
+  assert.deepEqual(
+    laid.lines.map((l) => l.text),
+    [""],
+    "an empty badge should be one empty line, which drawBlock skips",
+  );
+});
+
+test("a long badge shrinks rather than running into the arch", () => {
+  const b = badgeBlock("UNDER CONTRACT!");
+  const laid = layoutText(b, measure);
+  assert.ok(laid.size < BADGE_SIZE, "it should have shrunk");
+  assert.ok(measure(b.text, laid.size) <= BADGE_BOX.w + 1e-6);
 });
 

@@ -269,7 +269,50 @@ what the handover said they were:
   ragged-right. But all six share a centre at x 819.5, which is the designer's
   own guide rectangle's centre to within a pixel. Setting it to `right` lines the
   block up on an edge the design does not have.
-- **The Character panel's 50.51pt does not fit.** At that size the longest line
+- **The lower column is distributed, not inherited.** Between the photo's bottom
+edge (y=705) and the strapline (y=1278) there is a fixed 573px holding two
+blocks of type. The artwork spent that 41 / 28 / 64, but both blocks render
+shorter here than the flats were — the badge by 31px because it was set in a
+condensed face this repo does not have, the address by 30px because the column
+was narrowed to the gutter — so 61px of type became slack, all of it pooled at
+the bottom, and the column read as drifting up away from the strapline. The
+gaps are equal now: 573 − 70 − 308 = 195, over three gaps, is **65px each**.
+
+The `y` values in `template.ts` are those targets converted through what the
+font actually renders — the badge's cream cap lands 2px under its box, the
+address's 1px over — so they are not simply 705+65 and its successor. A browser
+test measures the three gaps on the real canvas and fails if they drift apart,
+because that conversion is a property of the face rather than of any arithmetic
+in the template.
+
+**One gutter governs the type column.** `GUTTER` is 37 — the strapline's own
+margin, measured off the artwork — and `ADDRESS_BOX` is derived from it on both
+sides: `ARCH_RIGHT + 1 + GUTTER` on the left, `CANVAS.w - GUTTER` on the right.
+The badge inherits the column.
+
+As drawn, the guide rectangle ran x 578→1060: 23px from the arch, 20px from the
+edge, against the strapline's 37px. So the address sat closer to both the
+photograph and the artboard edge than the line directly beneath it — a near-miss
+that reads as sloppy without being obviously wrong.
+
+`ARCH_RIGHT` is measured, not assumed. The arch is a curve: at the address's
+first row it has not finished coming in (x=548), and for the rest of the block
+it is straight-sided at x=555. The widest point is what the gutter has to clear,
+and a unit test guards that it still describes the keyed artwork.
+
+Narrowed rather than moved. Shifting the box would have kept the type size and
+simply traded one crowded side for the other; a gutter is only worth having on
+both. It costs 3px of type — `ADDRESS_SIZE` is 40, not 43 — which is 7% of a
+40px face and invisible.
+
+Worth knowing what that does and does not buy: **a centred block has no fixed
+margin.** Each line ends where its words end, so the *box* is at 37px on both
+sides while the seeded longest line's ink lands at 45px and 42px, and a
+different address moves both again. Right-aligning would make every line end on
+37px exactly; the artwork is centred, so it stays centred, and what the change
+bought is a column that is evenly placed rather than one crowded on both sides.
+
+**The Character panel's 50.51pt does not fit.** At that size the longest line
   measures 561px in a 482px box. Measuring each line's ink against what
   `public/fonts/TAYWingman.woff2` actually renders puts the artwork at ~46.2px
   for the first four lines and ~42.9px for the last two — two sizes, and neither
@@ -294,11 +337,39 @@ what the handover said they were:
 pitch against the real font in a real browser, so swapping the font file fails a
 test rather than quietly reflowing every graphic anyone makes.
 
+### The badge is type, not a picture
+
+SOLD! and PENDING! arrived as two more green flats and shipped that way at
+first. They are live type now, in the same block machinery as the address, so
+the badge can say something the designer did not draw — OPEN SUNDAY!, UNDER
+CONTRACT! — and shrinks to its column if it is long.
+
+**Its placement is not obvious from the artwork.** SOLD! spans x 677–962 and
+PENDING! spans 593–1047: different widths, and neither the left nor the right
+edge shared. What they share is a centre at x 819.5, which is the address
+block's centre to within half a pixel. So the badge is the same column, centred,
+sitting directly above the address — not a right-aligned thing that happens to
+vary, which is what a glance at the two files suggests.
+
+**It does not match the old artwork exactly, and cannot.** Measured off those
+flats, SOLD! is 273px wide with an 88px cap height; TAY Wingman renders the same
+word at 265px wide with a 67px cap — roughly 27% taller for the same width, so
+the badges were set in a heavier, more condensed cut that is not in this repo.
+The live badge therefore reads lighter than the picture did, and matches the
+address and the strapline instead, which is the trade. The originals are kept in
+`assets/listing-src/reference/` as the record; `chroma-key.mjs` skips that folder
+because it only reads the PNGs directly beside it.
+
+One behaviour worth knowing: the outline is a fixed fraction of the type size,
+so a badge shrunk far enough for a whole sentence closes over its own fill.
+That is correct for words that do not belong on a badge, and it is why the
+browser test pushes it to "UNDER CONTRACT!" rather than to a paragraph.
+
 ### One piece of type, and it does not move
 
-The whole editable surface is four things: the photo, which headshot, which
-badge, and the address. There is no way to add text, no way to resize it and no
-way to drag anything but the photo.
+The whole editable surface is four things: the photo, which headshot, what the
+badge says, and the address. There is no way to add a text block, no way to
+resize one and no way to drag anything but the photo.
 
 That is the tool converging on what it is. Earlier versions offered a text
 size, a second and third slot to put type in, colour pickers and an outline
@@ -308,7 +379,7 @@ left between one listing and the next is worse than one that could not be
 adjusted at all.
 
 Type still sits in **named slots** rather than at hardcoded coordinates, and
-this template has exactly one. The indirection earns its keep anyway: the
+this template has exactly two — the address and the badge. The indirection earns its keep anyway: the
 mirrored version of this design is the same tool with the boxes on the other
 side, which is a different list in `template.ts` rather than a different
 editor.
