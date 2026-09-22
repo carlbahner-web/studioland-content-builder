@@ -23,8 +23,10 @@ import {
   LAYER_BOXES,
   TEXT_SLOTS,
   layoutFor,
+  HEADSHOTS,
   clampPhotoFit,
   containZoom,
+  fitFor,
   coverRect,
   layoutText,
   slotFor,
@@ -342,6 +344,25 @@ test("the arch never reaches into the gutter beside the address", () => {
 });
 
 /* --------------------------------------------------------------- the mirror */
+
+test("every photographed headshot carries a placement for every layout", () => {
+  for (const shot of HEADSHOTS.filter((h) => h.photo)) {
+    for (const layout of LAYOUTS) {
+      const fit = fitFor(shot, layout.key);
+      assert.ok(fit.zoom > 0, `${shot.key}/${layout.key}: no zoom`);
+      assert.equal(typeof fit.offsetX, "number", `${shot.key}/${layout.key}: no offsetX`);
+      assert.equal(typeof fit.offsetY, "number", `${shot.key}/${layout.key}: no offsetY`);
+    }
+  }
+});
+
+test("a layout with no saved placement falls back rather than losing the headshot", () => {
+  const shot = HEADSHOTS.find((h) => h.photo)!;
+  assert.deepEqual(fitFor(shot, "upside-down"), fitFor(shot, "standard"));
+  // And a pre-cut cutout has no placement at all, which must not throw.
+  assert.ok(fitFor(HEADSHOTS[0], "standard").zoom > 0);
+});
+
 
 test("both layouts name layers the manifest actually carries", () => {
   for (const layout of LAYOUTS) {

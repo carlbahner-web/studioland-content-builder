@@ -250,10 +250,21 @@ export type Headshot = {
   /** A pre-cut layer, which the layout names and the manifest places. */
   cutout?: Cutout;
   /** Or a photograph, keyed off its backdrop, clipped to the arch, and placed
-   *  by its saved fit. `matte` is the alpha; null where the crop shares another
-   *  entry's photograph. */
-  photo?: { file: string; matte: string | null; fit: PhotoFit };
+   *  by its saved fit - one PER LAYOUT, since the two arches are not the same
+   *  shape and a crop that frames her against one need not against the other.
+   *  `matte` is the alpha; null where the crop shares another entry's
+   *  photograph. */
+  photo?: { file: string; matte: string | null; fits: Record<string, PhotoFit> };
 };
+
+/* The placement for one layout, or the original design's if that layout has
+ * none saved yet. Falling back rather than refusing to draw: a headshot added
+ * before someone has framed it on the other side should appear in roughly the
+ * right place, not vanish. */
+export function fitFor(shot: Headshot, layout: string): PhotoFit {
+  const fits = shot.photo?.fits ?? {};
+  return fits[layout] ?? fits.standard ?? PHOTO_FIT;
+}
 
 export const HEADSHOTS: Headshot[] = [
   { key: "arch", label: "Leaning", cutout: "arch" },
@@ -261,7 +272,7 @@ export const HEADSHOTS: Headshot[] = [
   ...PHOTOS.shots.map((s) => ({
     key: s.key,
     label: s.label,
-    photo: { file: s.file, matte: s.matte ?? null, fit: s.fit },
+    photo: { file: s.file, matte: s.matte ?? null, fits: s.fits as Record<string, PhotoFit> },
   })),
 ];
 
