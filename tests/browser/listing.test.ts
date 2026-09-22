@@ -40,8 +40,8 @@ type Tool = {
   close: () => Promise<void>;
 };
 
-async function openTool(): Promise<Tool> {
-  const page = await newPage();
+async function openTool(opts: { phone?: boolean } = {}): Promise<Tool> {
+  const page = await newPage(opts);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(`uncaught: ${e.message}`));
   page.on("console", (m) => {
@@ -366,6 +366,39 @@ test("the Download button hands over a full-size PNG", async () => {
   assert.equal(head.readUInt32BE(16), 1080);
   assert.equal(head.readUInt32BE(20), 1350);
   assert.match(download.suggestedFilename(), /\.png$/);
+  clean(t);
+  await t.close();
+});
+
+/* THE PHONE CASE. This tool is used from a phone more than from a desk, and on
+ * iOS Safari `<a download>` on a blob often opens the image in a tab rather
+ * than saving it - so a tool that reports "Saved" there has said something
+ * untrue. On a coarse pointer the export has to put the finished image on
+ * screen to press and hold instead. */
+test("on a touch device the export offers the image to press and hold", async () => {
+  const t = await openTool({ phone: true });
+  await uploadPhoto(t, "#ff00ff");
+  await t.page.getByRole("button", { name: /Download/ }).click();
+  await t.page.waitForSelector(".held img", { timeout: 15_000 });
+  const src = await t.page.locator(".held img").getAttribute("src");
+  assert.ok(src?.startsWith("data:image/png"), `the held image is not a PNG: ${src?.slice(0, 40)}`);
+  // A data URI, not a blob URL: long-press "Add to Photos" is reliable on one
+  // and not on the other.
+  const shown = await t.page.locator(".held p").textContent();
+  assert.match(shown ?? "", /press and hold/i);
+  await t.page.getByRole("button", { name: "Done" }).click();
+  assert.equal(await t.page.locator(".held").count(), 0, "the sheet would not dismiss");
+  clean(t);
+  await t.close();
+});
+
+test("on a desktop the export downloads and shows no press-and-hold sheet", async () => {
+  const t = await openTool();
+  const wait = t.page.waitForEvent("download", { timeout: 20_000 });
+  await t.page.getByRole("button", { name: /Download/ }).click();
+  await wait;
+  await t.page.waitForTimeout(300);
+  assert.equal(await t.page.locator(".held").count(), 0);
   clean(t);
   await t.close();
 });

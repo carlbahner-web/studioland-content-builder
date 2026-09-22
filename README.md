@@ -356,6 +356,25 @@ overhang where the photo is bigger than the band, and to the edge of the band
 where it is smaller, so an inset photo can be placed rather than stuck in the
 middle and an oversized one can never be pulled off to leave a gap.
 
+### Saving it on a phone
+
+This is used from a phone more than from a desk, and a programmatic download is
+not reliable there. iOS Safari treats `<a download>` on a blob inconsistently —
+it often opens the image in a new tab instead of saving it — so a tool that
+reports "Saved" on that path has told the person something untrue.
+
+So the export falls back the same way the content builder does, to the same
+`.held` chrome: on a coarse pointer, where the *browser* download was the one
+that ran, the finished PNG goes on screen full size to press and hold, which is
+the gesture that actually saves to Photos. A capability save is confirmed and
+needs no follow-up; on a desktop the anchor simply works. It is handed over as
+a data URI rather than a blob URL, because long-press "Add to Photos" is
+reliable on one and not on the other.
+
+`tests/browser/listing.test.ts` drives this on an emulated phone rather than
+just a narrow window — `hasTouch` and `isMobile` are what make
+`(pointer: coarse)` match, and a narrow viewport alone tests the wrong branch.
+
 ### Long addresses shrink, they do not wrap
 
 The box is sized for "373 Meetinghouse Ln" and somebody will type "1247 Old

@@ -25,6 +25,21 @@ import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
 import type { Art, LayerName } from "./draw.ts";
 import "./listing.css";
 
+/* A programmatic download is not reliable everywhere, and this tool is used
+ * from a phone more than from a desk.
+ *
+ * iOS Safari treats `<a download>` on a blob inconsistently - it often opens the
+ * image in a new tab instead of saving it - so a tool that reports "Saved" there
+ * has told the person something untrue. The gesture that does work is
+ * press-and-hold on the image itself, which needs the image on screen at full
+ * size. Same fallback the content builder next door uses, and the same `.held`
+ * chrome, because it is the same problem.
+ *
+ * Read once at module load: a pointer does not become coarse mid-session, and
+ * re-querying per export would only add a way for the two paths to disagree. */
+const COARSE =
+  typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+
 /** The preview is drawn at this width and CSS-scaled; big enough that the type
  *  antialiases the way it will in the export, small enough to repaint at 60fps. */
 const PREVIEW_W = 540;
@@ -98,6 +113,8 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dropping, setDropping] = useState(false);
+  /** The finished PNG, shown full size for press-and-hold. See COARSE. */
+  const [held, setHeld] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
@@ -341,7 +358,13 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
       if (!blob) throw new Error("the canvas would not encode");
       const outcome = await saveFile(filename, blob);
-      if (outcome === "declined") setNote("Save cancelled.");
+      /* Only fall back where the browser download is the one that ran AND is
+       * the unreliable kind. A capability save is confirmed and needs no
+       * follow-up, and on a desktop the anchor simply works. */
+      if (outcome === "browser" && COARSE) {
+        setHeld(canvas.toDataURL("image/png"));
+        setNote(null);
+      } else if (outcome === "declined") setNote("Save cancelled.");
       else if (outcome === "browser" && !canSave) {
         setNote(`This viewer will not let the page save files. Open it in its own tab to get ${filename}.`);
       } else setNote(`Saved ${filename}`);
@@ -356,6 +379,15 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
 
   return (
     <div className="listing">
+      {held && (
+        <div className="held">
+          <img src={held} alt="The finished listing post" />
+          <p>Press and hold the image to save it to your photos.</p>
+          <button type="button" className="ghost" onClick={() => setHeld(null)}>
+            Done
+          </button>
+        </div>
+      )}
       <header className="listing-head">
         <h1>ANGELA RERA - LISTING POST BUILDER</h1>
         {/* Nothing on the right in the one-file build. In the routed build the
