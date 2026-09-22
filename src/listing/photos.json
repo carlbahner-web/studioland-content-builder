@@ -1,15 +1,22 @@
 {
-  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers. `file` is the untouched photo and `matte` its alpha, keyed off the studio backdrop by scripts/matte.mjs so the arch's floral paper shows behind her; the app multiplies the two and then clips to the arch. Two crops of one frame are two entries sharing a `file` and a `matte` - the script keys each photograph once and both builds inline it once. `tolerance` overrides the keyer's default for one photograph - the dress is a white-on-black print close enough to the seamless that the default walks in through it - and is only ever read by the script, never by the app. `fit` is a placement saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU): zoom is a multiple of the scale that covers the arch, offsets are artboard px. One source of truth - the app builds HEADSHOTS from this and build-single.mjs inlines the same paths.",
+  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers. `file` is the untouched photo and `matte` its alpha, keyed off the studio backdrop by scripts/matte.mjs so the arch's floral paper shows behind her; the app multiplies the two and then clips to the arch. Two crops of one frame are two entries sharing a `file` and a `matte` - the script keys each photograph once and both builds inline it once. `tolerance` overrides the keyer's default for one photograph - the dress is a white-on-black print close enough to the seamless that the default walks in through it - and is only ever read by the script, never by the app. `fits` is a placement PER LAYOUT, saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU): zoom is a multiple of the scale that covers the arch, offsets are artboard px. Per layout because the two arches are not the same shape - the mirror's is 554px wide against the original's 556 - and because a crop that frames her nicely against one is not obliged to against the other. A layout with no entry falls back to `standard`. One source of truth - the app builds HEADSHOTS from this and build-single.mjs inlines the same paths.",
   "mask": "/listing/arch-mask.png",
   "shots": [
     {
       "key": "standing-close",
       "label": "Hands in pockets",
       "file": "/listing/headshot-standing-close.jpg",
-      "fit": {
-        "zoom": 1.554961768059457,
-        "offsetX": -21.12825161156954,
-        "offsetY": 54.46796660724087
+      "fits": {
+        "standard": {
+          "zoom": 1.554961768059457,
+          "offsetX": -21.12825161156954,
+          "offsetY": 54.46796660724087
+        },
+        "mirrored": {
+          "zoom": 1.554961768059457,
+          "offsetX": -21.12825161156954,
+          "offsetY": 54.46796660724087
+        }
       },
       "matte": "/listing/matte-standing-close.png"
     },
@@ -17,10 +24,17 @@
       "key": "standing-wide",
       "label": "Full length",
       "file": "/listing/headshot-standing-wide.jpg",
-      "fit": {
-        "zoom": 2.3034390456957143,
-        "offsetX": -47.1887981774189,
-        "offsetY": 150.21151955433808
+      "fits": {
+        "standard": {
+          "zoom": 2.3034390456957143,
+          "offsetX": -47.1887981774189,
+          "offsetY": 150.21151955433808
+        },
+        "mirrored": {
+          "zoom": 2.3034390456957143,
+          "offsetX": -47.1887981774189,
+          "offsetY": 150.21151955433808
+        }
       },
       "matte": "/listing/matte-standing-wide.png"
     },
@@ -28,10 +42,17 @@
       "key": "dress-phone",
       "label": "Dress, wide",
       "file": "/listing/headshot-dress-phone.jpg",
-      "fit": {
-        "zoom": 1,
-        "offsetX": 0,
-        "offsetY": -73.52239055788013
+      "fits": {
+        "standard": {
+          "zoom": 1,
+          "offsetX": 0,
+          "offsetY": -73.52239055788013
+        },
+        "mirrored": {
+          "zoom": 1,
+          "offsetX": 0,
+          "offsetY": -73.52239055788013
+        }
       },
       "matte": "/listing/matte-dress-phone.png",
       "tolerance": 0.08
@@ -40,10 +61,17 @@
       "key": "dress-phone-close",
       "label": "Dress, close",
       "file": "/listing/headshot-dress-phone.jpg",
-      "fit": {
-        "zoom": 2.6423498120568487,
-        "offsetX": 33.55367042471852,
-        "offsetY": 240.17751023962956
+      "fits": {
+        "standard": {
+          "zoom": 2.6423498120568487,
+          "offsetX": 33.55367042471852,
+          "offsetY": 240.17751023962956
+        },
+        "mirrored": {
+          "zoom": 2.6423498120568487,
+          "offsetX": 33.55367042471852,
+          "offsetY": 240.17751023962956
+        }
       },
       "matte": "/listing/matte-dress-phone.png",
       "tolerance": 0.08
@@ -52,10 +80,17 @@
       "key": "seated",
       "label": "Chair",
       "file": "/listing/headshot-seated.jpg",
-      "fit": {
-        "zoom": 1.309905718643316,
-        "offsetX": -28.97054716282488,
-        "offsetY": 105.41533403869506
+      "fits": {
+        "standard": {
+          "zoom": 1.309905718643316,
+          "offsetX": -28.97054716282488,
+          "offsetY": 105.41533403869506
+        },
+        "mirrored": {
+          "zoom": 1.309905718643316,
+          "offsetX": -28.97054716282488,
+          "offsetY": 105.41533403869506
+        }
       },
       "matte": "/listing/matte-seated.png"
     }

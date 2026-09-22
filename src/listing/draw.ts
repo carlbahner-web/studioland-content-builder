@@ -28,6 +28,7 @@ import {
   LAYER_BOXES,
   PHOTO_BAND,
   coverRect,
+  fitFor,
   headshotFor,
   layoutFor,
   layoutText,
@@ -151,7 +152,7 @@ function drawHeadshot(
     (img as HTMLImageElement).naturalWidth,
     (img as HTMLImageElement).naturalHeight,
     { x: 0, y: 0, w: arch.w, h: arch.h },
-    shot.photo.fit,
+    fitFor(shot, layout.key),
   );
   sctx.drawImage(img, r.x, r.y, r.w, r.h);
 
