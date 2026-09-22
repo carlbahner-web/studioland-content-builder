@@ -1,12 +1,15 @@
 /* Chrome for the listing builder. Same quiet workbench as studio.css - cream
-   panel, charcoal type - so the two tools do not look like different products.
-   The one departure is the stage, which is dark, so the graphic is judged
-   against something nearer where it will be seen than cream - which flatters
-   pale type unfairly. Dark, but deliberately NOT the artwork's navy: a photo
-   scaled below the band letterboxes in that navy, and on a navy stage the bars
-   merge with the surround and the artboard loses its edges exactly when you are
-   trying to judge where the picture stops. So the stage is a warm charcoal that
-   nothing in the artwork uses. */
+   throughout, charcoal type - so the two tools do not look like different
+   products.
+
+   The stage was briefly a dark charcoal, on the theory that a graphic should be
+   judged against something nearer where it will be seen. In practice it just
+   made the thing you are working on harder to look at: a 540px artboard in a
+   large dark field is a bright rectangle you squint at rather than a picture you
+   read. Cream also happens to solve the problem the dark stage was picked to
+   avoid - a photo scaled below the band letterboxes in the artwork's navy, and
+   those bars are unmistakable against cream, where against a dark surround they
+   merged with it and the artboard lost its edges. */
 
 .listing {
   min-height: 100vh;
@@ -52,13 +55,15 @@
   align-items: center;
   gap: 12px;
   padding: 28px 24px 48px;
-  background: #1d1b18;
+  background: var(--cream);
 }
 .listing-canvas {
   width: min(540px, 100%);
   max-height: calc(100vh - 140px);
   border-radius: 4px;
-  box-shadow: 0 18px 44px rgb(0 0 0 / 55%);
+  /* Light enough not to read as a card. The artboard is navy-heavy and sits on
+     cream, so it needs separating from the page, not lifting off it. */
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
   /* The photo is dragged and pinched on this surface, so the browser must not
      claim the gesture for panning, and a text selection dragged out of it is
      never what anyone meant. */
@@ -68,7 +73,7 @@
 .listing-hint {
   margin: 0;
   font-size: 12px;
-  color: rgb(252 247 232 / 52%);
+  opacity: 0.55;
   text-align: center;
 }
 
@@ -218,7 +223,7 @@
    is aimed at the picture, and a 540px target inside a much larger dark area is
    a needlessly precise thing to ask of a drag. */
 .listing-dropping {
-  outline: 2px dashed #7de3ff;
+  outline: 2px dashed var(--teal);
   outline-offset: -10px;
 }
 
