@@ -135,10 +135,13 @@ const browser = await launch();
 const page = await browser.newPage();
 await page.goto("about:blank");
 
+const done = new Set();
+
 for (const shot of photos.shots) {
   // One entry per crop, one file per photograph: "Dress, wide" and "Dress,
   // close" are the same frame and must not be keyed, or shipped, twice.
-  if (shot.matte === null) continue;
+  if (done.has(shot.matte)) continue;
+  done.add(shot.matte);
   const file = join(PUBLIC, shot.file.replace(/^\//, ""));
   const b64 = readFileSync(file).toString("base64");
 
