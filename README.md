@@ -279,6 +279,11 @@ what the handover said they were:
   chosen to clear the box with a little to spare. The tracking (−100, i.e.
   −0.1em) is the one panel value that survives contact with the artwork, and it
   already agreed with `layers.ts`.
+- **The outline is the artwork's, not a feature.** Every piece of type in the
+  handover carries one — SOLD! and PENDING! plainly, the address more softly —
+  and without it pale pink type on a mid-value photo has no edge at all. So it
+  is drawn and not offered: there is no control for it, because a listing where
+  someone switched it off is a listing that is off-brand.
 - **The address's outline colour could not be sampled.** It is semi-transparent
   and the export baked it against the green, so the flat `#505923` sitting in
   that file is a blend, not a colour anyone chose. The badges are opaque, so they

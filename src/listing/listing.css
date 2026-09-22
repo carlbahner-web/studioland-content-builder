@@ -170,24 +170,6 @@
   resize: vertical;
 }
 
-.listing-swatch,
-.listing-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  opacity: 0.8;
-}
-.listing-swatch input[type="color"] {
-  width: 34px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: none;
-  cursor: pointer;
-}
-
 .listing-go {
   width: 100%;
   padding: 13px !important;

@@ -75,6 +75,13 @@ export const CAP_RATIO = 0.67;
 
 /* Pink fill, navy outline - the badge art's colors, sampled from it.
  *
+ * The outline is not an option anyone chose to add; it is what the artwork
+ * does. Every piece of type in the handover carries it - SOLD! and PENDING!
+ * plainly, in opaque navy, and the address more softly - and without it pale
+ * pink type on a mid-value photo has no edge at all. It is drawn, not offered:
+ * there is no control for it, because a listing where someone turned it off is
+ * a listing that is off-brand.
+ *
  * The outline in the address export could not be sampled the same way: it is
  * semi-transparent and the export baked it against the green backing, so the
  * flat #505923 sitting in that file is a blend, not a color anyone chose. The
@@ -232,6 +239,9 @@ export function slotFor(key: string): Slot {
   return TEXT_SLOTS.find((s) => s.key === key) ?? TEXT_SLOTS[0];
 }
 
+/* `fill` and `outline` are carried per block rather than read from the palette
+ * at draw time so a future template can ship its own colors without every block
+ * in this one changing underneath it. Nothing in the UI edits them. */
 export type TextBlock = {
   id: string;
   text: string;

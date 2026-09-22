@@ -13,8 +13,6 @@ import {
   BADGES,
   CANVAS,
   HEADSHOTS,
-  INK,
-  OUTLINE,
   PHOTO_BAND,
   TEXT_SLOTS,
   clampPhotoFit,
@@ -630,39 +628,6 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
                   ))}
                 </div>
                 <div className="listing-row">
-                  <label className="listing-swatch">
-                    Fill
-                    <input
-                      type="color"
-                      value={block.fill}
-                      onChange={(e) => patch(block.id, { fill: e.target.value })}
-                    />
-                  </label>
-                  <label className="listing-swatch">
-                    Outline
-                    <input
-                      type="color"
-                      value={block.outline ?? OUTLINE}
-                      onChange={(e) => patch(block.id, { outline: e.target.value })}
-                    />
-                  </label>
-                  <label className="listing-check">
-                    <input
-                      type="checkbox"
-                      checked={block.outline !== null}
-                      onChange={(e) => patch(block.id, { outline: e.target.checked ? OUTLINE : null })}
-                    />
-                    Outlined
-                  </label>
-                </div>
-                <div className="listing-row">
-                  <button
-                    type="button"
-                    className="listing-quiet"
-                    onClick={() => patch(block.id, { fill: INK, outline: OUTLINE })}
-                  >
-                    Brand colours
-                  </button>
                   <button
                     type="button"
                     className="listing-quiet"
