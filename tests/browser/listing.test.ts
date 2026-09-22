@@ -246,11 +246,12 @@ test("a badge appears and disappears where the art puts it", async () => {
 
 /* ----------------------------------------------------------- the gestures */
 
-/* Nothing on this artboard moves except the photo. A template whose address has
- * drifted a few pixels between one graphic and the next is worse than one that
- * could not be adjusted, and a drag that "mostly" does nothing is worse than
- * one that plainly does nothing - so this drags right across the address and
- * asserts the pixels are identical afterwards. */
+/* Nothing on this artboard moves except the photo, and there is exactly one
+ * piece of editable type. A template whose address has drifted a few pixels
+ * between one graphic and the next is worse than one that could not be adjusted
+ * at all, and a drag that "mostly" does nothing is worse than one that plainly
+ * does nothing - so this drags right across the address and asserts the pixels
+ * are identical afterwards. */
 test("dragging the text does nothing at all", async () => {
   const t = await openTool();
   const sample = () => Promise.all([t.pixel(700, 900), t.pixel(820, 960), t.pixel(660, 1180)]);
@@ -267,19 +268,13 @@ test("dragging the text does nothing at all", async () => {
   await t.close();
 });
 
-test("added text lands in a slot and moves only between slots", async () => {
+test("there is one text block and no way to add another", async () => {
   const t = await openTool();
-  await t.page.getByRole("button", { name: "+ Add text" }).click();
-  await t.page.waitForTimeout(400);
-  const photoSlot = { x: 60, y: 72, w: 960, h: 240 };
-  const bannerSlot = { x: 578, y: 742, w: 482, h: 118 };
-  assert.ok((await t.ink(photoSlot)) > 500, "nothing was drawn in the photo slot");
-  assert.ok((await t.ink(bannerSlot)) < 200, "something was already on the navy line");
-
-  await t.page.getByRole("button", { name: "Beside the arch" }).click();
-  await t.page.waitForTimeout(400);
-  assert.ok((await t.ink(photoSlot)) < 200, "the text did not leave the photo slot");
-  assert.ok((await t.ink(bannerSlot)) > 500, "the text did not arrive on the navy line");
+  assert.equal(await t.page.getByRole("button", { name: /Add text/ }).count(), 0);
+  assert.equal(await t.page.locator("textarea").count(), 1);
+  // Nor a way to resize it: the address is the size the design says it is, and
+  // only shrinks when what is typed will not fit.
+  assert.equal(await t.page.locator(".listing-block input[type=range]").count(), 0);
   clean(t);
   await t.close();
 });

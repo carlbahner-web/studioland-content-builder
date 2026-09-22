@@ -15,14 +15,12 @@ import {
   clampPhotoFit,
   containZoom,
   coverRect,
-  hits,
   layoutText,
   slotFor,
-  textBounds,
   zoomAt,
 } from "./template.ts";
 import type { TextBlock } from "./template.ts";
-import { ADDRESS_SEED, addressBlock, emptyDoc, moveToSlot, newBlock } from "./doc.ts";
+import { ADDRESS_SEED, addressBlock, emptyDoc } from "./doc.ts";
 
 const measure = (line: string, size: number) => line.length * size * 0.5;
 
@@ -185,60 +183,24 @@ test("blank lines keep their place in the rhythm", () => {
   assert.equal(laid.lines[2].text, "");
 });
 
-test("bounds hug the widest line, on the side the block is aligned to", () => {
-  const b = block({ text: "short\nmuch much longer line", align: "right" });
-  const laid = layoutText(b, measure);
-  const bounds = textBounds(b, laid, measure);
-  assert.ok(Math.abs(bounds.x + bounds.w - (b.box.x + b.box.w)) < 1e-6);
-  assert.ok(Math.abs(bounds.w - measure("much much longer line", laid.size)) < 1e-6);
-});
-
-test("hit testing is forgiving around the edges but not far from them", () => {
-  const b = block();
-  const bounds = textBounds(b, layoutText(b, measure), measure);
-  assert.ok(hits(bounds, bounds.x + 4, bounds.y + 4));
-  assert.ok(hits(bounds, bounds.x - 6, bounds.y - 6), "a near miss should still select");
-  assert.ok(!hits(bounds, bounds.x - 200, bounds.y));
-});
-
 /* ----------------------------------------------------------------- the slots */
 
-test("every block sits in a slot, and the slot owns where it is", () => {
-  for (const b of [addressBlock(), newBlock()]) {
-    const slot = slotFor(b.slot);
-    assert.deepEqual(b.box, slot.box, `${b.id} is not where its slot says`);
-    assert.equal(b.align, slot.align);
-    assert.equal(b.size, slot.size);
-  }
-});
-
-test("moving to a slot takes the slot's box, size and alignment, and keeps the words", () => {
-  const before = newBlock("JUST LISTED!");
-  const after = moveToSlot(before, "banner");
-  const slot = slotFor("banner");
-  assert.equal(after.text, "JUST LISTED!");
-  assert.equal(after.id, before.id);
-  assert.deepEqual(after.box, slot.box);
-  assert.equal(after.size, slot.size);
-  assert.equal(after.align, slot.align);
+test("the address block sits where its slot says, at the slot's size and alignment", () => {
+  const b = addressBlock();
+  const slot = slotFor(b.slot);
+  assert.deepEqual(b.box, slot.box);
+  assert.equal(b.align, slot.align);
+  assert.equal(b.size, slot.size);
 });
 
 test("an unknown slot falls back rather than leaving a block with no box", () => {
   assert.equal(slotFor("nowhere").key, TEXT_SLOTS[0].key);
 });
 
-test("the slots are inside the artboard and do not overlap the address", () => {
-  const address = slotFor("address").box;
+test("every slot is inside the artboard", () => {
   for (const slot of TEXT_SLOTS) {
     const b = slot.box;
     assert.ok(b.x >= 0 && b.y >= 0 && b.x + b.w <= CANVAS.w && b.y + b.h <= CANVAS.h, slot.key);
-    if (slot.key === "address") continue;
-    const overlaps =
-      b.x < address.x + address.w &&
-      b.x + b.w > address.x &&
-      b.y < address.y + address.h &&
-      b.y + b.h > address.y;
-    assert.ok(!overlaps, `${slot.key} runs into the address block`);
   }
 });
 
@@ -290,7 +252,7 @@ test("a zero zoom cannot make the anchored maths produce NaN", () => {
   assert.equal(out.zoom, 2);
 });
 
-test("a fresh doc has the address and nothing else to go wrong", () => {
+test("a fresh doc is the address and nothing else to go wrong", () => {
   const doc = emptyDoc();
   assert.equal(doc.photo, null);
   assert.equal(doc.headshot, "arch");
@@ -298,11 +260,7 @@ test("a fresh doc has the address and nothing else to go wrong", () => {
   assert.deepEqual(
     doc.blocks.map((b) => b.id),
     ["address"],
+    "this template has one text block and no way to add another",
   );
 });
 
-test("added blocks get distinct ids", () => {
-  const ids = new Set([newBlock().id, newBlock().id, newBlock().id]);
-  assert.equal(ids.size, 3);
-  assert.ok(!ids.has("address"), "an added block must never collide with the template's");
-});

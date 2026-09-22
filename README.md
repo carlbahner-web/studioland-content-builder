@@ -294,20 +294,27 @@ what the handover said they were:
 pitch against the real font in a real browser, so swapping the font file fails a
 test rather than quietly reflowing every graphic anyone makes.
 
-### Nothing moves except the photo
+### One piece of type, and it does not move
 
-Type sits in **named slots**, and there is no dragging. This is a template, not
-a canvas: a graphic whose contact details have drifted four pixels left of the
-last one is worse than one that cannot be adjusted at all. A block picks a slot
-and the slot supplies the box, the size and the alignment.
+The whole editable surface is four things: the photo, which headshot, which
+badge, and the address. There is no way to add text, no way to resize it and no
+way to drag anything but the photo.
 
-There are three, because there are three places in this artwork with room for
-type: the address's own box, the top band over the photo, and the badge's line
-beside the arch. That last one is **not** the full width of the artboard — the
-arch reaches x=555 and the headshot inside it is a photograph, so type centred
-across the whole width lands half on a face. It shares its line with the badge
-by design, being the same line, so the UI says so rather than pretending a
-fourth place exists.
+That is the tool converging on what it is. Earlier versions offered a text
+size, a second and third slot to put type in, colour pickers and an outline
+switch, and every one of them was a way to make a graphic that no longer
+matches the last one. A template whose contact details have drifted four pixels
+left between one listing and the next is worse than one that could not be
+adjusted at all.
+
+Type still sits in **named slots** rather than at hardcoded coordinates, and
+this template has exactly one. The indirection earns its keep anyway: the
+mirrored version of this design is the same tool with the boxes on the other
+side, which is a different list in `template.ts` rather than a different
+editor.
+
+The address's size is the design's, and gives only when what is typed will not
+fit — see *Long addresses shrink*.
 
 ### The photo is the bottom layer
 

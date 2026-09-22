@@ -206,13 +206,13 @@ export function zoomAt(fit: PhotoFit, nextZoom: number, anchor: Point, band: Box
  *
  * This is a template, not a canvas: the address belongs where the designer put
  * it, and a graphic whose contact details have drifted four pixels left of the
- * last one is worse than one that cannot be adjusted at all. So a block picks a
- * slot and the slot supplies the box.
+ * last one is worse than one that cannot be adjusted at all. So a block names a
+ * slot and the slot supplies the box, the size and the alignment.
  *
- * There are only two of them besides the address, because there are only two
- * places in this artwork with room for type. Everything between the arch and
- * the strapline is either the badge's line or the address's box, and the strip
- * under the arch is 60px tall.
+ * This template has exactly one, because it has exactly one piece of editable
+ * type. The indirection still earns its keep: the mirrored version of this
+ * design is the same tool with the boxes on the other side, which is a
+ * different list here rather than a different editor.
  */
 export type Slot = {
   key: string;
@@ -225,14 +225,6 @@ export type Slot = {
 
 export const TEXT_SLOTS: Slot[] = [
   { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },
-  { key: "photo", label: "Over the photo", box: { x: 60, y: 72, w: 960, h: 240 }, align: "center", size: 112 },
-  /* The badge's own line, and the same column as the address below it - NOT the
-   * full width of the artboard. The arch reaches x=555 and the headshot inside
-   * it is a photograph, so type centred across the whole width lands half on a
-   * face; the navy only actually starts where this box does. The badge collides
-   * with this slot by design, being the same line, so the UI says so rather
-   * than offering a fourth place that does not exist. */
-  { key: "banner", label: "Beside the arch", box: { x: 578, y: 742, w: 482, h: 118 }, align: "center", size: 96 },
 ];
 
 export function slotFor(key: string): Slot {
@@ -331,28 +323,4 @@ export function layoutText(block: TextBlock, measure: Measure): LaidOutText {
   };
 }
 
-/** The drawn bounds of a laid-out block, for hit-testing and the selection ring. */
-export function textBounds(block: TextBlock, laid: LaidOutText, measure: Measure): Box {
-  const widths = laid.lines.map((l) => (l.text ? measure(l.text, laid.size) : 0));
-  const widest = Math.max(0, ...widths);
-  const x =
-    block.align === "right"
-      ? block.box.x + block.box.w - widest
-      : block.align === "center"
-        ? block.box.x + (block.box.w - widest) / 2
-        : block.box.x;
-  const last = laid.lines[laid.lines.length - 1];
-  return {
-    x,
-    y: block.box.y,
-    w: widest,
-    h: last.y - block.box.y + laid.size * (1 - CAP_RATIO),
-  };
-}
-
-export function hits(box: Box, x: number, y: number, pad = 12): boolean {
-  return (
-    x >= box.x - pad && x <= box.x + box.w + pad && y >= box.y - pad && y <= box.y + box.h + pad
-  );
-}
 

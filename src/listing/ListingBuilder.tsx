@@ -14,17 +14,14 @@ import {
   CANVAS,
   HEADSHOTS,
   PHOTO_BAND,
-  TEXT_SLOTS,
   clampPhotoFit,
   containZoom,
-  layoutText,
-  textBounds,
   zoomAt,
 } from "./template.ts";
 import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
-import { addressBlock, emptyDoc, moveToSlot, newBlock } from "./doc.ts";
+import { addressBlock, emptyDoc } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
-import { LAYER_BOXES, drawDoc, measurer, renderFull } from "./draw.ts";
+import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
 import type { Art, LayerName } from "./draw.ts";
 import "./listing.css";
 
@@ -98,7 +95,6 @@ function useFontReady(): boolean {
 /** `standalone` is the one-file build, where there is no other tool to link to. */
 export default function ListingBuilder({ standalone = false }: { standalone?: boolean }) {
   const [doc, setDoc] = useState<Doc>(emptyDoc);
-  const [selected, setSelected] = useState<string | null>("address");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -123,7 +119,10 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
     };
   }, []);
 
-  const block = doc.blocks.find((b) => b.id === selected) ?? null;
+  /* There is exactly one text block and it is the address. The document keeps
+   * blocks as a list because drawing walks it and a second template may want
+   * more, but this tool offers no way to add or remove one. */
+  const address = doc.blocks[0] ?? addressBlock();
 
   /* -------------------------------------------------------------- the photo */
 
@@ -208,21 +207,9 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
     ctx.clearRect(0, 0, w, h);
     drawDoc(ctx, doc, art, photoRef.current, { scale: PREVIEW_SCALE * dpr });
 
-    // The selection ring is preview furniture, drawn after and never exported.
-    if (block) {
-      const measure = measurer(ctx);
-      ctx.save();
-      ctx.scale(PREVIEW_SCALE * dpr, PREVIEW_SCALE * dpr);
-      const bounds = textBounds(block, layoutText(block, measure), measure);
-      ctx.strokeStyle = "#7de3ff";
-      ctx.lineWidth = 2 / PREVIEW_SCALE;
-      ctx.setLineDash([10 / PREVIEW_SCALE, 8 / PREVIEW_SCALE]);
-      ctx.strokeRect(bounds.x - 8, bounds.y - 8, bounds.w + 16, bounds.h + 16);
-      ctx.restore();
-    }
     // fontReady is not read here, but a repaint after the font lands is the
     // whole point of tracking it: the first paint measures the fallback.
-  }, [doc, art, block, fontReady]);
+  }, [doc, art, fontReady]);
 
   /* ------------------------------------------------- placing the photo only */
 
@@ -335,29 +322,8 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
 
   /* -------------------------------------------------------------- the edits */
 
-  const patch = (id: string, change: Partial<TextBlock>) =>
-    setDoc((d) => ({
-      ...d,
-      blocks: d.blocks.map((b) => (b.id === id ? { ...b, ...change } : b)),
-    }));
-
-  const addBlock = () => {
-    const b = newBlock();
-    setDoc((d) => ({ ...d, blocks: [...d.blocks, b] }));
-    setSelected(b.id);
-  };
-
-  const removeBlock = (id: string) => {
-    // The address is the template, not a block someone added; it resets instead
-    // of disappearing, so there is no way to end up with a graphic that has no
-    // way to contact anybody.
-    if (id === "address") {
-      patch(id, addressBlock());
-      return;
-    }
-    setDoc((d) => ({ ...d, blocks: d.blocks.filter((b) => b.id !== id) }));
-    setSelected(null);
-  };
+  const patchAddress = (change: Partial<TextBlock>) =>
+    setDoc((d) => ({ ...d, blocks: d.blocks.map((b) => ({ ...b, ...change })) }));
 
   /* ---------------------------------------------------------------- the PNG */
 
@@ -545,99 +511,38 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
           </section>
 
           <section>
-            <div className="listing-row listing-spread">
-              <h2>Text</h2>
-              <button type="button" className="listing-quiet" onClick={addBlock}>
-                + Add text
-              </button>
-            </div>
-            <div className="listing-choices">
-              {doc.blocks.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  aria-pressed={selected === b.id}
-                  className={selected === b.id ? "listing-on" : ""}
-                  onClick={() => setSelected(b.id)}
-                >
-                  {b.id === "address" ? "Address" : b.text.split("\n")[0].slice(0, 16) || "Text"}
-                </button>
-              ))}
-            </div>
-
-            {block && (
-              <div className="listing-block">
-                <textarea
-                  value={block.text}
-                  rows={block.id === "address" ? 8 : 3}
-                  spellCheck={false}
-                  onChange={(e) => patch(block.id, { text: e.target.value })}
-                />
-                <label className="listing-slider">
-                  Size
-                  <input
-                    type="range"
-                    min={16}
-                    max={180}
-                    step={0.5}
-                    value={block.size}
-                    onChange={(e) => patch(block.id, { size: Number(e.target.value) })}
-                  />
-                </label>
-                {block.id !== "address" && (
-                  <>
-                    <h3 className="listing-sub">Where it sits</h3>
-                    <div className="listing-choices">
-                      {TEXT_SLOTS.filter((sl) => sl.key !== "address").map((sl) => (
-                        <button
-                          key={sl.key}
-                          type="button"
-                          aria-pressed={block.slot === sl.key}
-                          className={block.slot === sl.key ? "listing-on" : ""}
-                          onClick={() =>
-                            setDoc((d) => ({
-                              ...d,
-                              blocks: d.blocks.map((b) =>
-                                b.id === block.id ? moveToSlot(b, sl.key) : b,
-                              ),
-                            }))
-                          }
-                        >
-                          {sl.label}
-                        </button>
-                      ))}
-                    </div>
-                    {block.slot === "banner" && doc.badge !== "none" && (
-                      <p className="listing-note">
-                        The badge sits on this line too. Choose No badge to have it to yourself.
-                      </p>
-                    )}
-                  </>
-                )}
-                <div className="listing-choices">
-                  {(["left", "center", "right"] as TextAlign[]).map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      aria-pressed={block.align === a}
-                      className={block.align === a ? "listing-on" : ""}
-                      onClick={() => patch(block.id, { align: a })}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-                <div className="listing-row">
+            <h2>Address</h2>
+            <div className="listing-block">
+              <textarea
+                id="listing-address"
+                value={address.text}
+                rows={8}
+                spellCheck={false}
+                onChange={(e) => patchAddress({ text: e.target.value })}
+              />
+              <div className="listing-choices">
+                {(["left", "center", "right"] as TextAlign[]).map((a) => (
                   <button
+                    key={a}
                     type="button"
-                    className="listing-quiet"
-                    onClick={() => removeBlock(block.id)}
+                    aria-pressed={address.align === a}
+                    className={address.align === a ? "listing-on" : ""}
+                    onClick={() => patchAddress({ align: a })}
                   >
-                    {block.id === "address" ? "Reset address" : "Delete"}
+                    {a}
                   </button>
-                </div>
+                ))}
               </div>
-            )}
+              <div className="listing-row">
+                <button
+                  type="button"
+                  className="listing-quiet"
+                  onClick={() => setDoc((d) => ({ ...d, blocks: [addressBlock()] }))}
+                >
+                  Reset address
+                </button>
+              </div>
+            </div>
           </section>
 
           <section>

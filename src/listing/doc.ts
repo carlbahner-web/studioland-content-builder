@@ -28,14 +28,10 @@ export type Doc = {
   photo: Photo | null;
   headshot: Headshot;
   badge: Badge;
+  /* A list of one - the address. It stays a list because drawing walks it and
+   * because a second template may carry more, not because this one can add. */
   blocks: TextBlock[];
 };
-
-let counter = 0;
-export function nextId(prefix: string): string {
-  counter += 1;
-  return `${prefix}-${counter}`;
-}
 
 /* The address block is seeded rather than blank.
  *
@@ -73,18 +69,6 @@ function inSlot(id: string, text: string, slotKey: string): TextBlock {
 
 export function addressBlock(): TextBlock {
   return inSlot("address", ADDRESS_SEED, "address");
-}
-
-/* Added text starts over the photo rather than on the navy, because the navy
- * line is also the badge's and most graphics have a badge on. */
-export function newBlock(text = "JUST LISTED!"): TextBlock {
-  return inSlot(nextId("text"), text, "photo");
-}
-
-/** Move a block to another slot: the slot supplies box, size and alignment. */
-export function moveToSlot(block: TextBlock, slotKey: string): TextBlock {
-  const slot = slotFor(slotKey);
-  return { ...block, slot: slot.key, box: { ...slot.box }, size: slot.size, align: slot.align };
 }
 
 export function emptyDoc(): Doc {
