@@ -19,7 +19,10 @@ import {
   BADGE_TRACKING,
   TRACKING,
   GUTTER,
+  LAYOUTS,
+  LAYER_BOXES,
   TEXT_SLOTS,
+  layoutFor,
   clampPhotoFit,
   containZoom,
   coverRect,
@@ -28,7 +31,7 @@ import {
   zoomAt,
 } from "./template.ts";
 import type { TextBlock } from "./template.ts";
-import { ADDRESS_SEED, addressBlock, badgeBlock, emptyDoc } from "./doc.ts";
+import { ADDRESS_SEED, addressBlock, badgeBlock, emptyDoc, withLayout } from "./doc.ts";
 
 const measure = (line: string, size: number, tracking: number) =>
   line.length * size * (0.5 + tracking + 0.1);
@@ -145,19 +148,37 @@ test("the address lays out inside the designer's guide box", () => {
   assert.ok(last.y <= ADDRESS_BOX.y + ADDRESS_BOX.h + 1e-9, "the block overran its box");
 });
 
-test("right-aligned lines all anchor on the box's right edge", () => {
-  const laid = layoutText(block({ align: "right" }), measure);
-  for (const line of laid.lines) {
-    assert.equal(line.x, ADDRESS_BOX.x + ADDRESS_BOX.w);
-  }
-});
-
-test("centre and left anchor where they should", () => {
-  assert.equal(layoutText(block({ align: "left" }), measure).lines[0].x, ADDRESS_BOX.x);
+/* The anchor discounts the trailing letter-space. Canvas applies letterSpacing
+ * after the last glyph too, so an advance-positioned line sits half of it off
+ * centre - see layoutText. At zero tracking the correction is zero, which is
+ * the cleanest way to say what it is. */
+test("untracked text anchors exactly on its box", () => {
+  const plain = { tracking: 0 };
+  assert.equal(layoutText(block({ ...plain, align: "left" }), measure).lines[0].x, ADDRESS_BOX.x);
   assert.equal(
-    layoutText(block({ align: "center" }), measure).lines[0].x,
+    layoutText(block({ ...plain, align: "center" }), measure).lines[0].x,
     ADDRESS_BOX.x + ADDRESS_BOX.w / 2,
   );
+  assert.equal(
+    layoutText(block({ ...plain, align: "right" }), measure).lines[0].x,
+    ADDRESS_BOX.x + ADDRESS_BOX.w,
+  );
+});
+
+test("tracked text anchors back by the letter-space that follows its last glyph", () => {
+  const laid = layoutText(block({ align: "right" }), measure);
+  const trail = laid.size * TRACKING;
+  for (const line of laid.lines) {
+    assert.equal(line.x, ADDRESS_BOX.x + ADDRESS_BOX.w + trail);
+  }
+  assert.equal(
+    layoutText(block({ align: "center" }), measure).lines[0].x,
+    ADDRESS_BOX.x + ADDRESS_BOX.w / 2 + trail / 2,
+  );
+  // Negative tracking, so the correction pulls LEFT - the direction the ink was
+  // hanging off in. A sign error here would double the offset instead.
+  assert.ok(trail < 0);
+  assert.equal(layoutText(block({ align: "left" }), measure).lines[0].x, ADDRESS_BOX.x);
 });
 
 test("a long street address shrinks instead of running off the artwork", () => {
@@ -196,14 +217,19 @@ test("blank lines keep their place in the rhythm", () => {
 
 test("the address block sits where its slot says, at the slot's size and alignment", () => {
   const b = addressBlock();
-  const slot = slotFor(b.slot);
+  const slot = slotFor("standard", b.slot);
   assert.deepEqual(b.box, slot.box);
   assert.equal(b.align, slot.align);
   assert.equal(b.size, slot.size);
 });
 
 test("an unknown slot falls back rather than leaving a block with no box", () => {
-  assert.equal(slotFor("nowhere").key, TEXT_SLOTS[0].key);
+  assert.equal(slotFor("standard", "nowhere").key, TEXT_SLOTS[0].key);
+});
+
+test("an unknown layout falls back to the original design", () => {
+  assert.equal(layoutFor("sideways").key, LAYOUTS[0].key);
+  assert.equal(slotFor("sideways", "address").box.x, TEXT_SLOTS[0].box.x);
 });
 
 test("every slot is inside the artboard", () => {
@@ -279,17 +305,90 @@ test("the type column keeps the same gutter from the arch and from the edge", ()
   /* The strapline is baked into the frame art and set 37px from both edges.
      The guide rectangle was drawn to 23px from the arch and 20px from the edge,
      so the address sat closer to both than the line right under it. One value
-     governs all of it now, and the badge inherits the column. */
-  for (const box of [ADDRESS_BOX, BADGE_BOX]) {
-    assert.equal(box.x - (ARCH_RIGHT + 1), GUTTER, "gutter to the arch");
-    assert.equal(CANVAS.w - (box.x + box.w), GUTTER, "margin to the edge");
+     governs all of it now, the badge inherits the column, and BOTH layouts are
+     held to it - the mirror's arch is cropped 2px narrower than the original's,
+     so a column copied across rather than derived would be 2px out on one
+     side and pass a test written only against the original. */
+  for (const layout of LAYOUTS) {
+    const archEnd = layout.arch.x + layout.arch.w;
+    for (const slot of layout.slots) {
+      const b = slot.box;
+      const where = `${layout.key}/${slot.key}`;
+      if (b.x >= archEnd) {
+        assert.equal(b.x - archEnd, GUTTER, `${where}: gutter to the arch`);
+        assert.equal(CANVAS.w - (b.x + b.w), GUTTER, `${where}: margin to the edge`);
+      } else {
+        assert.equal(layout.arch.x - (b.x + b.w), GUTTER, `${where}: gutter to the arch`);
+        assert.equal(b.x, GUTTER, `${where}: margin to the edge`);
+      }
+    }
   }
 });
 
 test("the arch never reaches into the gutter beside the address", () => {
-  // ARCH_RIGHT is measured off the keyed artwork; this is the guard that it
-  // still describes it, so re-drawn art cannot quietly overlap the type.
+  // The boxes are measured off the keyed artwork; this is the guard that they
+  // still describe it, so re-drawn art cannot quietly overlap the type.
   assert.ok(ARCH_RIGHT < ADDRESS_BOX.x, "the arch would overlap the address box");
+  for (const layout of LAYOUTS) {
+    const arch = layout.arch;
+    for (const slot of layout.slots) {
+      const b = slot.box;
+      assert.ok(
+        b.x + b.w <= arch.x || b.x >= arch.x + arch.w,
+        `${layout.key}/${slot.key} overlaps the arch`,
+      );
+    }
+  }
+});
+
+/* --------------------------------------------------------------- the mirror */
+
+test("both layouts name layers the manifest actually carries", () => {
+  for (const layout of LAYOUTS) {
+    for (const name of [layout.frame, layout.cutouts.arch, layout.cutouts.sitting]) {
+      assert.ok(LAYER_BOXES[name], `${layout.key}: no layer ${name}`);
+    }
+    assert.match(layout.mask, /^\/listing\/.*-mask\.png$/, `${layout.key}: no arch mask`);
+  }
+});
+
+test("mirroring moves the type sideways and changes nothing else about it", () => {
+  const [standard, mirrored] = LAYOUTS;
+  assert.deepEqual(
+    standard.slots.map((s) => s.key),
+    mirrored.slots.map((s) => s.key),
+  );
+  for (const [i, slot] of standard.slots.entries()) {
+    const other = mirrored.slots[i];
+    assert.equal(other.box.y, slot.box.y, `${slot.key}: y moved`);
+    assert.equal(other.box.h, slot.box.h, `${slot.key}: height changed`);
+    assert.equal(other.size, slot.size, `${slot.key}: size changed`);
+    assert.equal(other.align, slot.align, `${slot.key}: alignment changed`);
+    assert.notEqual(other.box.x, slot.box.x, `${slot.key}: did not move sideways`);
+  }
+  // Opposite sides OF THEIR OWN ARCH, which is the claim - comparing the two
+  // columns' x against each other proves nothing, since both designs put
+  // something near the left edge.
+  const side = (l: (typeof LAYOUTS)[number]) =>
+    l.slots[0].box.x >= l.arch.x + l.arch.w ? "right of the arch" : "left of the arch";
+  assert.equal(side(standard), "right of the arch");
+  assert.equal(side(mirrored), "left of the arch");
+});
+
+test("switching layout re-boxes the blocks and keeps what was typed", () => {
+  const before = emptyDoc();
+  before.blocks[1].text = "SOLD!";
+  const after = withLayout(before, "mirrored");
+  assert.equal(after.layout, "mirrored");
+  assert.equal(after.blocks[0].text, before.blocks[0].text);
+  assert.equal(after.blocks[1].text, "SOLD!");
+  for (const [i, b] of after.blocks.entries()) {
+    assert.deepEqual(b.box, slotFor("mirrored", b.slot).box, `${b.slot}: kept the old box`);
+    assert.notDeepEqual(b.box, before.blocks[i].box, `${b.slot}: did not move`);
+  }
+  // And back, to the boxes it started from - switching is not one-way.
+  assert.deepEqual(withLayout(after, "standard").blocks[0].box, before.blocks[0].box);
+  assert.equal(withLayout(before, "standard"), before, "a no-op should not copy");
 });
 
 test("the badge shares the address's centre line, which is the whole of its placement", () => {

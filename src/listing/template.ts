@@ -13,6 +13,7 @@
  */
 
 import PHOTOS from "./photos.json" with { type: "json" };
+import MANIFEST from "./layers.json" with { type: "json" };
 
 export type Box = { x: number; y: number; w: number; h: number };
 export type Point = { x: number; y: number };
@@ -23,10 +24,21 @@ export const CANVAS = { w: 1080, h: 1350 } as const;
 
 /* The hole the frame leaves for the listing photo. The frame art starts at
  * y=605 (the arch) but does not become a solid horizon until y=705, so the
- * photo has to fill down to 705 and is then covered by the arch and the navy
- * field. Filling only to 605 leaves a 100px seam that is invisible against a
- * pale photo and glaring against a dark one. */
-export const PHOTO_BAND: Box = { x: 0, y: 0, w: 1080, h: 705 };
+ * photo has to fill down past that and is then covered by the arch and the
+ * navy field. Filling only to 605 leaves a 100px seam that is invisible
+ * against a pale photo and glaring against a dark one.
+ *
+ * 706, not 705, and the same for both layouts. The number that matters is the
+ * first row where the frame is opaque ACROSS ITS WHOLE WIDTH, which is 705 in
+ * the original export and 706 in the mirrored one - the mirrored artboard's
+ * horizon was exported with an antialiased top edge, alpha 56, where the
+ * original's is hard. Filling to the lower of the two would leave that row
+ * blended against nothing and the export would carry a translucent hairline;
+ * filling to the higher costs the original a row of photo it was covering
+ * anyway. One measured constant rather than one per layout, because a band
+ * that differs between layouts also makes the same photo frame differently in
+ * each, for a pixel nobody asked about. */
+export const PHOTO_BAND: Box = { x: 0, y: 0, w: 1080, h: 706 };
 
 /* The one spacing value in the template.
  *
@@ -36,11 +48,39 @@ export const PHOTO_BAND: Box = { x: 0, y: 0, w: 1080, h: 705 };
  * next to, which is what makes the block look placed rather than fitted. */
 export const GUTTER = 37;
 
+/* ------------------------------------------------------------------ layouts */
+
+/* The artwork is TWO designs, not one: the original with the arch on the left
+ * and the type on the right, and its mirror. Both were drawn and exported as
+ * their own sets of green flats rather than one being flipped at runtime,
+ * because flipping is only correct if the mirror really is a reflection - and
+ * this one is not. The sitting cut-out was re-composed for the other side
+ * (611x556 against the original's 490x546, at x=435 where a reflection would
+ * put it at x=590), so a horizontal flip would have produced a graphic the
+ * designer did not draw. The frames differ too, by an antialiased horizon row.
+ *
+ * What the code does with them is share everything that is not the side: one
+ * gutter, one vertical rhythm, one set of type sizes, one drawing routine. A
+ * layout is a list of which layers to stack and where the type column lands,
+ * which is what this file's TEXT_SLOTS comment has promised since before there
+ * was a second one. */
+export type LayerName = keyof typeof MANIFEST;
+
+/** A keyed layer, placed by the box scripts/chroma-key.mjs cropped it to. */
+export type Placement = { x: number; y: number; w: number; h: number };
+
+export const LAYER_BOXES = MANIFEST as Record<
+  LayerName,
+  Placement & { frame: { w: number; h: number } }
+>;
+
 /* Where the arch stops, beside the address. Measured, not assumed: the arch is
  * a curve, and at the address's first row it has not finished coming in
  * (x=548), but for the rest of the block it is straight-sided at x=555. The
- * widest point is what the gutter has to clear. */
-export const ARCH_RIGHT = 555;
+ * widest point is what the gutter has to clear - which is exactly the edge of
+ * the box the keyer cropped the layer to, so it is read off that rather than
+ * typed. */
+export const ARCH_RIGHT = LAYER_BOXES["headshot-arch"].w - 1;
 
 /* The designer's blue guide rectangle, with BOTH edges pulled in to the gutter.
  *
@@ -76,12 +116,29 @@ export const HORIZON = 705;
 export const STRAPLINE_TOP = 1278;
 export const COLUMN_GAP = 60;
 
-export const ADDRESS_BOX: Box = {
-  x: ARCH_RIGHT + 1 + GUTTER,
-  y: 911,
-  w: CANVAS.w - GUTTER - (ARCH_RIGHT + 1 + GUTTER),
-  h: 338,
-};
+/* The type column: whichever side of the arch has room, inset by the gutter at
+ * both ends.
+ *
+ * Derived from the arch's placed box rather than written down per layout, so
+ * neither side can be off by the couple of pixels the two exports differ by.
+ * The original's arch is cropped to 0..555 and the mirror's to 526..1079, which
+ * gives a 450px column on one side and a 452px column on the other - not the
+ * same number, and both correct. */
+function typeColumn(arch: Placement): { x: number; w: number } {
+  const left = arch.x;
+  const right = CANVAS.w - (arch.x + arch.w);
+  return right >= left
+    ? { x: arch.x + arch.w + GUTTER, w: right - GUTTER * 2 }
+    : { x: GUTTER, w: left - GUTTER * 2 };
+}
+
+/* The column's vertical rhythm, shared by both layouts: the badge, then the
+ * address, then the strapline, with COLUMN_GAP between each. Mirroring moves
+ * the column sideways and changes nothing about how it is stacked. */
+const BADGE_Y = 763;
+const BADGE_H = 140;
+const ADDRESS_Y = 911;
+const ADDRESS_H = 338;
 
 /* CENTRED, not right-aligned, which is not what it looks like.
  *
@@ -169,9 +226,6 @@ export const BADGE_OUTLINE_EM = 0.054;
 
 /* ------------------------------------------------------------------- layers */
 
-/** A keyed layer, placed by the box scripts/chroma-key.mjs cropped it to. */
-export type Placement = { x: number; y: number; w: number; h: number };
-
 /* Two kinds of headshot, because the source material is two kinds.
  *
  * The first two were handed over already cut out, as green flats, and are drawn
@@ -183,11 +237,18 @@ export type Placement = { x: number; y: number; w: number; h: number };
  * Their placements are not guesses. Each was framed by hand in the Headshot
  * Positions tool and saved from there into photos.json, so re-cropping one is a
  * gesture in that tool and a paste here, not an afternoon of nudging numbers. */
+/* A pre-cut headshot names the ROLE it plays, not the file it is drawn from.
+ * Each layout has its own pair - `headshot-arch` and `mirror-headshot-arch` are
+ * the same choice on opposite sides - so picking "Leaning" has to survive a
+ * change of layout, and it does because the choice is "the one that fills the
+ * arch" rather than a layer name. */
+export type Cutout = "arch" | "sitting";
+
 export type Headshot = {
   key: string;
   label: string;
-  /** A pre-cut layer, placed by the manifest. */
-  layer?: string;
+  /** A pre-cut layer, which the layout names and the manifest places. */
+  cutout?: Cutout;
   /** Or a photograph, keyed off its backdrop, clipped to the arch, and placed
    *  by its saved fit. `matte` is the alpha; null where the crop shares another
    *  entry's photograph. */
@@ -195,22 +256,13 @@ export type Headshot = {
 };
 
 export const HEADSHOTS: Headshot[] = [
-  { key: "arch", label: "Leaning", layer: "headshot-arch" },
-  { key: "sitting", label: "Sitting", layer: "headshot-sitting" },
+  { key: "arch", label: "Leaning", cutout: "arch" },
+  { key: "sitting", label: "Sitting", cutout: "sitting" },
   ...PHOTOS.shots.map((s) => ({
     key: s.key,
     label: s.label,
     photo: { file: s.file, matte: s.matte ?? null, fit: s.fit },
   })),
-];
-
-/** The alpha the photographed headshots are clipped by: the arch's own edge. */
-export const ARCH_MASK = PHOTOS.mask;
-
-/** Every image the tool loads that is not a keyed layer. */
-export const PHOTO_FILES = [
-  PHOTOS.mask,
-  ...new Set(PHOTOS.shots.flatMap((s) => [s.file, s.matte].filter((f): f is string => !!f))),
 ];
 
 /** Which headshot a document has chosen. */
@@ -349,17 +401,94 @@ export type Slot = {
  * and -0.2em tracking "PENDING!" measures a 440px ink box in a 450px column -
  * which is the artwork's own width, to the pixel, because it is the artwork's
  * own size and tracking. */
-export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 763, w: ADDRESS_BOX.w, h: 140 };
 export const BADGE_SIZE = 130;
 
-export const TEXT_SLOTS: Slot[] = [
-  { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },
-  { key: "badge", label: "Badge", box: BADGE_BOX, align: "center", size: BADGE_SIZE },
+/* ------------------------------------------------------------- the two sides */
+
+export type LayoutKey = "standard" | "mirrored";
+
+export type Layout = {
+  key: LayoutKey;
+  label: string;
+  /** The frame, and the two pre-cut headshots, as keyed layers. */
+  frame: LayerName;
+  cutouts: Record<Cutout, LayerName>;
+  /** The arch's placed box - the rect a photographed headshot is fitted into. */
+  arch: Placement;
+  /** And its own alpha, which that photograph is then clipped by. */
+  mask: string;
+  /** Where the type goes on this side. */
+  slots: Slot[];
+};
+
+/* The slots, given a column. Only `x` and `w` differ between the layouts: the
+ * badge and the address share a centre line and a column on either side. */
+function slotsIn(arch: Placement): Slot[] {
+  const col = typeColumn(arch);
+  return [
+    {
+      key: "address",
+      label: "Address block",
+      box: { x: col.x, y: ADDRESS_Y, w: col.w, h: ADDRESS_H },
+      align: ADDRESS_ALIGN,
+      size: ADDRESS_SIZE,
+    },
+    {
+      key: "badge",
+      label: "Badge",
+      box: { x: col.x, y: BADGE_Y, w: col.w, h: BADGE_H },
+      align: "center",
+      size: BADGE_SIZE,
+    },
+  ];
+}
+
+/* Written out rather than generated from a "mirror-" prefix. Six layer names
+ * across two layouts is not enough repetition to be worth a rule, and a rule
+ * would mean a typo in one of them failed at runtime where this fails at the
+ * typecheck. */
+export const LAYOUTS: Layout[] = [
+  {
+    key: "standard",
+    label: "Arch left",
+    frame: "frame",
+    cutouts: { arch: "headshot-arch", sitting: "headshot-sitting" },
+    arch: LAYER_BOXES["headshot-arch"],
+    mask: MANIFEST["headshot-arch"].mask,
+    slots: slotsIn(LAYER_BOXES["headshot-arch"]),
+  },
+  {
+    key: "mirrored",
+    label: "Arch right",
+    frame: "mirror-frame",
+    cutouts: { arch: "mirror-headshot-arch", sitting: "mirror-headshot-sitting" },
+    arch: LAYER_BOXES["mirror-headshot-arch"],
+    mask: MANIFEST["mirror-headshot-arch"].mask,
+    slots: slotsIn(LAYER_BOXES["mirror-headshot-arch"]),
+  },
 ];
 
-export function slotFor(key: string): Slot {
-  return TEXT_SLOTS.find((s) => s.key === key) ?? TEXT_SLOTS[0];
+export function layoutFor(key: string): Layout {
+  return LAYOUTS.find((l) => l.key === key) ?? LAYOUTS[0];
 }
+
+/** The original design's slots. The mirror's are layoutFor("mirrored").slots. */
+export const TEXT_SLOTS: Slot[] = LAYOUTS[0].slots;
+export const ADDRESS_BOX: Box = TEXT_SLOTS[0].box;
+export const BADGE_BOX: Box = TEXT_SLOTS[1].box;
+
+export function slotFor(layout: string, key: string): Slot {
+  const slots = layoutFor(layout).slots;
+  return slots.find((s) => s.key === key) ?? slots[0];
+}
+
+/** Every image the tool loads that is not a keyed layer. */
+export const PHOTO_FILES = [
+  ...new Set([
+    ...LAYOUTS.map((l) => l.mask),
+    ...PHOTOS.shots.flatMap((s) => [s.file, s.matte].filter((f): f is string => !!f)),
+  ]),
+];
 
 /* `fill` and `outline` are carried per block rather than read from the palette
  * at draw time so a future template can ship its own colors without every block
@@ -437,11 +566,27 @@ export function layoutText(block: TextBlock, measure: Measure): LaidOutText {
     size = lo;
   }
 
+  /* Centring has to discount the TRAILING letter-space, or the ink lands off
+   * centre by half of it.
+   *
+   * Canvas applies letterSpacing after every glyph including the last, so the
+   * advance width a line is positioned by is `tracking * size` wider than the
+   * ink you can see - and this template's tracking is negative, so the advance
+   * is narrower and the ink hangs off the right. At the badge's -0.2em and
+   * 130px that is 26px of phantom space and 13px of visible offset: PENDING!
+   * was rendering 13px right of the column it is supposed to share with the
+   * address, overhanging its box by 6px. Invisible in the original design,
+   * where it overhung into a 37px margin; obvious once mirrored, where the 6px
+   * points at the arch.
+   *
+   * Left-aligned text is unaffected - there is no leading space - which is why
+   * this is a correction to the anchor rather than to the measurement. */
+  const trail = size * block.tracking;
   const anchorX =
     block.align === "right"
-      ? block.box.x + block.box.w
+      ? block.box.x + block.box.w + trail
       : block.align === "center"
-        ? block.box.x + block.box.w / 2
+        ? block.box.x + block.box.w / 2 + trail / 2
         : block.box.x;
 
   return {

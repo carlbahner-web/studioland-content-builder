@@ -15,6 +15,7 @@ import {
   TRACKING,
   slotFor,
   type HeadshotKey,
+  type LayoutKey,
 } from "./template.ts";
 import type { PhotoFit, TextBlock } from "./template.ts";
 
@@ -29,6 +30,8 @@ export type Photo = {
 
 export type Doc = {
   photo: Photo | null;
+  /** Which side the arch is on. The layout owns every box in the graphic. */
+  layout: LayoutKey;
   headshot: HeadshotKey;
   /* The address and the badge, in that order. Fixed - this tool adds and
    * removes nothing - but a list, because drawing walks it and because a second
@@ -55,8 +58,8 @@ export const ADDRESS_SEED = [
 ].join("\n");
 
 /** A block in one of the template's fixed slots. The slot owns where and how big. */
-function inSlot(id: string, text: string, slotKey: string): TextBlock {
-  const slot = slotFor(slotKey);
+function inSlot(layout: LayoutKey, id: string, text: string, slotKey: string): TextBlock {
+  const slot = slotFor(layout, slotKey);
   // The badge is set tighter and outlined heavier than the address. Both are
   // measured off the artwork rather than shared - see TRACKING in template.ts.
   const badge = slot.key === "badge";
@@ -75,16 +78,35 @@ function inSlot(id: string, text: string, slotKey: string): TextBlock {
   };
 }
 
-export function addressBlock(): TextBlock {
-  return inSlot("address", ADDRESS_SEED, "address");
+export function addressBlock(layout: LayoutKey = "standard"): TextBlock {
+  return inSlot(layout, "address", ADDRESS_SEED, "address");
 }
 
 /* Empty, so a fresh document carries no badge: most listings are neither sold
  * nor pending yet, and drawBlock skips an empty line, so nothing is painted. */
-export function badgeBlock(text = ""): TextBlock {
-  return inSlot("badge", text, "badge");
+export function badgeBlock(text = "", layout: LayoutKey = "standard"): TextBlock {
+  return inSlot(layout, "badge", text, "badge");
 }
 
 export function emptyDoc(): Doc {
-  return { photo: null, headshot: "arch", blocks: [addressBlock(), badgeBlock()] };
+  return {
+    photo: null,
+    layout: "standard",
+    headshot: "arch",
+    blocks: [addressBlock(), badgeBlock()],
+  };
+}
+
+/* Switching sides MOVES THE TYPE, and has to, because a block carries a copy of
+ * its slot's box rather than looking it up as it draws. That copy is what lets
+ * a block be laid out and measured without the template in hand; the cost is
+ * this one function, which is the only place a box is ever rewritten. What the
+ * person typed is kept - only where it sits changes. */
+export function withLayout(doc: Doc, layout: LayoutKey): Doc {
+  if (doc.layout === layout) return doc;
+  return {
+    ...doc,
+    layout,
+    blocks: doc.blocks.map((b) => ({ ...b, box: { ...slotFor(layout, b.slot).box } })),
+  };
 }

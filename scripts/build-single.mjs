@@ -45,12 +45,14 @@ const MIME = {
 const LISTING_ASSETS = [
   "/fonts/TAYWingman.woff2",
   ...Object.keys(layers).map((name) => `/listing/${name}.png`),
-  // The arch mask, the photographed headshots and the mattes that key their
-  // backdrop out. None of these are keyed layers, so none are in layers.json.
-  // From the manifest, and de-duplicated the same way template.ts does it:
-  // two crops of one photograph share a file and a matte, and inlining a
-  // megabyte of JPEG twice would show up in the download.
-  photos.mask,
+  // Each arch's alpha, which a photographed headshot is clipped by. Written
+  // beside its layer by chroma-key.mjs and recorded in the same manifest, so a
+  // second layout cannot arrive with a mask this build does not know about.
+  ...Object.values(layers).map((l) => l.mask).filter(Boolean),
+  // The photographs and the mattes that key their backdrop out. Neither is a
+  // keyed layer, so neither is in layers.json. De-duplicated the same way
+  // template.ts does it: two crops of one photograph share a file and a matte,
+  // and inlining a megabyte of JPEG twice would show up in the download.
   ...new Set(photos.shots.flatMap((s) => [s.file, s.matte].filter(Boolean))),
 ];
 

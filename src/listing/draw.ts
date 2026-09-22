@@ -15,31 +15,34 @@
  *      that stands in front of it
  *   4. the type, which is both the address and the badge
  *
+ * Which layers those are is the document's LAYOUT - the original design or its
+ * mirror. The order and the reasoning are identical either way; only the names
+ * and the boxes come from the other side.
+ *
  * Getting 2 and 3 the other way round is the tempting mistake - a headshot
  * "behind the frame" sounds right - and it hides the arch entirely.
  */
 import {
-  ARCH_MASK,
   CANVAS,
   FONT_FAMILY,
+  LAYER_BOXES,
   PHOTO_BAND,
   coverRect,
   headshotFor,
+  layoutFor,
   layoutText,
 } from "./template.ts";
-import type { Box, Measure, TextBlock } from "./template.ts";
+import type { Layout, LayerName, Measure, TextBlock } from "./template.ts";
 import type { Doc } from "./doc.ts";
-import manifest from "./layers.json";
 
-export type LayerName = keyof typeof manifest;
+export type { LayerName };
+export { LAYER_BOXES };
 
 /** The placed layer art, already loaded. Missing entries are simply not drawn. */
-/* Keyed layers by their manifest name, plus the arch mask and the photographed
+/* Keyed layers by their manifest name, plus the arch masks and the photographed
  * headshots by their own paths and keys. One bag, because they all arrive the
  * same way and are all optional until they land. */
 export type Art = Partial<Record<string, CanvasImageSource>>;
-
-export const LAYER_BOXES = manifest as Record<LayerName, Box & { frame: { w: number; h: number } }>;
 
 /* Chrome and Edge have had ctx.letterSpacing since 99. Everything else gets the
  * type at natural tracking, which is looser than the design but legible - the
@@ -111,38 +114,43 @@ function place(ctx: CanvasRenderingContext2D, art: Art, name: LayerName): void {
   ctx.drawImage(img, box.x, box.y, box.w, box.h);
 }
 
-/* The arch's box, and one scratch canvas to clip a photograph into it.
+/* One scratch canvas to clip a photograph into the arch.
  *
  * Module-level rather than per draw: this runs on every frame of a photo drag,
  * and allocating a 556x628 canvas sixty times a second to throw each one away
  * is the kind of thing that only shows up as jank on the machine you are not
- * testing on. Every draw is synchronous, so one is enough. */
-const ARCH = LAYER_BOXES["headshot-arch"];
+ * testing on. Every draw is synchronous, so one is enough - and it is resized
+ * rather than replaced when the layout changes, because the two arches are not
+ * quite the same width and a stale canvas would clip to the other side's edge. */
 let scratch: HTMLCanvasElement | null = null;
 
-function drawHeadshot(ctx: CanvasRenderingContext2D, key: string, art: Art): void {
+function drawHeadshot(
+  ctx: CanvasRenderingContext2D,
+  key: string,
+  art: Art,
+  layout: Layout,
+): void {
   const shot = headshotFor(key);
-  if (shot.layer) {
-    place(ctx, art, shot.layer as LayerName);
+  if (shot.cutout) {
+    place(ctx, art, layout.cutouts[shot.cutout]);
     return;
   }
   const img = art[shot.key];
-  const mask = art[ARCH_MASK];
+  const mask = art[layout.mask];
   if (!img || !mask || !shot.photo) return;
 
-  if (!scratch) {
-    scratch = document.createElement("canvas");
-    scratch.width = ARCH.w;
-    scratch.height = ARCH.h;
-  }
+  const arch = layout.arch;
+  if (!scratch) scratch = document.createElement("canvas");
+  if (scratch.width !== arch.w) scratch.width = arch.w;
+  if (scratch.height !== arch.h) scratch.height = arch.h;
   const sctx = scratch.getContext("2d");
   if (!sctx) return;
   sctx.setTransform(1, 0, 0, 1, 0, 0);
-  sctx.clearRect(0, 0, ARCH.w, ARCH.h);
+  sctx.clearRect(0, 0, arch.w, arch.h);
   const r = coverRect(
     (img as HTMLImageElement).naturalWidth,
     (img as HTMLImageElement).naturalHeight,
-    { x: 0, y: 0, w: ARCH.w, h: ARCH.h },
+    { x: 0, y: 0, w: arch.w, h: arch.h },
     shot.photo.fit,
   );
   sctx.drawImage(img, r.x, r.y, r.w, r.h);
@@ -156,9 +164,9 @@ function drawHeadshot(ctx: CanvasRenderingContext2D, key: string, art: Art): voi
   sctx.globalCompositeOperation = "destination-in";
   const matte = shot.photo.matte ? art[shot.photo.matte] : undefined;
   if (matte) sctx.drawImage(matte, r.x, r.y, r.w, r.h);
-  sctx.drawImage(mask, 0, 0, ARCH.w, ARCH.h);
+  sctx.drawImage(mask, 0, 0, arch.w, arch.h);
   sctx.globalCompositeOperation = "source-over";
-  ctx.drawImage(scratch, ARCH.x, ARCH.y);
+  ctx.drawImage(scratch, arch.x, arch.y);
 }
 
 export type DrawOptions = {
@@ -201,8 +209,9 @@ export function drawDoc(
     ctx.restore();
   }
 
-  place(ctx, art, "frame");
-  drawHeadshot(ctx, doc.headshot, art);
+  const layout = layoutFor(doc.layout);
+  place(ctx, art, layout.frame);
+  drawHeadshot(ctx, doc.headshot, art, layout);
 
   const measure = measurer(ctx);
   for (const block of doc.blocks) drawBlock(ctx, block, measure);
