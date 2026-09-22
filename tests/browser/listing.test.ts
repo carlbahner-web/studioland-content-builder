@@ -27,6 +27,9 @@ import {
   GUTTER,
   HEADSHOTS,
   HORIZON,
+  LAYOUTS,
+  PHOTO_BAND,
+  layoutFor,
   LINE_HEIGHT,
   STRAPLINE_TOP,
   TRACKING,
@@ -298,6 +301,100 @@ test("every headshot option draws inside the arch and nowhere else", async () =>
     );
   }
   assert.equal(new Set(seen).size, HEADSHOTS.length, "two options render identically");
+  clean(t);
+  await t.close();
+});
+
+/* ------------------------------------------------------------- the mirror */
+
+/* The mirrored layout is a second set of flats, not a horizontal flip, so
+ * nothing about it is implied by the original passing. These are the three
+ * things that would be wrong if the layout were wired up carelessly: the wrong
+ * frame under the right arch, the type left in the old column, and the
+ * photographed headshots still clipped by the original arch's mask - which
+ * would cut them to a shape 526px to the left of where they are drawn and
+ * produce an empty graphic that throws nothing. */
+async function pickLayout(t: Tool, key: string): Promise<void> {
+  await t.page.locator(`#layout-${key}`).click();
+  await t.page.waitForTimeout(450);
+}
+
+test("mirroring moves the arch to the other side of the artboard", async () => {
+  /* Probed as PALE vs NAVY over a strip rather than as one pixel's hue. The
+     first attempt at this test asked whether a pixel deep in the arch was
+     blue-dominant, which it is: she is wearing a black top there, and so the
+     test failed against a picture that was perfectly correct. What actually
+     separates the arch from the field beside it is that the arch holds paper
+     and a photograph - pale, whatever she is wearing - and the field is flat
+     navy holding nothing at all.
+
+     The strip is the middle half of each arch, above the badge, so it lies
+     inside one layout's arch and inside the other's empty column, and clear of
+     any type in either. */
+  const strip = (a: { x: number; w: number }) => ({
+    x: a.x + a.w * 0.25,
+    y: HORIZON + 7,
+    w: a.w * 0.5,
+    h: 44,
+  });
+  const t = await openTool();
+  const [standard, mirrored] = LAYOUTS;
+
+  for (const layout of LAYOUTS) {
+    if (layout.key !== "standard") await pickLayout(t, layout.key);
+    const own = await t.ink(strip(layout.arch));
+    const other = await t.ink(strip(layout === standard ? mirrored.arch : standard.arch));
+    assert.ok(own > 50, `${layout.key}: its own arch is empty (${own})`);
+    assert.equal(other, 0, `${layout.key}: drew into the other layout's arch`);
+  }
+  clean(t);
+  await t.close();
+});
+
+test("the type moves with the layout and keeps its gutter on the real canvas", async () => {
+  /* Only in the mirrored layout, and only forwards. The two arches between them
+     cover every column in the artboard - the original's spans x 0-555 and the
+     mirror's 526-1079 - so "is the old column empty now" cannot be asked of the
+     canvas: whichever column the type left, the other layout's floral paper is
+     now sitting in it, and paper is as pale as type. What IS checkable is that
+     the mirrored column holds type and that its margins are clear, which is the
+     part a wrong box would break. */
+  const t = await openTool();
+  await t.page.getByRole("button", { name: "PENDING!", exact: true }).click();
+  await pickLayout(t, "mirrored");
+  const layout = layoutFor("mirrored");
+  for (const slot of layout.slots) {
+    const box = slot.box;
+    const where = `mirrored/${slot.key}`;
+    assert.ok((await t.ink(box)) > 0, `${where}: nothing drawn in the column`);
+    // The artboard edge on one side and the arch on the other. Inset by 2px at
+    // the arch, because ink() samples the preview at half scale and rounds a
+    // strip outwards - without it this reads the arch's own first column.
+    assert.equal(await t.ink({ x: 0, y: box.y, w: GUTTER, h: box.h }), 0, `${where}: past the edge`);
+    assert.equal(
+      await t.ink({ x: box.x + box.w, y: box.y, w: GUTTER - 2, h: box.h }),
+      0,
+      `${where}: reached into the gutter`,
+    );
+  }
+  clean(t);
+  await t.close();
+});
+
+test("the mirrored horizon leaves no seam above the navy field", async () => {
+  /* The mirrored frame's horizon was exported with an antialiased top row where
+     the original's is hard, so a band filled to the original's 705 leaves that
+     row blended against nothing - a translucent hairline right across the
+     artboard, invisible on screen and in the downloaded PNG. */
+  const t = await openTool();
+  await uploadPhoto(t, "#ff00ff");
+  await pickLayout(t, "mirrored");
+  for (let y = HORIZON - 2; y <= PHOTO_BAND.h + 1; y++) {
+    for (const x of [20, 300, 1060]) {
+      const px = await t.pixel(x, y);
+      assert.equal(px[3], 255, `a hole at ${x},${y}: ${px}`);
+    }
+  }
   clean(t);
   await t.close();
 });

@@ -17,13 +17,45 @@
     "frame": {
       "w": 1080,
       "h": 1350
-    }
+    },
+    "mask": "/listing/headshot-arch-mask.png"
   },
   "headshot-sitting": {
     "x": 0,
     "y": 674,
     "w": 490,
     "h": 546,
+    "frame": {
+      "w": 1080,
+      "h": 1350
+    }
+  },
+  "mirror-frame": {
+    "x": 0,
+    "y": 606,
+    "w": 1080,
+    "h": 744,
+    "frame": {
+      "w": 1080,
+      "h": 1350
+    }
+  },
+  "mirror-headshot-arch": {
+    "x": 526,
+    "y": 611,
+    "w": 554,
+    "h": 628,
+    "frame": {
+      "w": 1080,
+      "h": 1350
+    },
+    "mask": "/listing/mirror-headshot-arch-mask.png"
+  },
+  "mirror-headshot-sitting": {
+    "x": 435,
+    "y": 671,
+    "w": 611,
+    "h": 556,
     "frame": {
       "w": 1080,
       "h": 1350

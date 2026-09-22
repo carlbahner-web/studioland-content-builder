@@ -13,6 +13,7 @@ import {
   BADGE_PRESETS,
   CANVAS,
   HEADSHOTS,
+  LAYOUTS,
   PHOTO_BAND,
   PHOTO_FILES,
   clampPhotoFit,
@@ -20,7 +21,7 @@ import {
   zoomAt,
 } from "./template.ts";
 import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
-import { addressBlock, badgeBlock, emptyDoc } from "./doc.ts";
+import { addressBlock, badgeBlock, emptyDoc, withLayout } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
 import type { Art } from "./draw.ts";
@@ -513,11 +514,30 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
           </section>
 
           <section>
+            <h2>Layout</h2>
+            <div className="listing-choices">
+              {LAYOUTS.map((l) => (
+                <button
+                  key={l.key}
+                  id={`layout-${l.key}`}
+                  type="button"
+                  aria-pressed={doc.layout === l.key}
+                  className={doc.layout === l.key ? "listing-on" : ""}
+                  onClick={() => setDoc((d) => withLayout(d, l.key))}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
             <h2>Headshot</h2>
             <div className="listing-choices">
               {HEADSHOTS.map((h) => (
                 <button
                   key={h.key}
+                  id={`headshot-${h.key}`}
                   type="button"
                   aria-pressed={doc.headshot === h.key}
                   className={doc.headshot === h.key ? "listing-on" : ""}

@@ -16,7 +16,10 @@
  *   a full-frame PNG of near-nothing still costs a full frame of filter bytes.
  *
  * Inputs are the exports in assets/listing-src/; the PNGs go to public/listing/
- * and the placement manifest to src/listing/layers.json.
+ * and the placement manifest to src/listing/layers.json. Both layouts go
+ * through here - `mirror-*` is the same design with the arch on the other
+ * side, drawn and exported as its own set of flats rather than flipped at
+ * runtime, because the sitting cut-out was re-composed rather than mirrored.
  * Deliberately dependency-free (zlib is stdlib) so it works from a clean clone.
  *
  *   node scripts/chroma-key.mjs
@@ -51,6 +54,26 @@ const HI = 110;
  * pixel is invisible anyway. Zero it rather than let a wrong color sit in a
  * channel some future resampling step might average back into view. */
 const FLOOR = 0.05;
+
+/* Layers whose ALPHA is a shape other things get clipped into, not just art to
+ * stack. Each of these gets a second file beside it - white everywhere, alpha
+ * copied across - which the app uses as a destination-in mask to cut a
+ * photographed headshot to the arch's own edge. Written here rather than traced
+ * by hand so the mask cannot drift from the arch it came from when the artwork
+ * is redrawn: it IS the arch's alpha. */
+const MASKS = new Set(["headshot-arch", "mirror-headshot-arch"]);
+
+/** White RGB, alpha from the layer. Only the alpha is ever read. */
+function alphaMask(w, h, rgba) {
+  const out = Buffer.alloc(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    out[i * 4] = 255;
+    out[i * 4 + 1] = 255;
+    out[i * 4 + 2] = 255;
+    out[i * 4 + 3] = rgba[i * 4 + 3];
+  }
+  return out;
+}
 
 function key(w, h, rgba) {
   // The backing is not one exact value across the five files (two different
@@ -133,10 +156,20 @@ for (const file of readdirSync(SRC).filter((f) => f.endsWith(".png")).sort()) {
   const png = encode(box.w, box.h, box.rgba);
   writeFileSync(join(OUT, `${slug}.png`), png);
   manifest[slug] = { x: box.x, y: box.y, w: box.w, h: box.h, frame: { w, h } };
+  let mask = "";
+  if (MASKS.has(slug)) {
+    // Cropped to the layer's own box, because that is the rect the app draws it
+    // at - the mask and the arch are the same shape at the same size or the
+    // clip lands somewhere else entirely.
+    const bytes = encode(box.w, box.h, alphaMask(box.w, box.h, box.rgba));
+    writeFileSync(join(OUT, `${slug}-mask.png`), bytes);
+    manifest[slug].mask = `/listing/${slug}-mask.png`;
+    mask = `  +mask ${(bytes.length / 1024).toFixed(0)}kB`;
+  }
   const kb = (png.length / 1024).toFixed(0);
   console.log(
-    `${slug.padEnd(14)} backing ${backing}  ` +
-      `${box.w}x${box.h} at ${box.x},${box.y}  ${kb}kB`,
+    `${slug.padEnd(24)} backing ${backing}  ` +
+      `${box.w}x${box.h} at ${box.x},${box.y}  ${kb}kB${mask}`,
   );
 }
 mkdirSync(dirname(MANIFEST), { recursive: true });
