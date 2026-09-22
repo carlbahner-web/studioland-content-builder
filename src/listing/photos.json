@@ -1,0 +1,30 @@
+{
+  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers, clipped into the arch by mask. One source of truth: the app builds HEADSHOTS from this and build-single.mjs inlines these paths. `fit` is a placement saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU) - zoom is a multiple of the scale that covers the arch, offsets are artboard px.",
+  "mask": "/listing/arch-mask.png",
+  "shots": [
+    {
+      "key": "standing-close",
+      "label": "Hands in pockets",
+      "file": "/listing/headshot-standing-close.jpg",
+      "fit": { "zoom": 1.554961768059457, "offsetX": -23.907123894178255, "offsetY": 94.59194758550163 }
+    },
+    {
+      "key": "standing-wide",
+      "label": "Full length",
+      "file": "/listing/headshot-standing-wide.jpg",
+      "fit": { "zoom": 2.0842378387105267, "offsetX": -49.77834087148908, "offsetY": 136.66231457731914 }
+    },
+    {
+      "key": "dress-phone",
+      "label": "Dress",
+      "file": "/listing/headshot-dress-phone.jpg",
+      "fit": { "zoom": 1, "offsetX": 0, "offsetY": -73.52239055788013 }
+    },
+    {
+      "key": "seated",
+      "label": "Chair",
+      "file": "/listing/headshot-seated.jpg",
+      "fit": { "zoom": 1.245533855905128, "offsetX": -32.07752122093234, "offsetY": 91.86812546700764 }
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import { build } from "esbuild";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import layers from "../src/listing/layers.json" with { type: "json" };
+import photos from "../src/listing/photos.json" with { type: "json" };
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
@@ -35,6 +36,7 @@ const MIME = {
   ".woff2": "font/woff2",
   ".webp": "image/webp",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
 };
 
 // The listing template's keyed layers. Taken from the manifest rather than
@@ -43,6 +45,10 @@ const MIME = {
 const LISTING_ASSETS = [
   "/fonts/TAYWingman.woff2",
   ...Object.keys(layers).map((name) => `/listing/${name}.png`),
+  // The arch mask and the photographed headshots, which are not keyed layers
+  // and so are not in layers.json. Both manifests, so neither can be forgotten.
+  photos.mask,
+  ...photos.shots.map((s) => s.file),
 ];
 
 /** Everything the running app asks for by path, as data URIs. */
