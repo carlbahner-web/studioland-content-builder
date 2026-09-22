@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
 import {
-  BADGES,
+  BADGE_PRESETS,
   CANVAS,
   HEADSHOTS,
   PHOTO_BAND,
@@ -19,7 +19,7 @@ import {
   zoomAt,
 } from "./template.ts";
 import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
-import { addressBlock, emptyDoc } from "./doc.ts";
+import { addressBlock, badgeBlock, emptyDoc } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
 import type { Art, LayerName } from "./draw.ts";
@@ -136,10 +136,10 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
     };
   }, []);
 
-  /* There is exactly one text block and it is the address. The document keeps
-   * blocks as a list because drawing walks it and a second template may want
-   * more, but this tool offers no way to add or remove one. */
-  const address = doc.blocks[0] ?? addressBlock();
+  /* Two blocks, fixed: the address and the badge. Looked up by id rather than
+   * by index, so reordering the draw never silently reassigns a control. */
+  const address = doc.blocks.find((b) => b.id === "address") ?? addressBlock();
+  const badge = doc.blocks.find((b) => b.id === "badge") ?? badgeBlock();
 
   /* -------------------------------------------------------------- the photo */
 
@@ -339,16 +339,17 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
 
   /* -------------------------------------------------------------- the edits */
 
-  const patchAddress = (change: Partial<TextBlock>) =>
-    setDoc((d) => ({ ...d, blocks: d.blocks.map((b) => ({ ...b, ...change })) }));
+  const patchBlock = (id: string, change: Partial<TextBlock>) =>
+    setDoc((d) => ({ ...d, blocks: d.blocks.map((b) => (b.id === id ? { ...b, ...change } : b)) }));
 
   /* ---------------------------------------------------------------- the PNG */
 
   const filename = useMemo(() => {
     const first = doc.blocks.find((b) => b.id === "address")?.text.split("\n")[0] ?? "listing";
     const slug = first.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    return `${slug || "listing"}-${doc.badge === "none" ? "listing" : doc.badge}.png`;
-  }, [doc.blocks, doc.badge]);
+    const state = badge.text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "") || "listing";
+    return `${slug || "listing"}-${state}.png`;
+  }, [doc.blocks, badge.text]);
 
   const download = async () => {
     setBusy(true);
@@ -523,18 +524,30 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
           <section>
             <h2>Badge</h2>
             <div className="listing-choices">
-              {BADGES.map((b) => (
+              {BADGE_PRESETS.map((b) => (
                 <button
                   key={b.key}
                   type="button"
-                  aria-pressed={doc.badge === b.key}
-                  className={doc.badge === b.key ? "listing-on" : ""}
-                  onClick={() => setDoc((d) => ({ ...d, badge: b.key }))}
+                  aria-pressed={badge.text === b.text}
+                  className={badge.text === b.text ? "listing-on" : ""}
+                  onClick={() => patchBlock("badge", { text: b.text })}
                 >
                   {b.label}
                 </button>
               ))}
             </div>
+            {/* The presets are the common two; this is the same block, so
+                anything else - JUST LISTED!, OPEN SUNDAY - goes in the same
+                place at the same size, shrinking if it is long. */}
+            <input
+              id="listing-badge"
+              type="text"
+              className="listing-text"
+              value={badge.text}
+              placeholder="or type your own"
+              spellCheck={false}
+              onChange={(e) => patchBlock("badge", { text: e.target.value })}
+            />
           </section>
 
           <section>
@@ -545,7 +558,7 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
                 value={address.text}
                 rows={8}
                 spellCheck={false}
-                onChange={(e) => patchAddress({ text: e.target.value })}
+                onChange={(e) => patchBlock("address", { text: e.target.value })}
               />
               <div className="listing-choices">
                 {(["left", "center", "right"] as TextAlign[]).map((a) => (
@@ -554,7 +567,7 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
                     type="button"
                     aria-pressed={address.align === a}
                     className={address.align === a ? "listing-on" : ""}
-                    onClick={() => patchAddress({ align: a })}
+                    onClick={() => patchBlock("address", { align: a })}
                   >
                     {a}
                   </button>

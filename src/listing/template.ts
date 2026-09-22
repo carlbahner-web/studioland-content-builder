@@ -105,13 +105,13 @@ export const HEADSHOTS = [
 
 export type Headshot = (typeof HEADSHOTS)[number]["key"];
 
-export const BADGES = [
-  { key: "none", label: "No badge", layer: null },
-  { key: "sold", label: "SOLD!", layer: "badge-sold" },
-  { key: "pending", label: "PENDING!", layer: "badge-pending" },
+/* The badge is TYPE, not artwork. What goes in it is these three to a click,
+ * and anything else to a keystroke. */
+export const BADGE_PRESETS = [
+  { key: "none", label: "No badge", text: "" },
+  { key: "sold", label: "SOLD!", text: "SOLD!" },
+  { key: "pending", label: "PENDING!", text: "PENDING!" },
 ] as const;
-
-export type Badge = (typeof BADGES)[number]["key"];
 
 /* ---------------------------------------------------------------- the photo */
 
@@ -223,8 +223,21 @@ export type Slot = {
   size: number;
 };
 
+/* The badge sits on the address's own centre line, which is not obvious from
+ * the artwork and is the thing to get right.
+ *
+ * SOLD! spans x 677-962 and PENDING! spans 593-1047 - different widths, and
+ * neither left nor right edge shared. But both centre on x 819.5, which is the
+ * address block's centre to within half a pixel. So it is the same column,
+ * centred, sitting directly above it, and the size is the largest that clears
+ * that column: at 112px "PENDING!" measures 476 in a 482 box, and "SOLD!"
+ * comes out at 298 against the artwork's 286. */
+export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 744, w: ADDRESS_BOX.w, h: 120 };
+export const BADGE_SIZE = 112;
+
 export const TEXT_SLOTS: Slot[] = [
   { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },
+  { key: "badge", label: "Badge", box: BADGE_BOX, align: "center", size: BADGE_SIZE },
 ];
 
 export function slotFor(key: string): Slot {

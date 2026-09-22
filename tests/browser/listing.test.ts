@@ -225,21 +225,60 @@ test("the headshot sits in front of the frame, not behind it", async () => {
   await t.close();
 });
 
-test("a badge appears and disappears where the art puts it", async () => {
+test("the badge is live type: presets, free text, and nothing when empty", async () => {
   const t = await openTool();
-  const pinkish = (px: number[]) => px[0] > 200 && px[1] > 180 && px[2] > 180;
-  /* Well INSIDE a stem of SOLD!, not on its edge. The preview is half the
-     artboard's resolution, so a point chosen from the artwork's coordinates can
-     land on an antialiased boundary and read as a muddy blend whether or not the
-     badge drew - which looks exactly like the badge being missing. */
-  const inside = () => t.pixel(820, 795);
-  assert.ok(!pinkish(await inside()), "a badge was showing before one was picked");
+  // The badge's own column, above the address. See BADGE_BOX.
+  const box = { x: 578, y: 744, w: 482, h: 120 };
+  assert.ok((await t.ink(box)) < 200, "a badge was showing before one was picked");
+
   await t.page.getByRole("button", { name: "SOLD!" }).click();
   await t.page.waitForTimeout(400);
-  assert.ok(pinkish(await inside()), "SOLD! did not appear");
+  const sold = await t.ink(box);
+  assert.ok(sold > 800, `SOLD! did not appear (${sold} ink pixels)`);
+
+  await t.page.getByRole("button", { name: "PENDING!" }).click();
+  await t.page.waitForTimeout(400);
+  const pending = await t.ink(box);
+  assert.ok(pending > sold, `PENDING! should set more ink than SOLD! (${pending} vs ${sold})`);
+
+  /* The point of the change: it is a text field, not two pictures. Anything
+     typed lands in the same place at the same size. */
+  await t.page.locator("#listing-badge").fill("OPEN SUNDAY!");
+  await t.page.waitForTimeout(400);
+  assert.ok((await t.ink(box)) > 800, "typed badge text did not draw");
+
   await t.page.getByRole("button", { name: "No badge" }).click();
   await t.page.waitForTimeout(400);
-  assert.ok(!pinkish(await inside()), "SOLD! did not go away");
+  assert.ok((await t.ink(box)) < 200, "the badge did not go away");
+  assert.equal(await t.page.locator("#listing-badge").inputValue(), "");
+  clean(t);
+  await t.close();
+});
+
+/* The badge must not drift off its column however long the words get - the
+ * artwork's navy runs out at the arch on one side and the artboard edge on the
+ * other, and type in either place is a ruined graphic rather than a tight one. */
+test("a long badge shrinks instead of reaching the arch or the edge", async () => {
+  const t = await openTool();
+  /* Measured as a DIFFERENCE, not against a threshold. The strip left of the
+     badge's column holds the arch, and the headshot inside it is a photograph
+     of a woman against a pale brick wall - which answers "is there pale ink
+     here" with a confident yes whether or not the badge has spilled into it.
+     What matters is that setting the badge does not ADD any. */
+  const left = { x: 0, y: 744, w: 560, h: 120 };
+  const right = { x: 1062, y: 744, w: 18, h: 120 };
+  const before = [await t.ink(left), await t.ink(right)];
+  /* A long badge someone would really type. Pushed much past this the type
+     shrinks so far that the outline - a fixed fraction of the size - closes
+     over the fill, which is legitimate behaviour for words that do not belong
+     on a badge, and not what this test is about. */
+  await t.page.locator("#listing-badge").fill("UNDER CONTRACT!");
+  await t.page.waitForTimeout(500);
+  const after = [await t.ink(left), await t.ink(right)];
+  assert.ok(after[0] <= before[0] + 40, `the badge reached the arch (${before[0]} -> ${after[0]})`);
+  assert.ok(after[1] <= before[1] + 40, `the badge reached the edge (${before[1]} -> ${after[1]})`);
+  // And it did draw somewhere - a shrink-to-nothing would pass the two above.
+  assert.ok((await t.ink({ x: 578, y: 744, w: 482, h: 120 })) > 800, "the badge drew nothing");
   clean(t);
   await t.close();
 });

@@ -13,8 +13,7 @@
  *   3. the headshot, over the frame: the "leaning" cut is the arch's fill and
  *      replaces the floral paper exactly, the "sitting" cut is a free cutout
  *      that stands in front of it
- *   4. the badge
- *   5. the type
+ *   4. the type, which is both the address and the badge
  *
  * Getting 2 and 3 the other way round is the tempting mistake - a headshot
  * "behind the frame" sounds right - and it hides the arch entirely.
@@ -149,8 +148,6 @@ export function drawDoc(
 
   place(ctx, art, "frame");
   place(ctx, art, doc.headshot === "sitting" ? "headshot-sitting" : "headshot-arch");
-  if (doc.badge === "sold") place(ctx, art, "badge-sold");
-  if (doc.badge === "pending") place(ctx, art, "badge-pending");
 
   const measure = measurer(ctx);
   for (const block of doc.blocks) drawBlock(ctx, block, measure);

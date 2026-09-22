@@ -294,11 +294,39 @@ what the handover said they were:
 pitch against the real font in a real browser, so swapping the font file fails a
 test rather than quietly reflowing every graphic anyone makes.
 
+### The badge is type, not a picture
+
+SOLD! and PENDING! arrived as two more green flats and shipped that way at
+first. They are live type now, in the same block machinery as the address, so
+the badge can say something the designer did not draw — OPEN SUNDAY!, UNDER
+CONTRACT! — and shrinks to its column if it is long.
+
+**Its placement is not obvious from the artwork.** SOLD! spans x 677–962 and
+PENDING! spans 593–1047: different widths, and neither the left nor the right
+edge shared. What they share is a centre at x 819.5, which is the address
+block's centre to within half a pixel. So the badge is the same column, centred,
+sitting directly above the address — not a right-aligned thing that happens to
+vary, which is what a glance at the two files suggests.
+
+**It does not match the old artwork exactly, and cannot.** Measured off those
+flats, SOLD! is 273px wide with an 88px cap height; TAY Wingman renders the same
+word at 265px wide with a 67px cap — roughly 27% taller for the same width, so
+the badges were set in a heavier, more condensed cut that is not in this repo.
+The live badge therefore reads lighter than the picture did, and matches the
+address and the strapline instead, which is the trade. The originals are kept in
+`assets/listing-src/reference/` as the record; `chroma-key.mjs` skips that folder
+because it only reads the PNGs directly beside it.
+
+One behaviour worth knowing: the outline is a fixed fraction of the type size,
+so a badge shrunk far enough for a whole sentence closes over its own fill.
+That is correct for words that do not belong on a badge, and it is why the
+browser test pushes it to "UNDER CONTRACT!" rather than to a paragraph.
+
 ### One piece of type, and it does not move
 
-The whole editable surface is four things: the photo, which headshot, which
-badge, and the address. There is no way to add text, no way to resize it and no
-way to drag anything but the photo.
+The whole editable surface is four things: the photo, which headshot, what the
+badge says, and the address. There is no way to add a text block, no way to
+resize one and no way to drag anything but the photo.
 
 That is the tool converging on what it is. Earlier versions offered a text
 size, a second and third slot to put type in, colour pickers and an outline
@@ -308,7 +336,7 @@ left between one listing and the next is worse than one that could not be
 adjusted at all.
 
 Type still sits in **named slots** rather than at hardcoded coordinates, and
-this template has exactly one. The indirection earns its keep anyway: the
+this template has exactly two — the address and the badge. The indirection earns its keep anyway: the
 mirrored version of this design is the same tool with the boxes on the other
 side, which is a different list in `template.ts` rather than a different
 editor.
