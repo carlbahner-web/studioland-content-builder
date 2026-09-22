@@ -21,8 +21,11 @@ import {
   BADGE_BOX,
   CANVAS,
   CAP_RATIO,
+  COLUMN_GAP,
   GUTTER,
+  HORIZON,
   LINE_HEIGHT,
+  STRAPLINE_TOP,
   TRACKING,
 } from "../../src/listing/template.ts";
 import { ADDRESS_SEED } from "../../src/listing/doc.ts";
@@ -41,6 +44,8 @@ type Tool = {
   at: (x: number, y: number) => Promise<{ x: number; y: number }>;
   /** How many pale-pink (i.e. type) pixels are inside an artboard rectangle. */
   ink: (box: { x: number; y: number; w: number; h: number }) => Promise<number>;
+  /** Rows of type in the column right of the arch, as [top, bottom] bands. */
+  bands: () => Promise<[number, number][]>;
   close: () => Promise<void>;
 };
 
@@ -102,6 +107,41 @@ async function openTool(opts: { phone?: boolean } = {}): Promise<Tool> {
         },
         [box.x, box.y, box.w, box.h],
       ),
+    /* The type column's horizontal bands, found by scanning rows. Used for the
+       vertical rhythm, which cannot be asserted from the template alone: where
+       a block's ink actually starts depends on the face's cap height, and the
+       whole point of the distribution is what a reader sees. */
+    bands: () =>
+      page.evaluate(([archRight]) => {
+        const src = document.querySelector(".listing-canvas") as HTMLCanvasElement;
+        const c = document.createElement("canvas");
+        c.width = 1080;
+        c.height = 1350;
+        const ctx = c.getContext("2d")!;
+        ctx.drawImage(src, 0, 0, 1080, 1350);
+        const d = ctx.getImageData(0, 0, 1080, 1350).data;
+        const rows: number[] = [];
+        for (let y = 700; y < 1350; y++) {
+          let n = 0;
+          // Right of the arch only: the headshot inside it is a photograph of a
+          // woman against pale brick, which reads as ink on every single row.
+          for (let x = archRight + 1; x < 1080; x++) {
+            const i = (y * 1080 + x) * 4;
+            if (d[i] > 200 && d[i + 1] > 180 && d[i + 2] > 180) n++;
+          }
+          rows.push(n);
+        }
+        const out: [number, number][] = [];
+        let start: number | null = null;
+        for (let i = 0; i < rows.length; i++) {
+          if (rows[i] > 0 && start === null) start = i;
+          else if (rows[i] === 0 && start !== null) {
+            out.push([start + 700, i - 1 + 700]);
+            start = null;
+          }
+        }
+        return out.filter((b) => b[1] - b[0] > 3);
+      }, [ARCH_RIGHT] as const),
     close: () => page.close(),
   };
 }
@@ -293,6 +333,43 @@ test("a long badge shrinks instead of reaching the arch or the edge", async () =
   assert.ok(after[1] <= before[1] + 40, `the badge reached the edge (${before[1]} -> ${after[1]})`);
   // And it did draw somewhere - a shrink-to-nothing would pass the two above.
   assert.ok((await t.ink(BADGE_BOX)) > 800, "the badge drew nothing");
+  clean(t);
+  await t.close();
+});
+
+/* THE VERTICAL RHYTHM. Between the photo's bottom edge and the strapline there
+ * is a fixed 573px holding two blocks of type, and the artwork's own spacing did
+ * not survive the font: both blocks render shorter here than the flats were, so
+ * 61px of type became slack and pooled at the bottom, leaving the column
+ * drifting up away from the strapline. The gaps are equal now, and this is the
+ * check, because the conversion from a box's y to where its cream cap actually
+ * lands is a property of the face rather than of any arithmetic in the
+ * template. */
+test("the badge and the address are distributed evenly down the column", async () => {
+  const t = await openTool();
+  await t.page.getByRole("button", { name: "SOLD!", exact: true }).click();
+  await t.page.waitForTimeout(450);
+  const bands = await t.bands();
+  assert.ok(bands.length >= 3, `expected the badge, the address and the strapline: ${bands}`);
+
+  const badge = bands[0];
+  const strapline = bands[bands.length - 1];
+  // The address is three bands, because its blank lines make three groups.
+  const addressTop = bands[1][0];
+  const addressBottom = bands[bands.length - 2][1];
+
+  const gaps = [
+    badge[0] - HORIZON,
+    addressTop - badge[1] - 1,
+    strapline[0] - addressBottom - 1,
+  ];
+  assert.equal(strapline[0], STRAPLINE_TOP, "the strapline moved, so the space it divides changed");
+  for (const [i, gap] of gaps.entries()) {
+    assert.ok(
+      Math.abs(gap - COLUMN_GAP) <= 3,
+      `gap ${i} is ${gap}px, not ${COLUMN_GAP}px - the column is ${gaps.join(" / ")}`,
+    );
+  }
   clean(t);
   await t.close();
 });

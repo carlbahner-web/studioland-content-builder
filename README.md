@@ -269,7 +269,23 @@ what the handover said they were:
   ragged-right. But all six share a centre at x 819.5, which is the designer's
   own guide rectangle's centre to within a pixel. Setting it to `right` lines the
   block up on an edge the design does not have.
-- **One gutter governs the type column.** `GUTTER` is 37 — the strapline's own
+- **The lower column is distributed, not inherited.** Between the photo's bottom
+edge (y=705) and the strapline (y=1278) there is a fixed 573px holding two
+blocks of type. The artwork spent that 41 / 28 / 64, but both blocks render
+shorter here than the flats were — the badge by 31px because it was set in a
+condensed face this repo does not have, the address by 30px because the column
+was narrowed to the gutter — so 61px of type became slack, all of it pooled at
+the bottom, and the column read as drifting up away from the strapline. The
+gaps are equal now: 573 − 70 − 308 = 195, over three gaps, is **65px each**.
+
+The `y` values in `template.ts` are those targets converted through what the
+font actually renders — the badge's cream cap lands 2px under its box, the
+address's 1px over — so they are not simply 705+65 and its successor. A browser
+test measures the three gaps on the real canvas and fails if they drift apart,
+because that conversion is a property of the face rather than of any arithmetic
+in the template.
+
+**One gutter governs the type column.** `GUTTER` is 37 — the strapline's own
 margin, measured off the artwork — and `ADDRESS_BOX` is derived from it on both
 sides: `ARCH_RIGHT + 1 + GUTTER` on the left, `CANVAS.w - GUTTER` on the right.
 The badge inherits the column.

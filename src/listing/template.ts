@@ -52,9 +52,31 @@ export const ARCH_RIGHT = 555;
  * and simply traded one crowded side for the other; the gutter is only worth
  * having on both. It costs 1.5px of type, which is why ADDRESS_SIZE is what it
  * is, and 3% of a 40px face is nothing anyone can see. */
+/* The lower column is DISTRIBUTED, not inherited.
+ *
+ * Between the photo's bottom edge and the strapline there is a fixed 573px, and
+ * two blocks of type to put in it. The artwork spent that space 41 / 28 / 64,
+ * but both blocks are shorter here than the flats were - the badge by 31px
+ * because it was set in a condensed face this repo does not have, the address
+ * by 30px because the column was narrowed to the gutter - so 61px of type
+ * became slack, and all of it pooled at the bottom. The column read as drifting
+ * up away from the strapline.
+ *
+ * So the gaps are equal instead: 573 - 70 (badge ink) - 308 (address ink) = 195,
+ * over three gaps, is 65px each. The y values below are those targets converted
+ * through what the font actually renders - the badge's cream cap lands 2px under
+ * its box, the address's 1px over - which is why they are not simply 705+65 and
+ * its successor. A browser test measures the three gaps on the real canvas and
+ * fails if they drift apart, because that conversion is the part no arithmetic
+ * here can be trusted about.
+ */
+export const HORIZON = 705;
+export const STRAPLINE_TOP = 1278;
+export const COLUMN_GAP = 65;
+
 export const ADDRESS_BOX: Box = {
   x: ARCH_RIGHT + 1 + GUTTER,
-  y: 874,
+  y: 906,
   w: CANVAS.w - GUTTER - (ARCH_RIGHT + 1 + GUTTER),
   h: 338,
 };
@@ -262,7 +284,7 @@ export type Slot = {
  * centred, sitting directly above it, and the size is the largest that clears
  * that column once it has been pulled in to the gutter on both sides: at 104px
  * "PENDING!" measures 442 in a 450 box. */
-export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 744, w: ADDRESS_BOX.w, h: 120 };
+export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 768, w: ADDRESS_BOX.w, h: 120 };
 export const BADGE_SIZE = 104;
 
 export const TEXT_SLOTS: Slot[] = [
