@@ -17,7 +17,11 @@ import { BASE, newPage, stop } from "./harness.ts";
 import {
   ADDRESS_BOX,
   ADDRESS_SIZE,
+  ARCH_RIGHT,
+  BADGE_BOX,
+  CANVAS,
   CAP_RATIO,
+  GUTTER,
   LINE_HEIGHT,
   TRACKING,
 } from "../../src/listing/template.ts";
@@ -168,14 +172,15 @@ test("the seeded address fits its box at the designed size, in the real font", a
 
 test("a long address shrinks on the canvas rather than running off it", async () => {
   const t = await openTool();
-  const before = await t.pixel(1070, 900);
   await t.page.locator(".listing-block textarea").fill("1247 Old Gettysburg Pike, Mechanicsburg PA");
   await t.page.waitForTimeout(400);
-  // The right margin between the address box and the artboard edge (x 1060-1080)
-  // is navy in the artwork and must stay navy however long the address gets.
-  const margin = await t.pixel(1072, 950);
-  assert.ok(margin[2] > margin[0], `the address ran into the margin: ${margin}`);
-  assert.ok(before.length === 4);
+  /* The gutter either side of the type column is navy in the artwork and has to
+     stay navy however long the address gets - on the edge side, and on the arch
+     side, where the neighbour is a photograph rather than a margin. */
+  const rightGutter = { x: ADDRESS_BOX.x + ADDRESS_BOX.w, y: 874, w: GUTTER, h: 338 };
+  const leftGutter = { x: ARCH_RIGHT + 1, y: 874, w: GUTTER, h: 338 };
+  assert.equal(await t.ink(rightGutter), 0, "the address ran into the edge margin");
+  assert.equal(await t.ink(leftGutter), 0, "the address ran into the arch's gutter");
   clean(t);
   await t.close();
 });
@@ -185,8 +190,10 @@ test("a long address shrinks on the canvas rather than running off it", async ()
 test("the frame's navy field and its strapline survive whatever is behind them", async () => {
   const t = await openTool();
   await uploadPhoto(t, "#ff00ff");
-  // Deep in the navy, well below the photo band: the frame is opaque here.
-  const navy = await t.pixel(900, 1000);
+  /* Deep in the navy, well below the photo band, and in the gutter rather than
+     at a point picked off a screenshot: the type column is the one part of this
+     region that is not bare navy, and it moves whenever the layout does. */
+  const navy = await t.pixel(ADDRESS_BOX.x + ADDRESS_BOX.w + GUTTER / 2, 1000);
   assert.ok(navy[2] > navy[0] && navy[2] > navy[1], `expected navy, got ${navy}`);
   assert.ok(navy[0] < 80, `the photo is bleeding through the frame: ${navy}`);
   clean(t);
@@ -227,8 +234,10 @@ test("the headshot sits in front of the frame, not behind it", async () => {
 
 test("the badge is live type: presets, free text, and nothing when empty", async () => {
   const t = await openTool();
-  // The badge's own column, above the address. See BADGE_BOX.
-  const box = { x: 578, y: 744, w: 482, h: 120 };
+  // The badge's own column, above the address. Taken from the template rather
+  // than written out, so moving the column cannot leave this probing empty navy
+  // and reporting that the badge failed to draw.
+  const box = BADGE_BOX;
   assert.ok((await t.ink(box)) < 200, "a badge was showing before one was picked");
 
   await t.page.getByRole("button", { name: "SOLD!" }).click();
@@ -265,8 +274,13 @@ test("a long badge shrinks instead of reaching the arch or the edge", async () =
      of a woman against a pale brick wall - which answers "is there pale ink
      here" with a confident yes whether or not the badge has spilled into it.
      What matters is that setting the badge does not ADD any. */
-  const left = { x: 0, y: 744, w: 560, h: 120 };
-  const right = { x: 1062, y: 744, w: 18, h: 120 };
+  const left = { x: 0, y: BADGE_BOX.y, w: ARCH_RIGHT + 1, h: BADGE_BOX.h };
+  const right = {
+    x: BADGE_BOX.x + BADGE_BOX.w,
+    y: BADGE_BOX.y,
+    w: CANVAS.w - (BADGE_BOX.x + BADGE_BOX.w),
+    h: BADGE_BOX.h,
+  };
   const before = [await t.ink(left), await t.ink(right)];
   /* A long badge someone would really type. Pushed much past this the type
      shrinks so far that the outline - a fixed fraction of the size - closes
@@ -278,7 +292,7 @@ test("a long badge shrinks instead of reaching the arch or the edge", async () =
   assert.ok(after[0] <= before[0] + 40, `the badge reached the arch (${before[0]} -> ${after[0]})`);
   assert.ok(after[1] <= before[1] + 40, `the badge reached the edge (${before[1]} -> ${after[1]})`);
   // And it did draw somewhere - a shrink-to-nothing would pass the two above.
-  assert.ok((await t.ink({ x: 578, y: 744, w: 482, h: 120 })) > 800, "the badge drew nothing");
+  assert.ok((await t.ink(BADGE_BOX)) > 800, "the badge drew nothing");
   clean(t);
   await t.close();
 });

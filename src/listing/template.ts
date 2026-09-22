@@ -26,21 +26,38 @@ export const CANVAS = { w: 1080, h: 1350 } as const;
  * pale photo and glaring against a dark one. */
 export const PHOTO_BAND: Box = { x: 0, y: 0, w: 1080, h: 705 };
 
-/* The designer's blue guide rectangle, with its RIGHT edge pulled in to match
- * the strapline's margin.
+/* The one spacing value in the template.
  *
- * As drawn, the guide ran to x=1060 - a 20px margin - while the strapline
- * "HIRE A REALTOR. CLOSE WITH A FRIEND." was set with 37px on both sides. So
- * the address's longest line sat 14px closer to the edge than the line directly
- * under it, which is the sort of near-miss that reads as sloppy without being
- * obviously wrong. The right edge is now 1080 - 37 = 1043.
+ * It is the strapline's margin, measured off the artwork: "HIRE A REALTOR.
+ * CLOSE WITH A FRIEND." is set 37px from both edges of the artboard. Everything
+ * else in the type column now keeps the same distance from whatever it sits
+ * next to, which is what makes the block look placed rather than fitted. */
+export const GUTTER = 37;
+
+/* Where the arch stops, beside the address. Measured, not assumed: the arch is
+ * a curve, and at the address's first row it has not finished coming in
+ * (x=548), but for the rest of the block it is straight-sided at x=555. The
+ * widest point is what the gutter has to clear. */
+export const ARCH_RIGHT = 555;
+
+/* The designer's blue guide rectangle, with BOTH edges pulled in to the gutter.
  *
- * Pulled in rather than shifted across: moving the whole box left would have
- * kept the type size but brought its left edge to within 8px of the arch, and
- * the arch is a photograph. Narrowing costs 1.5px of type size instead, which
- * is why ADDRESS_SIZE below is what it is. */
-export const ADDRESS_MARGIN = 37;
-export const ADDRESS_BOX: Box = { x: 578, y: 874, w: 1080 - ADDRESS_MARGIN - 578, h: 338 };
+ * As drawn it ran from x=578 to x=1060 - 23px from the arch on one side, a 20px
+ * margin on the other - while the strapline under it used 37px. So the address
+ * sat closer to both the photograph and the edge than the line directly beneath
+ * it, which is the sort of near-miss that reads as sloppy without being
+ * obviously wrong.
+ *
+ * Narrowed rather than moved. Shifting the box would have kept the type size
+ * and simply traded one crowded side for the other; the gutter is only worth
+ * having on both. It costs 1.5px of type, which is why ADDRESS_SIZE is what it
+ * is, and 3% of a 40px face is nothing anyone can see. */
+export const ADDRESS_BOX: Box = {
+  x: ARCH_RIGHT + 1 + GUTTER,
+  y: 874,
+  w: CANVAS.w - GUTTER - (ARCH_RIGHT + 1 + GUTTER),
+  h: 338,
+};
 
 /* CENTRED, not right-aligned, which is not what it looks like.
  *
@@ -82,7 +99,7 @@ export const ADDRESS_ALIGN: TextAlign = "center";
  */
 export const FONT_FAMILY = "TAYWingman";
 export const TRACKING = -0.1;
-export const ADDRESS_SIZE = 41.5;
+export const ADDRESS_SIZE = 40;
 export const LINE_HEIGHT = 0.973;
 export const CAP_RATIO = 0.67;
 
@@ -243,11 +260,10 @@ export type Slot = {
  * neither left nor right edge shared. But both centre on x 819.5, which is the
  * address block's centre to within half a pixel. So it is the same column,
  * centred, sitting directly above it, and the size is the largest that clears
- * that column once it has been pulled in to the strapline's margin: at 108px
- * "PENDING!" measures 459 in a 465 box, and "SOLD!" comes out at 286 - which is
- * the artwork's width to the pixel. */
+ * that column once it has been pulled in to the gutter on both sides: at 104px
+ * "PENDING!" measures 442 in a 450 box. */
 export const BADGE_BOX: Box = { x: ADDRESS_BOX.x, y: 744, w: ADDRESS_BOX.w, h: 120 };
-export const BADGE_SIZE = 108;
+export const BADGE_SIZE = 104;
 
 export const TEXT_SLOTS: Slot[] = [
   { key: "address", label: "Address block", box: ADDRESS_BOX, align: ADDRESS_ALIGN, size: ADDRESS_SIZE },

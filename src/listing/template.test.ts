@@ -11,9 +11,11 @@ import {
   CANVAS,
   CAP_RATIO,
   PHOTO_BAND,
+  ARCH_RIGHT,
   BADGE_BOX,
   BADGE_PRESETS,
   BADGE_SIZE,
+  GUTTER,
   TEXT_SLOTS,
   clampPhotoFit,
   containZoom,
@@ -269,11 +271,21 @@ test("a fresh doc is the address, an empty badge, and nothing else to go wrong",
 
 /* ----------------------------------------------------------------- the badge */
 
-test("the address and the strapline share a right margin", () => {
-  // The strapline is baked into the frame art and ends 37px from the edge; the
-  // address box was drawn to 20px. They are the same now, which is the point.
-  assert.equal(CANVAS.w - (ADDRESS_BOX.x + ADDRESS_BOX.w), 37);
-  assert.equal(CANVAS.w - (BADGE_BOX.x + BADGE_BOX.w), 37, "the badge shares the column");
+test("the type column keeps the same gutter from the arch and from the edge", () => {
+  /* The strapline is baked into the frame art and set 37px from both edges.
+     The guide rectangle was drawn to 23px from the arch and 20px from the edge,
+     so the address sat closer to both than the line right under it. One value
+     governs all of it now, and the badge inherits the column. */
+  for (const box of [ADDRESS_BOX, BADGE_BOX]) {
+    assert.equal(box.x - (ARCH_RIGHT + 1), GUTTER, "gutter to the arch");
+    assert.equal(CANVAS.w - (box.x + box.w), GUTTER, "margin to the edge");
+  }
+});
+
+test("the arch never reaches into the gutter beside the address", () => {
+  // ARCH_RIGHT is measured off the keyed artwork; this is the guard that it
+  // still describes it, so re-drawn art cannot quietly overlap the type.
+  assert.ok(ARCH_RIGHT < ADDRESS_BOX.x, "the arch would overlap the address box");
 });
 
 test("the badge shares the address's centre line, which is the whole of its placement", () => {

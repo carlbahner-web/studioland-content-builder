@@ -269,22 +269,32 @@ what the handover said they were:
   ragged-right. But all six share a centre at x 819.5, which is the designer's
   own guide rectangle's centre to within a pixel. Setting it to `right` lines the
   block up on an edge the design does not have.
-- **The address and the strapline now share a margin.** The guide rectangle ran
-to x=1060 — a 20px margin — while the strapline was drawn with 37px on both
-sides, so the address's longest line sat 14px closer to the edge than the line
-directly beneath it. `ADDRESS_MARGIN` is 37 and the box is derived from it.
+- **One gutter governs the type column.** `GUTTER` is 37 — the strapline's own
+margin, measured off the artwork — and `ADDRESS_BOX` is derived from it on both
+sides: `ARCH_RIGHT + 1 + GUTTER` on the left, `CANVAS.w - GUTTER` on the right.
+The badge inherits the column.
 
-Pulled in rather than shifted across: moving the whole box left would have kept
-the type size but brought its left edge within 8px of the arch, which is a
-photograph. Narrowing costs 1.5px of type instead, which is why `ADDRESS_SIZE`
-is 41.5 and not 43.
+As drawn, the guide rectangle ran x 578→1060: 23px from the arch, 20px from the
+edge, against the strapline's 37px. So the address sat closer to both the
+photograph and the artboard edge than the line directly beneath it — a near-miss
+that reads as sloppy without being obviously wrong.
+
+`ARCH_RIGHT` is measured, not assumed. The arch is a curve: at the address's
+first row it has not finished coming in (x=548), and for the rest of the block
+it is straight-sided at x=555. The widest point is what the gutter has to clear,
+and a unit test guards that it still describes the keyed artwork.
+
+Narrowed rather than moved. Shifting the box would have kept the type size and
+simply traded one crowded side for the other; a gutter is only worth having on
+both. It costs 3px of type — `ADDRESS_SIZE` is 40, not 43 — which is 7% of a
+40px face and invisible.
 
 Worth knowing what that does and does not buy: **a centred block has no fixed
-right margin.** Each line ends where its words end, so the *box* is at 37px but
-the seeded longest line's ink lands at 42px, and a different address moves it
-again. Right-aligning the block is the only way to make every line end on 37px
-exactly, and the artwork is centred — so it stays centred, and the margins are
-now within a few pixels instead of fourteen.
+margin.** Each line ends where its words end, so the *box* is at 37px on both
+sides while the seeded longest line's ink lands at 45px and 42px, and a
+different address moves both again. Right-aligning would make every line end on
+37px exactly; the artwork is centred, so it stays centred, and what the change
+bought is a column that is evenly placed rather than one crowded on both sides.
 
 **The Character panel's 50.51pt does not fit.** At that size the longest line
   measures 561px in a 482px box. Measuring each line's ink against what
