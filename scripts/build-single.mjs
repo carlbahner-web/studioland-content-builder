@@ -45,10 +45,13 @@ const MIME = {
 const LISTING_ASSETS = [
   "/fonts/TAYWingman.woff2",
   ...Object.keys(layers).map((name) => `/listing/${name}.png`),
-  // The arch mask and the photographed headshots, which are not keyed layers
-  // and so are not in layers.json. Both manifests, so neither can be forgotten.
+  // The arch mask, the photographed headshots and the mattes that key their
+  // backdrop out. None of these are keyed layers, so none are in layers.json.
+  // From the manifest, and de-duplicated the same way template.ts does it:
+  // two crops of one photograph share a file and a matte, and inlining a
+  // megabyte of JPEG twice would show up in the download.
   photos.mask,
-  ...photos.shots.map((s) => s.file),
+  ...new Set(photos.shots.flatMap((s) => [s.file, s.matte].filter(Boolean))),
 ];
 
 /** Everything the running app asks for by path, as data URIs. */

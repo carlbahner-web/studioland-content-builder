@@ -1,30 +1,51 @@
 {
-  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers, clipped into the arch by mask. One source of truth: the app builds HEADSHOTS from this and build-single.mjs inlines these paths. `fit` is a placement saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU) - zoom is a multiple of the scale that covers the arch, offsets are artboard px.",
+  "_": "Headshots that are PHOTOGRAPHS rather than pre-cut layers. `file` is the untouched photo and `matte` its alpha, keyed off the studio backdrop by scripts/matte.mjs so the arch's floral paper shows behind her; the app multiplies the two and then clips to the arch. `matte: null` means the crop shares another entry's photograph and its matte. `tolerance` overrides the keyer's default for one photograph - the dress is a white-on-black print close enough to the seamless that the default walks in through it - and is only ever read by the script, never by the app. `fit` is a placement saved from the Headshot Positions tool (claude.ai/artifact/SWY6VnFWkQ8fib6RAZE3UU): zoom is a multiple of the scale that covers the arch, offsets are artboard px. One source of truth - the app builds HEADSHOTS from this and build-single.mjs inlines the same paths.",
   "mask": "/listing/arch-mask.png",
   "shots": [
     {
       "key": "standing-close",
       "label": "Hands in pockets",
       "file": "/listing/headshot-standing-close.jpg",
-      "fit": { "zoom": 1.554961768059457, "offsetX": -23.907123894178255, "offsetY": 94.59194758550163 }
+      "fit": {
+        "zoom": 1.554961768059457,
+        "offsetX": -23.907123894178255,
+        "offsetY": 94.59194758550163
+      },
+      "matte": "/listing/matte-standing-close.png"
     },
     {
       "key": "standing-wide",
       "label": "Full length",
       "file": "/listing/headshot-standing-wide.jpg",
-      "fit": { "zoom": 2.0842378387105267, "offsetX": -49.77834087148908, "offsetY": 136.66231457731914 }
+      "fit": {
+        "zoom": 2.0842378387105267,
+        "offsetX": -49.77834087148908,
+        "offsetY": 136.66231457731914
+      },
+      "matte": "/listing/matte-standing-wide.png"
     },
     {
       "key": "dress-phone",
       "label": "Dress",
       "file": "/listing/headshot-dress-phone.jpg",
-      "fit": { "zoom": 1, "offsetX": 0, "offsetY": -73.52239055788013 }
+      "fit": {
+        "zoom": 1,
+        "offsetX": 0,
+        "offsetY": -73.52239055788013
+      },
+      "matte": "/listing/matte-dress-phone.png",
+      "tolerance": 0.08
     },
     {
       "key": "seated",
       "label": "Chair",
       "file": "/listing/headshot-seated.jpg",
-      "fit": { "zoom": 1.245533855905128, "offsetX": -32.07752122093234, "offsetY": 91.86812546700764 }
+      "fit": {
+        "zoom": 1.245533855905128,
+        "offsetX": -32.07752122093234,
+        "offsetY": 91.86812546700764
+      },
+      "matte": "/listing/matte-seated.png"
     }
   ]
 }

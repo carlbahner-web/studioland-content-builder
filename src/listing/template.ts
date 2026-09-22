@@ -188,8 +188,10 @@ export type Headshot = {
   label: string;
   /** A pre-cut layer, placed by the manifest. */
   layer?: string;
-  /** Or a photograph, clipped to the arch and placed by its saved fit. */
-  photo?: { file: string; fit: PhotoFit };
+  /** Or a photograph, keyed off its backdrop, clipped to the arch, and placed
+   *  by its saved fit. `matte` is the alpha; null where the crop shares another
+   *  entry's photograph. */
+  photo?: { file: string; matte: string | null; fit: PhotoFit };
 };
 
 export const HEADSHOTS: Headshot[] = [
@@ -198,7 +200,7 @@ export const HEADSHOTS: Headshot[] = [
   ...PHOTOS.shots.map((s) => ({
     key: s.key,
     label: s.label,
-    photo: { file: s.file, fit: s.fit },
+    photo: { file: s.file, matte: s.matte ?? null, fit: s.fit },
   })),
 ];
 
@@ -206,7 +208,10 @@ export const HEADSHOTS: Headshot[] = [
 export const ARCH_MASK = PHOTOS.mask;
 
 /** Every image the tool loads that is not a keyed layer. */
-export const PHOTO_FILES = [PHOTOS.mask, ...PHOTOS.shots.map((s) => s.file)];
+export const PHOTO_FILES = [
+  PHOTOS.mask,
+  ...new Set(PHOTOS.shots.flatMap((s) => [s.file, s.matte].filter((f): f is string => !!f))),
+];
 
 /** Which headshot a document has chosen. */
 export type HeadshotKey = string;

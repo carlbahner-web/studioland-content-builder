@@ -146,9 +146,16 @@ function drawHeadshot(ctx: CanvasRenderingContext2D, key: string, art: Art): voi
     shot.photo.fit,
   );
   sctx.drawImage(img, r.x, r.y, r.w, r.h);
-  /* Clipped by the arch cutout's own alpha, so the edge is the artwork's edge
-   * rather than a shape drawn here to resemble it. */
+
+  /* Two mattes, multiplied by two destination-in passes: the studio backdrop
+   * comes out first, so the arch's floral paper shows behind her, and then the
+   * arch confines what is left. Order does not matter mathematically - each
+   * pass multiplies the alpha - but the matte has to be drawn at the PHOTO's
+   * rect and the arch mask at the scratch canvas's, and drawing either at the
+   * other's is a mistake that still produces a picture. */
   sctx.globalCompositeOperation = "destination-in";
+  const matte = shot.photo.matte ? art[shot.photo.matte] : undefined;
+  if (matte) sctx.drawImage(matte, r.x, r.y, r.w, r.h);
   sctx.drawImage(mask, 0, 0, ARCH.w, ARCH.h);
   sctx.globalCompositeOperation = "source-over";
   ctx.drawImage(scratch, ARCH.x, ARCH.y);
