@@ -269,6 +269,13 @@ test("a fresh doc is the address, an empty badge, and nothing else to go wrong",
 
 /* ----------------------------------------------------------------- the badge */
 
+test("the address and the strapline share a right margin", () => {
+  // The strapline is baked into the frame art and ends 37px from the edge; the
+  // address box was drawn to 20px. They are the same now, which is the point.
+  assert.equal(CANVAS.w - (ADDRESS_BOX.x + ADDRESS_BOX.w), 37);
+  assert.equal(CANVAS.w - (BADGE_BOX.x + BADGE_BOX.w), 37, "the badge shares the column");
+});
+
 test("the badge shares the address's centre line, which is the whole of its placement", () => {
   const centre = (b: { x: number; w: number }) => b.x + b.w / 2;
   assert.equal(centre(BADGE_BOX), centre(ADDRESS_BOX));

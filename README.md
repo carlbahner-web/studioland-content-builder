@@ -269,7 +269,24 @@ what the handover said they were:
   ragged-right. But all six share a centre at x 819.5, which is the designer's
   own guide rectangle's centre to within a pixel. Setting it to `right` lines the
   block up on an edge the design does not have.
-- **The Character panel's 50.51pt does not fit.** At that size the longest line
+- **The address and the strapline now share a margin.** The guide rectangle ran
+to x=1060 — a 20px margin — while the strapline was drawn with 37px on both
+sides, so the address's longest line sat 14px closer to the edge than the line
+directly beneath it. `ADDRESS_MARGIN` is 37 and the box is derived from it.
+
+Pulled in rather than shifted across: moving the whole box left would have kept
+the type size but brought its left edge within 8px of the arch, which is a
+photograph. Narrowing costs 1.5px of type instead, which is why `ADDRESS_SIZE`
+is 41.5 and not 43.
+
+Worth knowing what that does and does not buy: **a centred block has no fixed
+right margin.** Each line ends where its words end, so the *box* is at 37px but
+the seeded longest line's ink lands at 42px, and a different address moves it
+again. Right-aligning the block is the only way to make every line end on 37px
+exactly, and the artwork is centred — so it stays centred, and the margins are
+now within a few pixels instead of fourteen.
+
+**The Character panel's 50.51pt does not fit.** At that size the longest line
   measures 561px in a 482px box. Measuring each line's ink against what
   `public/fonts/TAYWingman.woff2` actually renders puts the artwork at ~46.2px
   for the first four lines and ~42.9px for the last two — two sizes, and neither
