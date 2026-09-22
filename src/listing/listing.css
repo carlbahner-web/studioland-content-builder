@@ -26,10 +26,15 @@
   background: var(--cream);
   border-bottom: 1px solid var(--line);
 }
+/* Set in caps, so it takes positive tracking rather than the tight negative
+   the lowercase heading wanted, and is allowed to wrap on a narrow window
+   rather than forcing the header wider than the screen. */
 .listing-head h1 {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.03em;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-wrap: balance;
 }
 .listing-elsewhere {
   font-size: 13px;
@@ -53,7 +58,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
   padding: 28px 24px 48px;
   background: var(--cream);
 }
@@ -70,13 +74,6 @@
   touch-action: none;
   user-select: none;
 }
-.listing-hint {
-  margin: 0;
-  font-size: 12px;
-  opacity: 0.55;
-  text-align: center;
-}
-
 /* ---- panel ---- */
 
 .listing-panel {
@@ -225,14 +222,6 @@
 .listing-dropping {
   outline: 2px dashed var(--teal);
   outline-offset: -10px;
-}
-
-/* The wordmark that stands in for the link back in the one-file build. */
-.listing-static {
-  opacity: 0.5;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-size: 11px;
 }
 
 /* Only the photo is draggable, so only a photo turns the cursor into a grab.

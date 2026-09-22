@@ -119,7 +119,7 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text;
 
-const html = `<title>${LISTING_ONLY ? "Listing builder" : "StudioLand content builder"}</title>
+const html = `<title>${LISTING_ONLY ? "Angela Rera Listing Builder" : "StudioLand content builder"}</title>
 <style>
 ${css}
 </style>

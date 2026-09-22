@@ -357,10 +357,10 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
   return (
     <div className="listing">
       <header className="listing-head">
-        <h1>Listing builder</h1>
-        {standalone ? (
-          <span className="listing-elsewhere listing-static">StudioLand</span>
-        ) : (
+        <h1>ANGELA RERA - LISTING POST BUILDER</h1>
+        {/* Nothing on the right in the one-file build. In the routed build the
+            link stays, because it is the only way back to the other tool. */}
+        {!standalone && (
           <a href="#/" className="listing-elsewhere">
             Brand content builder →
           </a>
@@ -394,11 +394,6 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
             onPointerUp={endPointer}
             onPointerCancel={endPointer}
           />
-          <p className="listing-hint">
-            {doc.photo
-              ? "Drag or pinch the photo to frame it. Everything else is fixed to the template."
-              : "Drop a photo of the house here, or choose one on the right."}
-          </p>
         </div>
 
         <div className="listing-panel">
