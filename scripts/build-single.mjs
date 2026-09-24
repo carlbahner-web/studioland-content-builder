@@ -44,6 +44,11 @@ const MIME = {
 // `npm run art` cannot leave either build silently one layer short.
 const LISTING_ASSETS = [
   "/fonts/TAYWingman.woff2",
+  // The chrome's faces (tokens.css): DM Sans for the controls, DM Mono for
+  // numbers, DWFairfield for the headings.
+  "/fonts/DMSans-latin.woff2",
+  "/fonts/DMMono-latin.woff2",
+  "/fonts/DWFairfield.woff2",
   ...Object.keys(layers).map((name) => `/listing/${name}.png`),
   // Each arch's alpha, which a photographed headshot is clipped by. Written
   // beside its layer by chroma-key.mjs and recorded in the same manifest, so a
@@ -59,7 +64,7 @@ const LISTING_ASSETS = [
 /** Everything the running app asks for by path, as data URIs. */
 const ASSETS = LISTING_ONLY
   ? LISTING_ASSETS
-  : [
+  : [...new Set([
       "/brand/grain.webp",
       "/brand/studioland-wordmark-cream.png",
       "/brand/studioland-wordmark-charcoal.png",
@@ -68,7 +73,7 @@ const ASSETS = LISTING_ONLY
       "/fonts/DWFairfield.woff2",
       "/fonts/DWFairfield-Narrow.woff2",
       ...LISTING_ASSETS,
-    ];
+    ])];
 
 async function dataUri(publicPath) {
   const file = path.join(ROOT, "public", publicPath.replace(/^\//, ""));
@@ -89,7 +94,7 @@ const ARTIFACT_SHIM = `
 html, body { height: 100%; }
 .listing { min-height: 100%; }
 .listing-panel { max-height: 100dvh; }
-.listing-canvas { max-height: calc(100dvh - 140px); }
+.listing-canvas { max-height: calc(100dvh - 160px); }
 @media (max-width: 900px) {
   .listing-panel { max-height: none; }
   .listing-canvas { max-height: none; }
@@ -98,6 +103,7 @@ html, body { height: 100%; }
 
 // The panel's own webfont is referenced from CSS, so swap that URL too.
 let css = [
+  await readFile(path.join(ROOT, "src/tokens.css"), "utf8"),
   await readFile(path.join(ROOT, "src/studio.css"), "utf8"),
   await readFile(path.join(ROOT, "src/listing/listing.css"), "utf8"),
   LISTING_ONLY ? ARTIFACT_SHIM : "",

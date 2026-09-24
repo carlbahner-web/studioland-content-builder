@@ -41,7 +41,7 @@ function variance(ed: Editor, fx: number, fy: number, size = 0.2) {
 
 const paper = async (ed: Editor, mode: string) => {
   await ed.page
-    .locator(".panel .modes.small")
+    .locator(".panel .pills.paper")
     .filter({ hasText: "Extra" })
     .getByRole("button", { name: mode, exact: true })
     .click();
@@ -112,7 +112,7 @@ test("no ground means the export carries real alpha, and the grain stays off the
   const opaque = await ed.pixel(4, 4);
   assert.equal(opaque[3], 255, "with a ground, the corner is solid");
 
-  await ed.section("Color");
+  await ed.section("Colour");
   await ed.page.getByText("No ground — save with transparency").click();
   await ed.page.waitForTimeout(700);
 

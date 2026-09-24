@@ -1,0 +1,200 @@
+/* The chrome's tokens, taken from Homegrown (ss-frontend src/styles/tokens.css)
+   so the builders read as the same family as the CRM. Both tools import this;
+   the artwork on the canvas has its own palette in brand.ts and is untouched.
+
+   The one thing not carried over is the Wobble: Homegrown draws every edge as
+   a hand-drawn SVG line. Here an edge is a plain 2px line in the same inks, at
+   the same weight and the same corner rule, which is the documented fallback. */
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/fonts/DMSans-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Mono";
+  src: url("/fonts/DMMono-latin.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "DWFairfield";
+  src: url("/fonts/DWFairfield.woff2") format("woff2");
+  font-display: swap;
+}
+/* Canvas-only, but the listing builder waits on `document.fonts.load` for it,
+   which needs a declared face to resolve against. */
+@font-face {
+  font-family: "TAYWingman";
+  src: url("/fonts/TAYWingman.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --charcoal: #2c2c2a;
+  --cream: #fcf7e8;
+  --cream-quiet: #fefdf9;
+  --mustard: #f6cc60;
+  --mustard-soft: #faecc6;
+  --rust: #bf7538;
+  --red: #a8462b;
+  --sage: #babd8d;
+  --leaf: #4a4e2d;
+  --olive-ink: #5f6338;
+
+  --paper: var(--cream-quiet);
+  --card-fill: var(--cream);
+  --field: #fff;
+  --ink: var(--charcoal);
+  --ink-soft: #4a4a46;
+  --ink-barely: rgba(44, 44, 42, 0.18);
+  --ink-clearly: rgba(44, 44, 42, 0.38);
+  --ink-nearly: rgba(44, 44, 42, 0.55);
+
+  --disp: "DWFairfield", "Barlow Condensed", "Impact", sans-serif;
+  --body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "DM Mono", ui-monospace, monospace;
+
+  --fs-heading: 1.7rem;
+  --fs-body: 1.05rem;
+  --fs-small: 0.9rem;
+  --fs-mono: 0.72rem;
+
+  --line-w: 2px;
+  --r-btn: 4px;
+  --r-field: 6px;
+  --r-card: 10px;
+
+  --btn-h: 1.875rem;
+  --focus-ring: 2px solid var(--rust);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: var(--fs-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Homegrown's paper grain, behind everything. It sits under the panels'
+   own fills and never over the artboard, so the preview stays exact. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.17 0 0 0 0 0.17 0 0 0 0 0.16 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+
+:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+/* ---- the shared primitives ---- */
+
+/* The one filled action on a screen. Mustard, always. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--btn-h);
+  padding: 0 16px;
+  font-weight: 700;
+  font-size: var(--fs-body);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--charcoal);
+  background: var(--mustard);
+  border: var(--line-w) solid var(--charcoal);
+  border-radius: var(--r-btn);
+  transition: transform 0.12s ease;
+}
+.btn:hover:not(:disabled) { transform: scale(1.04); }
+.btn:active:not(:disabled) { transform: scale(1.01) translate(2px, 2px); }
+.btn:disabled { opacity: 0.45; }
+.btn.ghost { background: transparent; border-color: var(--ink-clearly); }
+.btn.ghost:hover:not(:disabled) { border-color: var(--ink); }
+.btn.small { font-size: var(--fs-small); padding: 0 12px; }
+
+/* A choice among several: Homegrown's filter pill. Sage when it is on. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 2rem;
+  padding: 4px 12px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: var(--line-w) solid var(--ink-clearly);
+  border-radius: var(--r-btn);
+}
+.pill:hover:not(:disabled) { background: var(--ink-barely); }
+.pill.on, .pill[aria-pressed="true"] { background: var(--sage); border-color: var(--ink); }
+.pill:disabled { opacity: 0.45; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Small uppercase label over a control. */
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--olive-ink);
+}
+
+/* The machine voice: sizes, percentages, positions. */
+.mono {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+/* Hold-to-save, shown only where a programmatic download is unreliable. */
+.held {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--charcoal) 92%, transparent);
+  color: var(--cream);
+  text-align: center;
+}
+.held img { max-width: 100%; max-height: 64vh; border-radius: 4px; }
+.held p { margin: 0; font-size: var(--fs-small); font-weight: 700; max-width: 300px; }
+.held button {
+  min-height: var(--btn-h);
+  padding: 0 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  background: var(--mustard);
+  border: var(--line-w) solid var(--charcoal);
+  border-radius: var(--r-btn);
+}
+
+.boot-msg { padding: 40px; font-size: var(--fs-body); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+}

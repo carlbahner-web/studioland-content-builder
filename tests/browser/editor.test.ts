@@ -182,7 +182,7 @@ test("BUZZ is an ordinary layer: it has a paper control and can be deleted", asy
   const ed = await open();
   const before = await ed.layers();
   await pick(ed, "BUZZ");
-  const paper = await ed.page.locator(".panel .modes.small").filter({ hasText: "Extra" }).count();
+  const paper = await ed.page.locator(".panel .pills.paper").filter({ hasText: "Extra" }).count();
   assert.ok(paper > 0, "BUZZ should offer the paper control");
   await ed.page.keyboard.press("Delete");
   await ed.page.waitForTimeout(400);

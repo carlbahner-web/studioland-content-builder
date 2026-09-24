@@ -1,15 +1,13 @@
-/* Chrome for the listing builder. Same quiet workbench as studio.css - cream
-   throughout, charcoal type - so the two tools do not look like different
-   products.
+/* Chrome for the listing builder, in the same Homegrown language as studio.css
+   (tokens in ../tokens.css) so the two tools do not look like different
+   products: DM Sans, 2px lines, sage for the choice that is on, mustard for the
+   one thing to press.
 
-   The stage was briefly a dark charcoal, on the theory that a graphic should be
-   judged against something nearer where it will be seen. In practice it just
-   made the thing you are working on harder to look at: a 540px artboard in a
-   large dark field is a bright rectangle you squint at rather than a picture you
-   read. Cream also happens to solve the problem the dark stage was picked to
-   avoid - a photo scaled below the band letterboxes in the artwork's navy, and
-   those bars are unmistakable against cream, where against a dark surround they
-   merged with it and the artboard lost its edges. */
+   The stage is the page's own paper. It was briefly a dark charcoal, on the
+   theory that a graphic should be judged against something nearer where it
+   will be seen; in practice a 540px artboard in a large dark field is a bright
+   rectangle you squint at. A pale ground also keeps a letterboxed photo's navy
+   bars unmistakable, where against a dark surround they merged with it. */
 
 .listing {
   min-height: 100vh;
@@ -19,35 +17,35 @@
 
 .listing-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 24px;
-  background: var(--cream);
-  border-bottom: 1px solid var(--line);
+  padding: 20px 24px 16px;
+  border-bottom: var(--line-w) solid var(--ink-barely);
 }
-/* Set in caps, so it takes positive tracking rather than the tight negative
-   the lowercase heading wanted, and is allowed to wrap on a narrow window
-   rather than forcing the header wider than the screen. */
+.listing-head .eyebrow { margin: 0 0 6px; }
 .listing-head h1 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-wrap: balance;
+  font-family: var(--disp);
+  font-weight: 400;
+  font-size: 2.6rem;
+  line-height: 0.8;
+  text-transform: uppercase;
 }
 .listing-elsewhere {
-  font-size: 13px;
-  color: var(--teal);
-  text-decoration: none;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  text-underline-offset: 3px;
 }
-.listing-elsewhere:hover { text-decoration: underline; }
 
+/* Stretch, so the stage's paper runs to the bottom of the window rather than
+   stopping under the artboard and leaving a seam. */
 .listing-body {
   flex: 1;
   display: flex;
-  align-items: flex-start;
-  gap: 0;
+  align-items: stretch;
 }
 
 /* ---- stage ---- */
@@ -58,42 +56,66 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 24px 48px;
-  background: var(--cream);
+  padding: 32px 24px 48px;
+}
+.listing-frame {
+  position: relative;
+  width: min(540px, 100%);
+  line-height: 0;
 }
 .listing-canvas {
-  width: min(540px, 100%);
-  max-height: calc(100vh - 140px);
-  border-radius: 4px;
-  /* Light enough not to read as a card. The artboard is navy-heavy and sits on
-     cream, so it needs separating from the page, not lifting off it. */
-  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 160px);
+  /* No shadow - the artboard is held by a line, like everything else. An
+     outline, so the box the pointer maths measures does not change. */
+  outline: var(--line-w) solid var(--ink-clearly);
   /* The photo is dragged and pinched on this surface, so the browser must not
      claim the gesture for panning, and a text selection dragged out of it is
      never what anyone meant. */
   touch-action: none;
   user-select: none;
 }
+
+/* The empty photo band, as a place to put a photo rather than a navy block. */
+.listing-empty {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.listing-empty .btn { pointer-events: none; }
+.listing-empty:hover .btn { transform: scale(1.04); }
+
 /* ---- panel ---- */
 
 .listing-panel {
-  width: 340px;
+  width: 360px;
   flex: none;
   position: sticky;
   top: 0;
+  align-self: flex-start;
   max-height: 100vh;
   overflow-y: auto;
   padding: 24px 24px 48px;
-  background: var(--cream);
-  border-left: 1px solid var(--line);
+  background: var(--card-fill);
+  border-left: var(--line-w) solid var(--ink-barely);
 }
-.listing-panel section { margin-bottom: 26px; }
+.listing-panel section { margin-bottom: 24px; }
 .listing-panel h2 {
-  margin: 0 0 10px;
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  margin: 0 0 8px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.55;
+  color: var(--olive-ink);
 }
 
 .listing-row {
@@ -105,33 +127,36 @@
 .listing-spread { justify-content: space-between; }
 .listing-spread h2 { margin: 0; }
 
+/* Every button in the panel is a pill unless it says otherwise. */
 .listing-panel button {
-  font: inherit;
-  font-size: 13px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--charcoal);
-  cursor: pointer;
-}
-.listing-panel button:hover { border-color: #b9b099; }
-.listing-panel button.listing-on {
-  background: var(--teal);
-  border-color: var(--teal);
-  color: var(--cream);
-}
-.listing-panel button.listing-quiet {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 4px 12px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--ink);
   background: transparent;
-  opacity: 0.7;
+  border: var(--line-w) solid var(--ink-clearly);
+  border-radius: var(--r-btn);
 }
-.listing-panel button:disabled { opacity: 0.45; cursor: default; }
+.listing-panel button:hover:not(:disabled) { background: var(--ink-barely); }
+.listing-panel button.listing-on { background: var(--sage); border-color: var(--ink); }
+.listing-panel button.listing-quiet {
+  min-height: 0;
+  padding: 4px 0;
+  border-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.listing-panel button.listing-quiet:hover { background: transparent; }
+.listing-panel button:disabled { opacity: 0.45; }
 
 .listing-choices {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 /* The real input is driven by its own button, so it is hidden rather than
@@ -140,87 +165,85 @@
 
 .listing-filename {
   margin: 8px 0 4px;
-  font-size: 12px;
-  opacity: 0.6;
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  color: var(--ink-soft);
   overflow-wrap: anywhere;
 }
 
 .listing-slider {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 10px 0;
-  font-size: 12px;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.7;
+  color: var(--ink-soft);
 }
-.listing-slider input { flex: 1; min-width: 0; }
+.listing-slider input { flex: 1; min-width: 0; accent-color: var(--leaf); }
 
-.listing-block textarea {
+.listing-block textarea,
+.listing-text {
   display: block;
   width: 100%;
-  margin: 4px 0 8px;
-  padding: 9px 11px;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.45;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  resize: vertical;
+  padding: 10px 12px;
+  font-size: var(--fs-body);
+  color: var(--charcoal);
+  background: var(--field);
+  border: var(--line-w) solid var(--ink-nearly);
+  border-radius: var(--r-field);
 }
+.listing-block textarea { margin: 4px 0 8px; line-height: 1.4; resize: vertical; }
+.listing-text { margin: 0; }
+.listing-block textarea:focus,
+.listing-text:focus { outline: none; border-color: var(--rust); }
 
-.listing-go {
+/* The one thing to press. */
+.listing-panel .listing-go {
   width: 100%;
-  padding: 13px !important;
-  font-size: 14px !important;
-  background: var(--charcoal) !important;
-  border-color: var(--charcoal) !important;
-  color: var(--cream) !important;
+  justify-content: center;
+  min-height: 2.875rem;
+  font-size: var(--fs-body);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  background: var(--mustard);
+  border-color: var(--charcoal);
+  transition: transform 0.12s ease;
 }
-.listing-go:disabled { opacity: 0.45; }
+.listing-panel .listing-go:hover:not(:disabled) { background: var(--mustard); transform: scale(1.02); }
 
 .listing-note {
-  margin: 10px 0 0;
-  font-size: 12px;
-  opacity: 0.7;
+  margin: 8px 0 0;
+  font-size: var(--fs-small);
+  color: var(--ink-soft);
 }
 .listing-warn {
-  margin: 0 0 18px;
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  border: 1px solid #c0583833;
-  border-radius: 6px;
-  background: #c058381a;
-}
-
-@media (max-width: 900px) {
-  .listing-body { flex-direction: column; }
-  .listing-panel {
-    position: static;
-    width: 100%;
-    max-height: none;
-    border-left: none;
-    border-top: 1px solid var(--line);
-  }
-  .listing-stage { width: 100%; padding: 20px 16px 32px; }
-  .listing-canvas { max-height: none; }
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--red);
+  border: var(--line-w) solid var(--red);
+  border-radius: var(--r-field);
 }
 
 .listing-readout {
   min-width: 46px;
   text-align: right;
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
-  opacity: 0.85;
 }
 
 /* The drop target is the stage, not the canvas: a file dragged over a graphic
-   is aimed at the picture, and a 540px target inside a much larger dark area is
-   a needlessly precise thing to ask of a drag. */
+   is aimed at the picture, and a 540px target inside a much larger area is a
+   needlessly precise thing to ask of a drag. */
 .listing-dropping {
-  outline: 2px dashed var(--teal);
+  outline: var(--line-w) dashed var(--rust);
   outline-offset: -10px;
 }
 
@@ -230,15 +253,25 @@
 .listing-canvas.listing-grabbable { cursor: grab; }
 .listing-canvas.listing-grabbable:active { cursor: grabbing; }
 
-/* Same field as the address's textarea, one line high. */
-.listing-text {
-  display: block;
-  width: 100%;
-  margin: 2px 0 0;
-  padding: 9px 11px;
-  font: inherit;
-  font-size: 13px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
+@media (max-width: 900px) {
+  .listing-head { padding: 16px; }
+  .listing-head h1 { font-size: 2.2rem; }
+  .listing-body { flex-direction: column; }
+  .listing-panel {
+    position: static;
+    width: 100%;
+    max-height: none;
+    padding: 20px 16px calc(40px + env(safe-area-inset-bottom, 0px));
+    border-left: none;
+    border-top: var(--line-w) solid var(--ink-barely);
+  }
+  .listing-stage { width: 100%; padding: 20px 16px 24px; }
+  .listing-canvas { max-height: none; }
+  .listing-panel button { min-height: 2.5rem; }
+  /* 16px so iOS does not zoom the page when a field takes focus. */
+  .listing-block textarea, .listing-text { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listing-panel .listing-go, .listing-empty .btn { transition: none; }
 }

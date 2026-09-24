@@ -89,7 +89,9 @@ import {
   loadFormats,
   saveFormats,
 } from "./formats.ts";
+import "./tokens.css";
 import "./studio.css";
+import { Icon } from "./Icon.tsx";
 
 const EMPTY: DesignContent = { layers: [] };
 
@@ -131,10 +133,9 @@ const contentOf = (d: Doc, formatKey: string): DesignContent => ({
  *
  * The panel grew a lot when layers arrived, and a single column of eleven
  * headings is a scroll you have to read every time to find the one control you
- * came for. So the WORKING AREA stays open at the top - add, the selected
- * thing, the layer list - and everything that is a setting rather than an
- * action folds away. Content and Format stay open because they are the two you
- * touch on every single asset. */
+ * came for. So the WORKING AREA stays open at the top - the selected thing,
+ * format, add, the layer list - and everything that is a setting rather than
+ * an action folds away. */
 function Section({
   title,
   open,
@@ -199,13 +200,27 @@ const COARSE =
 /* One element aligns to the artboard; several align to each other. Same six
  * buttons either way - see alignTo. */
 const ALIGNS = [
-  ["left", "⇤", "Align left"],
-  ["cx", "↔", "Centre across"],
-  ["right", "⇥", "Align right"],
-  ["top", "⇡", "Align top"],
-  ["cy", "↕", "Centre down"],
-  ["bottom", "⇣", "Align bottom"],
+  ["left", "align-left", "Align left"],
+  ["cx", "align-cx", "Centre across"],
+  ["right", "align-right", "Align right"],
+  ["top", "align-top", "Align top"],
+  ["cy", "align-cy", "Centre down"],
+  ["bottom", "align-bottom", "Align bottom"],
 ] as const;
+
+type Edge = (typeof ALIGNS)[number][0];
+
+function Aligns({ onAlign }: { onAlign: (edge: Edge) => void }) {
+  return (
+    <div className="aligns">
+      {ALIGNS.map(([edge, icon, title]) => (
+        <button key={edge} type="button" className="icon" aria-label={title} title={title} onClick={() => onAlign(edge)}>
+          <Icon name={icon} />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function App() {
   /* Content is a SHARED base plus per-format overrides, resolved at render, and
@@ -1070,107 +1085,29 @@ export default function App() {
   return (
     <div className="studio">
       <aside className="panel">
-        <div className="head">
-          <div>
-            <h1>Social ad</h1>
-            <p className="sub">Pick a format. Switch any time.</p>
-          </div>
-          <div className="tools">
-            <button
-              type="button"
-              className="tool"
-              title="Undo (cmd-Z)"
-              disabled={!canUndo(hist)}
-              onClick={doUndo}
-            >
-              &#8630;
-            </button>
-            <button
-              type="button"
-              className="tool"
-              title="Redo (cmd-shift-Z)"
-              disabled={!canRedo(hist)}
-              onClick={doRedo}
-            >
-              &#8631;
-            </button>
-          </div>
-        </div>
+        <header className="head">
+          <p className="eyebrow">StudioLand</p>
+          <h1>Social ad</h1>
+        </header>
 
-        <h2>Add</h2>
-        <div className="row">
-          <button type="button" className="ghost" onClick={() => addNew(newText({ color: colorway.ink }))}>
-            Text
-          </button>
-          {SHAPES.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              className="ghost"
-              onClick={() => addNew(newShape(s.key, s.key === "starburst" ? { fill: colorway.ctas[0] } : {}))}
-            >
-              {s.label}
-            </button>
-          ))}
-          <button type="button" className="ghost" onClick={() => fileRef.current?.click()}>
-            Upload image
-          </button>
-        </div>
-        {/* The brand's own artwork, added the same way as anything else. BUZZ
-            and the wordmark used to be slots the template owned; they are files
-            now, and the only thing that still knows one of them is special is
-            the wordmark's minimum size, which belongs to the artwork. */}
-        <div className="row">
-          {BRAND_ASSETS.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              className="ghost"
-              onClick={() => void placeImage(a.key, "brand", a.label)}
-            >
-              {a.label}
-            </button>
-          ))}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(e) => {
-              if (e.target.files?.length) void takeFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-        </div>
-        <p className="hint">
-          Everything on the artboard is a layer &mdash; dragged, resized, rotated, stacked, given
-          its own paper, and deleted. There are no special pieces: BUZZ and the wordmark are
-          artwork you add, the headline is text you type, the badge is a shape. Nothing here knows
-          which is which.
-        </p>
-
+        {/* Whatever is selected comes first: it is what you are working on,
+            and the panel above it would otherwise push it out of reach. */}
         {selection.length > 1 && (
-          <>
-            <h2>
+          <section className="block inspector">
+            <h2 className="sel">
               {selection.length} selected
-              <button type="button" className="undo" title="Deselect (esc)" onClick={() => setSelection([])}>
-                done
+              <button type="button" className="done" title="Deselect (esc)" onClick={() => setSelection([])}>
+                Done
               </button>
             </h2>
-            <div className="aligns">
-              {ALIGNS.map(([edge, glyph, title]) => (
-                <button key={edge} type="button" className="ghost" title={title} onClick={() => alignTo(edge)}>
-                  {glyph}
-                </button>
-              ))}
-            </div>
+            <h3 className="eyebrow">Align to each other</h3>
+            <Aligns onAlign={alignTo} />
             {selection.length > 2 && (
               <div className="row">
-                <button type="button" className="ghost" onClick={() => distribute("x")}>
+                <button type="button" className="btn ghost small" onClick={() => distribute("x")}>
                   Space across
                 </button>
-                <button type="button" className="ghost" onClick={() => distribute("y")}>
+                <button type="button" className="btn ghost small" onClick={() => distribute("y")}>
                   Space down
                 </button>
               </div>
@@ -1178,51 +1115,40 @@ export default function App() {
             <div className="row">
               <button
                 type="button"
-                className="ghost"
+                className="btn ghost small"
                 onClick={() => duplicateMany(selection.filter((id) => findLayer(content.layers, id)))}
               >
                 Duplicate
               </button>
               <button
                 type="button"
-                className="ghost"
+                className="btn ghost small danger"
                 onClick={() => dropMany(selection.filter((id) => findLayer(content.layers, id)))}
               >
                 Delete
               </button>
             </div>
-            <p className="hint">
-              Align and spacing work on the selection&rsquo;s own bounds when there is more than one
-              thing in it &mdash; aligning six things to the artboard&rsquo;s left margin would stack
-              them on top of each other. Duplicate and delete skip the template&rsquo;s five, which
-              are part of the composition rather than things you added.
-            </p>
-          </>
+          </section>
         )}
 
         {selected && (
-          <>
-            <h2>
+          <section className="block inspector">
+            <h2 className="sel">
               {selectedLabel}
               {active && (
                 <button
                   type="button"
-                  className="undo"
+                  className="done"
                   title="Deselect (esc)"
                   onClick={() => setSelected(null)}
                 >
-                  done
+                  Done
                 </button>
               )}
             </h2>
 
-            <div className="aligns">
-              {ALIGNS.map(([edge, glyph, title]) => (
-                <button key={edge} type="button" className="ghost" title={title} onClick={() => alignTo(edge)}>
-                  {glyph}
-                </button>
-              ))}
-            </div>
+            <h3 className="eyebrow">Align to the artboard</h3>
+            <Aligns onAlign={alignTo} />
 
             {active?.kind === "text" && (
               <>
@@ -1248,12 +1174,12 @@ export default function App() {
                     ))}
                   </select>
                 </label>
-                <div className="modes small">
+                <div className="pills">
                   {(["left", "center", "right"] as const).map((a) => (
                     <button
                       key={a}
                       type="button"
-                      className={active.align === a ? "mode on" : "mode"}
+                      className={active.align === a ? "pill on" : "pill"}
                       onClick={() => patchLayer(active.id, { align: a })}
                     >
                       {a === "left" ? "Left" : a === "center" ? "Centre" : "Right"}
@@ -1362,34 +1288,36 @@ export default function App() {
 
             {active?.kind === "image" && (
               <>
-                <div className="row">
+                <span className="lbl">Flip</span>
+                <div className="pills">
                   <button
                     type="button"
-                    className={active.flipX ? "ghost on" : "ghost"}
+                    className={active.flipX ? "pill on" : "pill"}
                     onClick={() => patchLayer(active.id, { flipX: !active.flipX })}
                   >
                     Flip across
                   </button>
                   <button
                     type="button"
-                    className={active.flipY ? "ghost on" : "ghost"}
+                    className={active.flipY ? "pill on" : "pill"}
                     onClick={() => patchLayer(active.id, { flipY: !active.flipY })}
                   >
                     Flip down
                   </button>
                 </div>
                 <span className="lbl">Background</span>
-                <div className="row">
+                <div className="pills">
                   <button
                     type="button"
-                    className={active.cutout ? "ghost" : "ghost on"}
+                    className={active.cutout ? "pill" : "pill on"}
                     onClick={() => patchLayer(active.id, { cutout: null })}
                   >
                     Keep
                   </button>
                   <button
                     type="button"
-                    className={active.cutout ? "ghost on" : "ghost"}
+                    className={active.cutout ? "pill on" : "pill"}
+                    title="Floods in from the edges: for a plain backdrop, not a cluttered room."
                     onClick={() => patchLayer(active.id, { cutout: active.cutout ?? DEFAULT_CUTOUT })}
                   >
                     Remove
@@ -1429,19 +1357,13 @@ export default function App() {
                         }
                       />
                     </label>
-                    <p className="hint">
-                      It floods in from the edges, so it only takes background that is
-                      <em> connected to the border</em> &mdash; a white shirt against a white wall
-                      keeps the shirt. It has no idea what a person is, though: a plain backdrop is
-                      what it is for, and a cluttered room is not something more tolerance will fix.
-                    </p>
                   </>
                 )}
                 <span className="lbl">Crop</span>
-                <div className="row">
+                <div className="pills">
                   <button
                     type="button"
-                    className={active.frameH === null ? "ghost on" : "ghost"}
+                    className={active.frameH === null ? "pill on" : "pill"}
                     /* Dropping the frame keeps the width, so the artwork springs
                        back to its own shape rather than to some remembered one. */
                     onClick={() => patchLayer(active.id, { frameH: null })}
@@ -1455,8 +1377,8 @@ export default function App() {
                       className={
                         active.frameH !== null &&
                         Math.abs(active.frameH / active.w - c.ratio) < 0.01
-                          ? "ghost on"
-                          : "ghost"
+                          ? "pill on"
+                          : "pill"
                       }
                       onClick={() => patchLayer(active.id, { frameH: active.w * c.ratio })}
                     >
@@ -1502,11 +1424,6 @@ export default function App() {
                         }
                       />
                     </label>
-                    <p className="hint">
-                      The artwork fills the frame and is cropped, never squashed. Focus picks which
-                      part of it sits in the middle; it stops where the frame would start showing
-                      through, so a crop always stays filled. The side handles reshape the frame.
-                    </p>
                   </>
                 )}
               </>
@@ -1515,6 +1432,11 @@ export default function App() {
             {active && active.kind !== "text" && (
               <label>
                 Size
+                {floorFor(active) > 0 && (
+                  <em className="floor mono" title="Below this the arrow-I signpost stops reading.">
+                    min {Math.round(floorFor(active) * 100)}%
+                  </em>
+                )}
                 <input
                   type="range"
                   min={Math.max(1, Math.round(floorFor(active) * 100))}
@@ -1522,13 +1444,6 @@ export default function App() {
                   value={Math.round(manip.scale(selected!) * 100)}
                   onChange={(e) => manip.setScale(selected!, Number(e.target.value) / 100)}
                 />
-                {floorFor(active) > 0 && (
-                  <em className="floor">
-                    Stops at {Math.round(floorFor(active) * 100)}% &mdash; below that the arrow-I
-                    signpost stops reading. That is a rule about this artwork, so it holds wherever
-                    the mark is used.
-                  </em>
-                )}
               </label>
             )}
             <label>
@@ -1554,40 +1469,38 @@ export default function App() {
               </label>
             )}
             {selectedRegion && (
-              <p className="hint">
+              <p
+                className="hint readout mono"
+                title="Arrow keys nudge a pixel, shift ten. Hold alt while dragging to ignore the guides."
+              >
                 {Math.round(selectedRegion.w)} &times; {Math.round(selectedRegion.h)}px at{" "}
-                {pct(selectedRegion.cx / format.w)}%, {pct(selectedRegion.cy / format.h)}%. Arrow keys
-                nudge a pixel, shift ten. Hold alt while dragging to ignore the guides.
+                {pct(selectedRegion.cx / format.w)}%, {pct(selectedRegion.cy / format.h)}%
               </p>
             )}
 
             {active && (
               <>
                 <span className="lbl">Paper</span>
-                <div className="modes small">
+                <div className="pills paper">
                   {GRAIN_MODES.map((m) => (
                     <button
                       key={m.key}
                       type="button"
                       title={m.why}
-                      className={active.grain === m.key ? "mode on" : "mode"}
+                      className={active.grain === m.key ? "pill on" : "pill"}
                       onClick={() => patchLayer(active.id, { grain: m.key })}
                     >
                       {m.label}
                     </button>
                   ))}
                 </div>
-                <p className="hint">
-                  It is the sheet&rsquo;s own grain either way, anchored to the artboard &mdash; so
-                  a patch of it on this element lines up with the paper beside it rather than
-                  reading as a texture stuck on top.
-                </p>
               </>
             )}
 
             {canInk && (
               <>
-                <div className="modes small">
+                <span className="lbl">Ink</span>
+                <div className="pills">
                   {(
                     [
                       [null, "Default"],
@@ -1599,33 +1512,185 @@ export default function App() {
                     <button
                       key={label}
                       type="button"
-                      className={active!.ink === mode ? "mode on" : "mode"}
+                      className={active!.ink === mode ? "pill on" : "pill"}
                       onClick={() => patchLayer(active!.id, { ink: mode })}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
-                <p className="hint">Ink for this element. Default follows the setting below.</p>
               </>
             )}
 
             {active && (
               <div className="row">
-                <button type="button" className="ghost" onClick={() => duplicateMany([active.id])}>
+                <button type="button" className="btn ghost small" onClick={() => duplicateMany([active.id])}>
                   Duplicate
                 </button>
-                <button type="button" className="ghost" onClick={() => dropLayer(active.id)}>
+                <button type="button" className="btn ghost small danger" onClick={() => dropLayer(active.id)}>
                   Delete
                 </button>
               </div>
             )}
-          </>
+          </section>
         )}
 
+
+        <section className="block">
+          <h2 className="eyebrow">Format</h2>
+          <div className="pills formats">
+            {formats.map((f) => (
+              <span className="fmt-row" key={f.key}>
+                <button
+                  type="button"
+                  className={f.key === format.key ? "pill on" : "pill"}
+                  title={`${f.w} × ${f.h} · ${f.where}`}
+                  onClick={() => setFormat(f)}
+                >
+                  {f.label}
+                  {doc.overrides[f.key] && <i className="dot" title="Has its own changes" />}
+                </button>
+                {isCustom(f) && (
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label={`Remove ${f.label}`}
+                    title={`Remove ${f.label}${doc.overrides[f.key] ? " and the changes made in it" : ""}`}
+                    onClick={() => removeSize(f)}
+                  >
+                    <Icon name="x" />
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+          <details className="adder">
+            <summary>Add a size</summary>
+            <div className="row">
+              <input
+                placeholder="What it is for"
+                value={newSize.label}
+                onChange={(e) => setNewSize((n) => ({ ...n, label: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addSize();
+                }}
+              />
+            </div>
+            <div className="row">
+              <input
+                className="side"
+                inputMode="numeric"
+                aria-label="Width in pixels"
+                value={newSize.w}
+                onChange={(e) => setNewSize((n) => ({ ...n, w: e.target.value }))}
+              />
+              <span className="by">&times;</span>
+              <input
+                className="side"
+                inputMode="numeric"
+                aria-label="Height in pixels"
+                value={newSize.h}
+                onChange={(e) => setNewSize((n) => ({ ...n, h: e.target.value }))}
+              />
+              <button type="button" className="btn ghost small" onClick={addSize}>
+                Add
+              </button>
+            </div>
+            {sizeError && <p className="hint bad">{sizeError}</p>}
+          </details>
+
+          <h3 className="eyebrow">Changes apply to</h3>
+          <div className="pills scope" data-scope={scope}>
+            <button
+              type="button"
+              className={scope === "all" ? "pill on" : "pill"}
+              onClick={() => setScope("all")}
+            >
+              All formats
+            </button>
+            <button
+              type="button"
+              className={scope === "format" ? "pill on" : "pill"}
+              onClick={() => setScope("format")}
+            >
+              {format.label} only
+            </button>
+          </div>
+          {scope === "format" && (
+            <p className="hint warn">
+              <strong>{format.label}</strong> has its own layers.
+            </p>
+          )}
+          <div className="row">
+            <button
+              type="button"
+              className="btn ghost small"
+              title="Lay out the standard social ad for this shape. Replaces the artboard; one undo."
+              onClick={standardArrangement}
+            >
+              Standard arrangement
+            </button>
+            {doc.overrides[format.key] && (
+              <button type="button" className="btn ghost small" onClick={resetFormat}>
+                Reset to shared
+              </button>
+            )}
+          </div>
+        </section>
+
+        <section className="block">
+          <h2 className="eyebrow">Add</h2>
+          <div className="pills">
+            <button type="button" className="pill" onClick={() => addNew(newText({ color: colorway.ink }))}>
+              Text
+            </button>
+            {SHAPES.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                className="pill"
+                onClick={() => addNew(newShape(s.key, s.key === "starburst" ? { fill: colorway.ctas[0] } : {}))}
+              >
+                {s.label}
+              </button>
+            ))}
+            <button type="button" className="pill" onClick={() => fileRef.current?.click()}>
+              Upload image
+            </button>
+          </div>
+          {/* The brand's own artwork, added the same way as anything else. BUZZ
+              and the wordmark used to be slots the template owned; they are files
+              now, and the only thing that still knows one of them is special is
+              the wordmark's minimum size, which belongs to the artwork. */}
+          <h3 className="eyebrow">Brand</h3>
+          <div className="pills">
+            {BRAND_ASSETS.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                className="pill"
+                onClick={() => void placeImage(a.key, "brand", a.label)}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files?.length) void takeFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </section>
+
         {content.layers.length > 0 && (
-          <>
-            <h2>Layers</h2>
+          <section className="block">
+            <h2 className="eyebrow">Layers</h2>
             <ul className="layers">
               {/* Topmost first, because that is the order they sit in front of
                   you - the list reads down into the artboard. */}
@@ -1650,77 +1715,56 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    className="undo"
+                    className={l.hidden ? "icon off" : "icon"}
+                    aria-label={l.hidden ? "Show" : "Hide"}
                     title={l.hidden ? "Show" : "Hide"}
                     onClick={() => patchLayer(l.id, { hidden: !l.hidden })}
                   >
-                    {l.hidden ? "○" : "●"}
+                    <Icon name={l.hidden ? "hidden" : "eye"} />
                   </button>
                   <button
                     type="button"
-                    className="undo"
+                    className={l.locked ? "icon off" : "icon"}
+                    aria-label={l.locked ? "Unlock" : "Lock"}
                     title={l.locked ? "Unlock" : "Lock"}
                     onClick={() => patchLayer(l.id, { locked: !l.locked })}
                   >
-                    {l.locked ? "■" : "□"}
+                    <Icon name={l.locked ? "lock" : "unlock"} />
                   </button>
-                  <button type="button" className="undo" title="Bring forward (cmd-])" onClick={() => restack(l.id, 1)}>
-                    &uarr;
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label="Bring forward"
+                    title="Bring forward (cmd-])"
+                    onClick={() => restack(l.id, 1)}
+                  >
+                    <Icon name="up" />
                   </button>
-                  <button type="button" className="undo" title="Send back (cmd-[)" onClick={() => restack(l.id, -1)}>
-                    &darr;
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label="Send back"
+                    title="Send back (cmd-[)"
+                    onClick={() => restack(l.id, -1)}
+                  >
+                    <Icon name="down" />
                   </button>
-                  <button type="button" className="undo" title="Delete" onClick={() => dropLayer(l.id)}>
-                    &times;
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label="Delete"
+                    title="Delete"
+                    onClick={() => dropLayer(l.id)}
+                  >
+                    <Icon name="x" />
                   </button>
                 </li>
               ))}
             </ul>
-          </>
+          </section>
         )}
 
-        <Section title="Content" open>
-        <div className="scope" data-scope={scope}>
-          <button
-            type="button"
-            className={scope === "all" ? "sc on" : "sc"}
-            onClick={() => setScope("all")}
-          >
-            All formats
-          </button>
-          <button
-            type="button"
-            className={scope === "format" ? "sc on" : "sc"}
-            onClick={() => setScope("format")}
-          >
-            {format.label} only
-          </button>
-        </div>
-        {scope === "format" && (
-          <p className="hint warn">
-            <strong>{format.label}</strong> is carrying its own stack of layers. Everything else
-            keeps the shared one.
-          </p>
-        )}
-
-        <div className="row">
-          <button type="button" className="ghost" onClick={standardArrangement}>
-            Standard arrangement
-          </button>
-        </div>
-        <p className="hint">
-          Composes the standard social ad for this shape and hands it over as layers &mdash; a
-          headline, BUZZ, the wordmark, a badge. Nothing it makes is special afterwards: every
-          piece is an ordinary layer you can retype, restyle, move or delete. It replaces what is
-          on the artboard, and it is one undo.
-        </p>
-        <p className="hint">
-          Switching format re-scales what is here rather than re-composing it. Ask for the standard
-          arrangement again to get a layout worked out for the shape you are now in.
-        </p>
-
-        </Section>
-        <Section title="Color">
+        <Section title="Colour">
         <div className="swatches">
           {COLORWAYS.map((c) => (
             <button
@@ -1741,10 +1785,6 @@ export default function App() {
             </button>
           ))}
         </div>
-        <p className="hint">
-          Grounds, ink and action colors are paired for you. Alert Red is not offered on the warm
-          grounds &mdash; it measured 1.23:1 on rust, which is invisible.
-        </p>
         <label className="check">
           <input
             type="checkbox"
@@ -1753,33 +1793,20 @@ export default function App() {
           />
           <span>No ground &mdash; save with transparency</span>
         </label>
-        <p className="hint">
-          The ground goes unpainted and the PNG carries real alpha, for dropping onto someone
-          else&rsquo;s slide or a photograph. The colourway still picks the ink, because you are
-          still saying what the asset is <em>for</em> &mdash; you are only declining to paint the
-          field behind it.{" "}
-          {doc.transparent && (
-            <strong>
-              MP4 has no transparency anywhere in the browser, so the video export paints the ground
-              back in.
-            </strong>
-          )}
-        </p>
+        {doc.transparent && <p className="hint warn">The MP4 paints the ground back in.</p>}
         {/* The colourway pairs ink TO A GROUND. Take the ground away and that
             pairing is still doing its job, but against whatever the asset gets
             dropped onto - which is usually pale. Worth saying at the moment it
             becomes true rather than leaving it to be discovered in a deck. */}
         {doc.transparent && colorway.ink === "offwhite" && (
           <p className="hint warn">
-            This colourway inks in cream, which was chosen to sit on {colorway.label}. With no
-            ground behind it, it will disappear on anything pale. <strong>BUZZ Off-White</strong>{" "}
-            inks in charcoal and is the one to reach for here.
+            Cream ink vanishes on anything pale. <strong>BUZZ Off-White</strong> inks in charcoal.
           </p>
         )}
-
         </Section>
+
         <Section title="Ink">
-        <div className="modes">
+        <div className="pills">
           {(
             [
               ["off", "Off", "Straight machine edges."],
@@ -1791,35 +1818,28 @@ export default function App() {
               key={key}
               type="button"
               title={why}
-              className={doc.ink === key ? "mode on" : "mode"}
+              className={doc.ink === key ? "pill on" : "pill"}
               onClick={() => commit((d) => ({ ...d, ink: key }))}
             >
               {label}
             </button>
           ))}
         </div>
-        <p className="hint">
-          Same three states as the line in the CRM. <strong>Still is not the boil off</strong>
-          &mdash; it is one phase of it held, which is what a PNG should carry.
-        </p>
 
         {/* Paper sits with ink because they are the same kind of thing: how
             this was printed, rather than what is on it. */}
         <label>
           Paper
+          <em className="floor mono">{Math.round(doc.grain * 100)}%</em>
           <input
             type="range"
             min={0}
             max={60}
             value={Math.round(doc.grain * 100)}
+            title={`${Math.round(GRAIN_ALPHA * 100)}% is the measured recipe`}
             onChange={(e) => commit((d) => ({ ...d, grain: Number(e.target.value) / 100 }))}
           />
         </label>
-        <p className="hint">
-          The press grain over the whole sheet. {Math.round(GRAIN_ALPHA * 100)}% is the measured
-          recipe and where it starts; 0 takes the paper away entirely. Any layer can take more of it
-          or none of it &mdash; select one and look under Paper.
-        </p>
         </Section>
 
         <Section title="Motion">
@@ -1840,74 +1860,56 @@ export default function App() {
           />
           <span>Curtain wipe</span>
         </label>
-        <p className="hint">
-          Text never boils and BUZZ never warps &mdash; he gets a misregistered silhouette instead.
-          MP4 is {LOOP_FRAMES / FPS}s at {FPS}fps, looping, and the wipe only exists there.
+        <p className="mono">
+          MP4: {LOOP_FRAMES / FPS}s at {FPS}fps, looping
         </p>
-
         </Section>
+
         <Section title="Artwork">
         {uploads.length > 0 && (
-          <>
-            <div className="tray">
-              {uploads.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  className="chip"
-                  title={`${u.name} - click to place, shift-click to remove from this browser`}
-                  onClick={(e) => {
-                    if (e.shiftKey) {
-                      void deleteUpload(u.id).then(() => listUploads().then(setUploads));
-                      return;
-                    }
-                    void placeImage(u.id, "upload", u.name);
-                  }}
-                >
-                  {thumbs[u.id] ? <img src={thumbs[u.id]} alt="" /> : <span />}
-                </button>
-              ))}
-            </div>
-            <p className="hint">
-              Uploaded, so they live in this browser rather than in a folder &mdash; which is why
-              they work on the phone. Shift-click one to remove it.
-            </p>
-          </>
+          <div className="tray">
+            {uploads.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                className="chip"
+                title={`${u.name} - click to place, shift-click to remove from this browser`}
+                onClick={(e) => {
+                  if (e.shiftKey) {
+                    void deleteUpload(u.id).then(() => listUploads().then(setUploads));
+                    return;
+                  }
+                  void placeImage(u.id, "upload", u.name);
+                }}
+              >
+                {thumbs[u.id] ? <img src={thumbs[u.id]} alt="" /> : <span />}
+              </button>
+            ))}
+          </div>
         )}
         {!LIBRARY_SUPPORTED ? (
-          <p className="hint">
-            Reading a <em>folder</em> needs desktop Chrome or Edge &mdash; no mobile browser supports
-            it. Upload works everywhere.
-          </p>
+          <p className="hint">Folders need desktop Chrome or Edge. Upload works everywhere.</p>
         ) : !folder ? (
-          <>
-            <div className="row">
-              {saved && (
-                <button type="button" className="ghost" onClick={() => openLibrary(false)}>
-                  Reconnect &ldquo;{saved}&rdquo;
-                </button>
-              )}
-              <button type="button" className="ghost" onClick={() => openLibrary(true)}>
-                {saved ? "Change folder" : "Choose folder"}
+          <div className="row">
+            {saved && (
+              <button type="button" className="btn ghost small" onClick={() => openLibrary(false)}>
+                Reconnect &ldquo;{saved}&rdquo;
               </button>
-            </div>
-            <p className="hint">
-              Point this at a folder of your own arrows, stars and illustrations. Nothing in it is
-              read until you ask for it. Edit a file and save &mdash; the tool sees the new version,
-              because it holds a pointer to the folder rather than a copy of it.
-              {saved && " Chrome needs one click to restore access after a refresh."}
-            </p>
-          </>
+            )}
+            <button type="button" className="btn ghost small" onClick={() => openLibrary(true)}>
+              {saved ? "Change folder" : "Choose folder"}
+            </button>
+          </div>
         ) : (
           <>
             <div className="row">
               <span className="folder">{folder}</span>
-              <button type="button" className="ghost" onClick={() => openLibrary(true)}>
+              <button type="button" className="btn ghost small" onClick={() => openLibrary(true)}>
                 Change
               </button>
             </div>
             {lib.length === 0 ? (
-              <p className="hint">No images in that folder yet. PNG, WebP, JPEG, GIF or SVG.</p>
+              <p className="hint">No images in that folder. PNG, WebP, JPEG, GIF or SVG.</p>
             ) : (
               <div className="tray">
                 {lib.map((item) => (
@@ -1936,105 +1938,12 @@ export default function App() {
             {missingUploads > 0 && (
               <>{missingUploads} was uploaded into another browser, so it is not here. </>
             )}
-            Their place in the design is kept either way.
+            Their place in the design is kept.
           </p>
         )}
-
         </Section>
-        <Section title="Format" open>
-        <div className="formats">
-          {formats.map((f) => (
-            <div className="fmt-row" key={f.key}>
-              <button
-                type="button"
-                className={f.key === format.key ? "fmt on" : "fmt"}
-                onClick={() => setFormat(f)}
-              >
-                <strong>
-                  {f.label}
-                  {doc.overrides[f.key] && <i className="dot" title="Has its own changes" />}
-                </strong>
-                <span>{f.where}</span>
-                <em>
-                  {f.w} &times; {f.h}
-                </em>
-              </button>
-              {isCustom(f) && (
-                <button
-                  type="button"
-                  className="undo"
-                  title={`Remove ${f.label}${doc.overrides[f.key] ? " and the changes made in it" : ""}`}
-                  onClick={() => removeSize(f)}
-                >
-                  &times;
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <details className="adder">
-          <summary>Add a size</summary>
-          <div className="row">
-            <input
-              placeholder="What it is for"
-              value={newSize.label}
-              onChange={(e) => setNewSize((n) => ({ ...n, label: e.target.value }))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addSize();
-              }}
-            />
-          </div>
-          <div className="row">
-            <input
-              className="side"
-              inputMode="numeric"
-              aria-label="Width in pixels"
-              value={newSize.w}
-              onChange={(e) => setNewSize((n) => ({ ...n, w: e.target.value }))}
-            />
-            <span className="by">&times;</span>
-            <input
-              className="side"
-              inputMode="numeric"
-              aria-label="Height in pixels"
-              value={newSize.h}
-              onChange={(e) => setNewSize((n) => ({ ...n, h: e.target.value }))}
-            />
-            <button type="button" className="ghost" onClick={addSize}>
-              Add
-            </button>
-          </div>
-          {sizeError && <p className="hint bad">{sizeError}</p>}
-          <p className="hint">
-            Named for the job, like the rest &mdash; &ldquo;Client one-pager&rdquo;, not
-            &ldquo;1080&times;1350&rdquo;. The layout branches on the SHAPE, so a size you add
-            composes itself correctly without anything being written for it.
-          </p>
-        </details>
-        <div className="row" style={{ marginTop: 10 }}>
-          <button type="button" className="ghost" onClick={standardArrangement}>
-            Standard arrangement
-          </button>
-        </div>
-        {doc.overrides[format.key] ? (
-          <p className="hint">
-            <button type="button" className="undo" onClick={resetFormat}>
-              Reset {format.label} to shared
-            </button>
-          </p>
-        ) : (
-          <p className="hint">
-            A dot marks a format with changes of its own. Switching format re-lays out the same
-            content &mdash; it is not a crop, so nothing gets cut off or stranded.
-          </p>
-        )}
 
-        </Section>
         <Section title="Presets">
-        <p className="hint">
-          An arrangement and a look, without the words &mdash; the layout, sizes, ink, layers and
-          colour. Load one onto whatever copy you have open.
-        </p>
         <div className="row">
           <input
             placeholder="Name this arrangement"
@@ -2044,7 +1953,7 @@ export default function App() {
               if (e.key === "Enter") void savePresetNow();
             }}
           />
-          <button type="button" className="ghost" onClick={() => void savePresetNow()}>
+          <button type="button" className="btn ghost small" onClick={() => void savePresetNow()}>
             Save
           </button>
         </div>
@@ -2054,28 +1963,24 @@ export default function App() {
               <li key={pr.id}>
                 <button type="button" className="open" onClick={() => void applyPreset(pr.id)}>
                   <strong>{pr.name}</strong>
-                  <span>{new Date(pr.updated).toLocaleDateString()}</span>
+                  <span className="mono">{new Date(pr.updated).toLocaleDateString()}</span>
                 </button>
                 <button
                   type="button"
-                  className="undo"
+                  className="icon"
+                  aria-label="Delete this preset"
                   title="Delete this preset"
                   onClick={() => void removePreset(pr.id)}
                 >
-                  &times;
+                  <Icon name="x" />
                 </button>
               </li>
             ))}
           </ul>
         )}
-
         </Section>
+
         <Section title="Designs">
-        <p className="hint">
-          Your work is kept as you go, so a reload costs nothing. Save it under a name to come back
-          to it later. Star one and it is what opens on a blank start &mdash; a fresh browser, or
-          after clearing this one &mdash; instead of the standard arrangement.
-        </p>
         <div className="row">
           <input
             placeholder="Name this design"
@@ -2085,7 +1990,7 @@ export default function App() {
               if (e.key === "Enter") void doSave();
             }}
           />
-          <button type="button" className="ghost" onClick={() => void doSave()}>
+          <button type="button" className="btn ghost small" onClick={() => void doSave()}>
             Save
           </button>
         </div>
@@ -2096,11 +2001,12 @@ export default function App() {
               <li key={d.id}>
                 <button type="button" className="open" onClick={() => void doLoad(d.id)}>
                   <strong>{d.name}</strong>
-                  <span>{new Date(d.updated).toLocaleDateString()}</span>
+                  <span className="mono">{new Date(d.updated).toLocaleDateString()}</span>
                 </button>
                 <button
                   type="button"
-                  className={d.id === startId ? "undo on" : "undo"}
+                  className={d.id === startId ? "icon on" : "icon"}
+                  aria-label={d.id === startId ? "Stop opening this on a blank start" : "Open this on a blank start"}
                   title={
                     d.id === startId
                       ? "Opens on a blank start. Click to stop."
@@ -2112,15 +2018,16 @@ export default function App() {
                     void setStartDesign(next);
                   }}
                 >
-                  {d.id === startId ? "★" : "☆"}
+                  <Icon name="star" filled={d.id === startId} />
                 </button>
                 <button
                   type="button"
-                  className="undo"
+                  className="icon"
+                  aria-label="Delete this design"
                   title="Delete this design"
                   onClick={() => void doDelete(d.id)}
                 >
-                  &times;
+                  <Icon name="x" />
                 </button>
               </li>
             ))}
@@ -2165,6 +2072,30 @@ export default function App() {
             onRegions={setRegions}
             manip={manip}
             onHeld={COARSE ? setHeld : null}
+            tools={
+              <>
+                <button
+                  type="button"
+                  className="btn ghost small icon-btn"
+                  aria-label="Undo"
+                  title="Undo (cmd-Z)"
+                  disabled={!canUndo(hist)}
+                  onClick={doUndo}
+                >
+                  <Icon name="undo" />
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost small icon-btn"
+                  aria-label="Redo"
+                  title="Redo (cmd-shift-Z)"
+                  disabled={!canRedo(hist)}
+                  onClick={doRedo}
+                >
+                  <Icon name="redo" />
+                </button>
+              </>
+            }
           />
         </div>
       </main>

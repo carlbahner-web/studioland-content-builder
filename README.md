@@ -22,6 +22,28 @@ npm run build:listing   # the listing builder alone, as one file (the artifact c
 Chrome or Edge. The MP4 export needs WebCodecs and the artwork folder needs the
 File System Access API; neither has a fallback and both say so in the UI.
 
+## The chrome
+
+Both tools wear Homegrown's clothes (`carlbahner-web/ss-frontend`,
+`src/styles/tokens.css`), so the builders read as the same family as the CRM.
+`src/tokens.css` is the whole of it: DM Sans for anything read or pressed,
+DWFairfield uppercase for headings only, DM Mono for numbers, 2px lines in
+charcoal at a strength per job, sage for a choice that is on, mustard for the
+one thing to press, and no shadows. None of it touches the canvas; the artwork
+keeps its own palette in `brand.ts` and TAY Wingman stays where it belongs, on
+the graphic.
+
+Two of Homegrown's rules came with it. **No explanatory copy** — no helper
+paragraphs under controls, only the words on a control, an error that says
+how to fix it, and a warning at the moment it becomes true; anything longer
+is a tooltip. And **every icon button has a name** (`aria-label` and a
+title), because an icon is a shorthand, not the only label a control has.
+
+One thing did not come across: Homegrown draws every edge as a hand-drawn SVG
+line (`Wobble.tsx`). Here an edge is a plain 2px line in the same inks, at the
+same weight — the documented fallback. Porting the wobble is the next step if
+the chrome should match exactly.
+
 ## Where it came from
 
 It was prototyped inside the CRM repo (`carlbahner-web/ss-frontend`, branch

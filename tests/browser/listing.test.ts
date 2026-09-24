@@ -705,11 +705,26 @@ test("on a touch device the export offers the image to press and hold", async ()
 
 test("on a desktop the export downloads and shows no press-and-hold sheet", async () => {
   const t = await openTool();
+  await uploadPhoto(t, "#ff00ff");
   const wait = t.page.waitForEvent("download", { timeout: 20_000 });
   await t.page.getByRole("button", { name: /Download/ }).click();
   await wait;
   await t.page.waitForTimeout(300);
   assert.equal(await t.page.locator(".held").count(), 0);
+  clean(t);
+  await t.close();
+});
+
+/* With no photo the band is a flat navy block, and a post exported like that
+ * is a listing with no house in it. So the band asks for the photo, and the
+ * export waits for one. */
+test("with no photo the band asks for one and the export waits", async () => {
+  const t = await openTool();
+  assert.equal(await t.page.getByRole("button", { name: /Download/ }).isDisabled(), true);
+  assert.equal(await t.page.locator(".listing-empty").count(), 1);
+  await uploadPhoto(t, "#ff00ff");
+  assert.equal(await t.page.locator(".listing-empty").count(), 0);
+  assert.equal(await t.page.getByRole("button", { name: /Download/ }).isDisabled(), false);
   clean(t);
   await t.close();
 });

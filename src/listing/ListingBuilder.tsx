@@ -20,11 +20,12 @@ import {
   containZoom,
   zoomAt,
 } from "./template.ts";
-import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
+import type { PhotoFit, Point, TextBlock } from "./template.ts";
 import { addressBlock, badgeBlock, emptyDoc, withLayout } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
 import type { Art } from "./draw.ts";
+import "../tokens.css";
 import "./listing.css";
 
 /* A programmatic download is not reliable everywhere, and this tool is used
@@ -399,7 +400,10 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
         </div>
       )}
       <header className="listing-head">
-        <h1>ANGELA RERA - LISTING POST BUILDER</h1>
+        <div>
+          <p className="eyebrow">Angela Rera</p>
+          <h1>Listing post</h1>
+        </div>
         {/* Nothing on the right in the one-file build. In the routed build the
             link stays, because it is the only way back to the other tool. */}
         {!standalone && (
@@ -427,15 +431,30 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
             onPickPhoto(e.dataTransfer.files?.[0]);
           }}
         >
-          <canvas
-            ref={canvasRef}
-            className={`listing-canvas${doc.photo ? " listing-grabbable" : ""}`}
-            style={{ aspectRatio: `${CANVAS.w} / ${CANVAS.h}` }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={endPointer}
-            onPointerCancel={endPointer}
-          />
+          <div className="listing-frame">
+            <canvas
+              ref={canvasRef}
+              className={`listing-canvas${doc.photo ? " listing-grabbable" : ""}`}
+              style={{ aspectRatio: `${CANVAS.w} / ${CANVAS.h}` }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={endPointer}
+              onPointerCancel={endPointer}
+            />
+            {/* With no photo the band is a flat navy block, which reads as a
+                broken image rather than a place to put one. Sized to the band
+                (PHOTO_BAND) so it sits exactly where the photo will. */}
+            {!doc.photo && (
+              <button
+                type="button"
+                className="listing-empty"
+                style={{ height: `${(PHOTO_BAND.h / CANVAS.h) * 100}%` }}
+                onClick={() => fileRef.current?.click()}
+              >
+                <span className="btn">Add the house photo</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="listing-panel">
@@ -588,19 +607,6 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
                 spellCheck={false}
                 onChange={(e) => patchBlock("address", { text: e.target.value })}
               />
-              <div className="listing-choices">
-                {(["left", "center", "right"] as TextAlign[]).map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    aria-pressed={address.align === a}
-                    className={address.align === a ? "listing-on" : ""}
-                    onClick={() => patchBlock("address", { align: a })}
-                  >
-                    {a}
-                  </button>
-                ))}
-              </div>
               <div className="listing-row">
                 <button
                   type="button"
@@ -618,9 +624,9 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
               type="button"
               className="listing-go"
               onClick={download}
-              disabled={busy || !ready}
+              disabled={busy || !ready || !doc.photo}
             >
-              {busy ? "Exporting…" : `Download ${CANVAS.w}×${CANVAS.h} PNG`}
+              {busy ? "Exporting…" : "Download PNG"}
             </button>
             {note && <p className="listing-note">{note}</p>}
           </section>

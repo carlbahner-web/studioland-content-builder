@@ -179,7 +179,7 @@ export async function open(opts: { keepStorage?: boolean } = {}): Promise<Editor
       return (await el.count()) ? ((await el.textContent()) ?? "") : null;
     },
     selection: async () =>
-      ((await page.locator(".panel h2").nth(1).textContent()) ?? "").replace("done", "").trim(),
+      ((await page.locator(".panel h2.sel").first().textContent()) ?? "").replace("Done", "").trim(),
     at: (fx, fy) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy }),
     section: async (title) => {
       const summary = page.locator(".sect > summary", { hasText: title }).first();

@@ -21,7 +21,7 @@
  * scaled into it - which also means the handles come out crisp rather than
  * resampled.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Colorway, Format } from "./brand.ts";
 import { FPS, type InkMode } from "./boil.ts";
 import { saveFile } from "./save.ts";
@@ -307,6 +307,7 @@ export function Artboard({
   onRegions,
   manip,
   onHeld,
+  tools,
 }: {
   size: Format;
   colorway: Colorway;
@@ -332,6 +333,8 @@ export function Artboard({
   manip: Manipulator;
   /** Where a press-and-hold fallback should put the finished image. */
   onHeld: ((dataUrl: string) => void) | null;
+  /** The editor's own actions (undo, redo), set in the same bar as export. */
+  tools?: ReactNode;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
@@ -1057,16 +1060,17 @@ export function Artboard({
             {size.label}
             {reel && <em className="tag">Reel</em>}
           </strong>
-          <span>
+          <span className="mono">
             {size.w} &times; {size.h} &middot; {size.where}
           </span>
         </div>
         <div className="acts">
-          <button type="button" className="go" onClick={download}>
-            Save PNG
-          </button>
-          <button type="button" onClick={exportMp4} disabled={busy !== null}>
+          {tools}
+          <button type="button" className="btn ghost small" onClick={exportMp4} disabled={busy !== null}>
             {busy ?? "MP4"}
+          </button>
+          <button type="button" className="btn go" onClick={download}>
+            Save PNG
           </button>
         </div>
       </figcaption>
