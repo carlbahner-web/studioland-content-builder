@@ -11,11 +11,13 @@ import App from "./App.tsx";
  *
  *   (nothing)   the brand content builder - the general layer editor
  *   #/listing   the listing builder - one template, four controls
+ *   #/title     the reel title builder - type a title, get a transparent PNG
  *
  * The listing builder is lazy so that the artwork manifest and its module graph
  * cost nothing to whoever only wanted the other tool.
  */
 const ListingBuilder = lazy(() => import("./listing/ListingBuilder.tsx"));
+const TitleBuilder = lazy(() => import("./title/TitleBuilder.tsx"));
 
 function route(): string {
   return window.location.hash.replace(/^#/, "") || "/";
@@ -33,6 +35,13 @@ function Router() {
     return (
       <Suspense fallback={<p className="boot-msg">Loading the listing builder…</p>}>
         <ListingBuilder />
+      </Suspense>
+    );
+  }
+  if (path.startsWith("/title")) {
+    return (
+      <Suspense fallback={<p className="boot-msg">Loading the reel title builder…</p>}>
+        <TitleBuilder />
       </Suspense>
     );
   }

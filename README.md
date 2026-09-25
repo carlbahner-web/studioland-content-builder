@@ -6,8 +6,9 @@ arrangement that composes the first ninety percent is no use if the last ten is
 impossible.
 A layer editor, a starting arrangement for the social ad, and the machinery the
 rest will share — plus a second, much smaller tool at `#/listing` for the one
-realtor template that is already designed and only needs filling in. See *The
-listing builder*.
+realtor template that is already designed and only needs filling in, and a
+third at `#/title` for reel titles. See *The listing builder* and *The reel title
+builder*.
 
 ```
 npm install
@@ -17,6 +18,7 @@ npm run test:browser   # both tools, driven in a real Chromium
 npm run build    # typecheck + dist/
 npm run art      # re-key the listing artwork from assets/listing-src/
 npm run build:listing   # the listing builder alone, as one file (the artifact copy)
+npm run build:title     # the reel title builder alone, as one file (the artifact copy)
 ```
 
 Chrome or Edge. The MP4 export needs WebCodecs and the artwork folder needs the
@@ -468,6 +470,44 @@ silently re-breaks an address that was deliberately arranged into lines. So the
 *size* gives and the arrangement survives — bisected rather than stepped down,
 because `measureText` is a real call and a keystroke should not cost hundreds of
 them.
+
+## The reel title builder
+
+`#/title`, or `npm run build:title` for the one-file copy. Angela types a title;
+it comes back as a **1080×1920 transparent PNG** with the navy peony banner
+across the top of the frame and the title set on it, and nothing anywhere else.
+
+It is full frame on purpose. A banner-sized PNG has to be positioned and scaled
+by hand in whatever app the reel is edited in; one the size of the reel is laid
+over the whole video and is already in the right place.
+
+Nothing is a control except the words:
+
+- **Line breaks** are chosen by trying every break into one to four lines and
+  keeping the one that lets the type be biggest - which is the same thing as
+  the most balanced. A break after punctuation is preferred and a line ending
+  on "to", "the", "or" and the like is avoided, so the seed comes out as
+  *PET OWNERS: / TO FENCE / OR NOT TO FENCE?* rather than a balanced but odd
+  split. Pressing Enter in the text overrides all of that and keeps her breaks.
+- **Size** is the largest that fits 72px in from each side and inside a 240px
+  block of type, capped at 118px so a one-word title is not a billboard.
+- **The banner hugs the title**: its bottom edge is 48px under the last line,
+  so a one-line title makes a slim banner and a three-line one ends about 30%
+  of the way down.
+- **Tilt**: the banner and every line share one 4° climb to the right, turned
+  about the top of the type.
+- **Instagram's buttons**: the top line's highest corner is placed exactly at
+  y=220 - measured off a screenshot of her reel, where the back arrow and
+  camera button end - so no letter is ever under them. The banner itself still
+  runs off the top edge, so the buttons sit on navy.
+
+The peony paper is not a new asset. It is the clean navy field cut out of
+`public/listing/frame.png`, tiled against its own mirror image - which is what
+the mirrored listing layout already is, so the repeat has no seam.
+
+The text is TAY Wingman in the strapline's cream (`INK`), tracked +0.08em. The
+layout is pure and tested in `src/title/template.test.ts`; drawing is
+`src/title/draw.ts`, shared by the preview and the export.
 
 ## How it renders, and why not the DOM
 

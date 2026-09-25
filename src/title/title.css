@@ -1,0 +1,68 @@
+/* The reel title builder, on top of the listing builder's chrome. Only what is
+   different lives here: a 9:16 stage instead of a 4:5 one, a checkerboard so
+   the transparency is visible, and the preview-only Instagram hint. */
+
+.title-phone {
+  position: relative;
+  width: min(360px, 100%);
+  aspect-ratio: 1080 / 1920;
+  max-height: calc(100vh - 140px);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #8a8578;
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+}
+/* The usual image-editor checkerboard: grey and white says "see-through" to
+   anyone who has used one, and a flat colour would say "this will be grey". */
+.title-checker {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #d9d6cf 25%, transparent 25%),
+    linear-gradient(-45deg, #d9d6cf 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d9d6cf 75%),
+    linear-gradient(-45deg, transparent 75%, #d9d6cf 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+.title-backdrop,
+.title-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.title-backdrop { object-fit: cover; }
+
+/* Roughly where Instagram draws its back arrow and camera button. A hint, not
+   a mock-up: the point is to see that no letter is under them. */
+.title-ui {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 14px 10px;
+  background: rgb(0 0 0 / 28%);
+  border-bottom: 1px dashed rgb(255 255 255 / 70%);
+  color: #fff;
+  font: 22px/1 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.title-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.65;
+}
+.title-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .title-phone { max-height: none; }
+}

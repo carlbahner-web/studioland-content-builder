@@ -28,9 +28,17 @@ const ROOT = path.resolve(import.meta.dirname, "..");
  * brand asset before a page they opened to change an address can paint. */
 const args = process.argv.slice(2);
 const LISTING_ONLY = args.includes("--only=listing");
+/* --only=title is the reel title builder alone, for the same reason. It needs
+ * one image - the listing frame, which its peony paper is cut from - and the
+ * one font. */
+const TITLE_ONLY = args.includes("--only=title");
 const OUT =
   args.find((a) => !a.startsWith("--")) ??
-  path.join(ROOT, "dist-single", LISTING_ONLY ? "listing-builder.html" : "content-builder.html");
+  path.join(
+    ROOT,
+    "dist-single",
+    TITLE_ONLY ? "reel-title-builder.html" : LISTING_ONLY ? "listing-builder.html" : "content-builder.html",
+  );
 
 const MIME = {
   ".woff2": "font/woff2",
@@ -57,7 +65,9 @@ const LISTING_ASSETS = [
 ];
 
 /** Everything the running app asks for by path, as data URIs. */
-const ASSETS = LISTING_ONLY
+const ASSETS = TITLE_ONLY
+  ? ["/fonts/TAYWingman.woff2", "/listing/frame.png"]
+  : LISTING_ONLY
   ? LISTING_ASSETS
   : [
       "/brand/grain.webp",
@@ -89,10 +99,10 @@ const ARTIFACT_SHIM = `
 html, body { height: 100%; }
 .listing { min-height: 100%; }
 .listing-panel { max-height: 100dvh; }
-.listing-canvas { max-height: calc(100dvh - 140px); }
+.listing-canvas, .title-phone { max-height: calc(100dvh - 140px); }
 @media (max-width: 900px) {
   .listing-panel { max-height: none; }
-  .listing-canvas { max-height: none; }
+  .listing-canvas, .title-phone { max-height: none; }
 }
 `;
 
@@ -100,14 +110,17 @@ html, body { height: 100%; }
 let css = [
   await readFile(path.join(ROOT, "src/studio.css"), "utf8"),
   await readFile(path.join(ROOT, "src/listing/listing.css"), "utf8"),
-  LISTING_ONLY ? ARTIFACT_SHIM : "",
+  await readFile(path.join(ROOT, "src/title/title.css"), "utf8"),
+  LISTING_ONLY || TITLE_ONLY ? ARTIFACT_SHIM : "",
 ].join("\n");
 css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`);
 
 /* esbuild rather than Vite: one IIFE, no module graph, no import.meta - which
  * this app deliberately does not use, so nothing has to be stubbed. */
 const bundled = await build({
-  entryPoints: [path.join(ROOT, LISTING_ONLY ? "src/listing/main.tsx" : "src/main.tsx")],
+  entryPoints: [
+    path.join(ROOT, TITLE_ONLY ? "src/title/main.tsx" : LISTING_ONLY ? "src/listing/main.tsx" : "src/main.tsx"),
+  ],
   bundle: true,
   format: "iife",
   minify: true,
@@ -130,7 +143,12 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text;
 
-const html = `<title>${LISTING_ONLY ? "Angela Rera Listing Builder" : "StudioLand content builder"}</title>
+const TITLE = TITLE_ONLY
+  ? "Angela Rera Reel Titles"
+  : LISTING_ONLY
+    ? "Angela Rera Listing Builder"
+    : "StudioLand content builder";
+const html = `<title>${TITLE}</title>
 <style>
 ${css}
 </style>
