@@ -14,7 +14,7 @@
  *
  * Kept free of DOM and canvas so the layout can be tested at a desk.
  */
-import { CAP_RATIO, FONT_FAMILY, INK, OUTLINE } from "../listing/template.ts";
+import { CAP_RATIO, FONT_FAMILY, INK, OUTLINE, TRACKING as LISTING_TRACKING } from "../listing/template.ts";
 import type { Measure } from "../listing/template.ts";
 
 /* The same Measure the listing builder uses, with one difference in contract:
@@ -65,10 +65,12 @@ export const MAX_LINES = 4;
 /** Baseline to baseline, in em. Caps only, so it can sit tighter than text. */
 export const PITCH = 1.16;
 
-/* Open tracking, like the original. TAY Wingman is a narrower face than the
- * one the reel was set in, and this is what gives it the same airy, spaced-out
- * cap line. */
-export const TRACKING = 0.08;
+/* The listing posts' tracking, not the reel's. The reel was the idea - a title
+ * banner over the video - and not the look to copy: its wide, airy spacing was
+ * a different face and a different treatment. Set like the address on her
+ * listing posts, a title reads as the same brand in her feed.
+ */
+export const TRACKING = LISTING_TRACKING;
 
 /** Navy below the last line, above the banner's bottom edge. */
 export const PAD_BOTTOM = 48;
@@ -131,6 +133,11 @@ const DANGLERS = new Set([
 ]);
 const BREAK_BONUS = 0.06;
 const DANGLE_COST = 0.06;
+/* And the other side of the same rule: a colon or question mark in the MIDDLE
+ * of a line - "PET OWNERS: TO FENCE" - is a break that should have happened
+ * and did not. Weighted a little more, because it reads worse than a line that
+ * is merely a bit smaller. */
+const INSIDE_COST = 0.1;
 
 /* Every way to put `words` on `n` lines, in order. A title is a handful of
  * words and n is at most four, so exhaustive is cheap - twenty words is under a
@@ -167,6 +174,7 @@ function score(lines: string[], size: number): number {
     const last = line.split(" ").pop() ?? "";
     if (DANGLERS.has(last)) k -= DANGLE_COST;
   }
+  for (const line of lines) if (/[:;?!.] /.test(line)) k -= INSIDE_COST;
   return size * k;
 }
 

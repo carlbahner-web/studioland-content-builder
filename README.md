@@ -505,7 +505,9 @@ The peony paper is not a new asset. It is the clean navy field cut out of
 `public/listing/frame.png`, tiled against its own mirror image - which is what
 the mirrored listing layout already is, so the repeat has no seam.
 
-The text is TAY Wingman in the strapline's cream (`INK`), tracked +0.08em. The
+The text is TAY Wingman in the strapline's cream (`INK`), set at the listing address's -0.1em tracking - the reel was
+the idea to borrow, not its spacing, so the titles read as the same brand as
+her listing posts. The
 layout is pure and tested in `src/title/template.test.ts`; drawing is
 `src/title/draw.ts`, shared by the preview and the export.
 
