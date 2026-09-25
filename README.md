@@ -490,13 +490,13 @@ Every letter of a title lands inside one rectangle, `SAFE_BOX` in
 
 | Edge | Value | Why |
 | --- | --- | --- |
-| Top | 270px | Meta's guidance for reels: keep text out of the top 14% of the frame, where Instagram's buttons land. On her own reel they end about 200px down; 270 also covers ads and other phones. |
+| Top | 220px | Measured off her own reel: Instagram's back arrow and camera button end about 200px down. Chosen over Meta's blanket 14% (270px), which also allows for ads, to keep the banner smaller. |
 | Sides | 65px each | Meta's 6% side margin. |
-| Bottom | 490px | How far down a title may reach. 220px of height is enough for four lines. |
+| Bottom | 440px | How far down a title may reach. 220px of height is enough for four lines. |
 
 The banner is not held inside the box. It runs from the top edge of the frame,
-so Instagram's buttons sit on navy, down to 50px below the box (540px, 28% of
-the video). It is **the same height on every reel**, so a feed of them reads as
+so Instagram's buttons sit on navy, down to 50px below the box (490px, about a
+quarter of the video). It is **the same height on every reel**, so a feed of them reads as
 a series, and it is level, like her listing posts.
 
 ### Placing and spacing the text

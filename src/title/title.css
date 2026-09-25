@@ -1,16 +1,68 @@
-/* The reel title builder, on top of the listing builder's chrome. Only what is
-   different lives here: a 9:16 stage instead of a 4:5 one, a checkerboard so
-   the transparency is visible, and the preview-only Instagram hint. */
+/* The reel title builder: one column, phone first. It borrows the listing
+   builder's header and cream workbench so the two tools look like one product,
+   and nothing else - there is no side panel here. */
 
+.title {
+  min-height: 100vh;
+  background: var(--cream);
+}
+
+.title-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+  box-sizing: border-box;
+}
+
+.title-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* 16px or larger, or iOS zooms the whole page in when the box is tapped and
+   leaves it zoomed. */
+.title-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.4;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--charcoal);
+  resize: none;
+}
+.title-input:focus {
+  outline: 2px solid var(--teal);
+  outline-offset: 1px;
+}
+
+/* The top of the reel only - down to about half way, where the banner and a
+   good stretch of video below it are both in view. The frame inside is the
+   full 9:16 and simply runs out of the bottom. */
 .title-phone {
   position: relative;
-  width: min(360px, 100%);
-  aspect-ratio: 1080 / 1920;
-  max-height: calc(100vh - 140px);
+  width: 100%;
+  aspect-ratio: 1080 / 1000;
+  margin-top: 8px;
   border-radius: 14px;
   overflow: hidden;
   background: #8a8578;
   box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+}
+.title-frame {
+  position: absolute;
+  inset: 0 0 auto 0;
+  aspect-ratio: 1080 / 1920;
 }
 /* The usual image-editor checkerboard: grey and white says "see-through" to
    anyone who has used one, and a flat colour would say "this will be grey". */
@@ -33,42 +85,35 @@
 }
 .title-backdrop { object-fit: cover; }
 
-/* Roughly where Instagram draws its back arrow and camera button. A hint, not
-   a mock-up: the point is to see that no letter is under them. */
-.title-ui {
-  position: absolute;
-  inset: 0 0 auto 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 14px 10px;
-  background: rgb(0 0 0 / 28%);
-  color: #fff;
-  font: 22px/1 system-ui, sans-serif;
-  pointer-events: none;
+.title-go {
+  margin-top: 8px;
+  padding: 15px;
+  font: inherit;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--charcoal);
+  color: var(--cream);
+  cursor: pointer;
 }
+.title-go:disabled { opacity: 0.45; cursor: default; }
 
-/* The safe box itself: every letter lands inside this line. */
-.title-safe {
-  position: absolute;
-  border: 1.5px dashed #7fd4c1;
-  pointer-events: none;
+.title-quiet {
+  align-self: center;
+  margin-top: 6px;
+  padding: 10px;
+  font: inherit;
+  font-size: 13px;
+  border: none;
+  background: none;
+  color: var(--teal);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .title-hint {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 12px;
   line-height: 1.5;
   opacity: 0.65;
-}
-.title-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  font-size: 13px;
-}
-
-@media (max-width: 900px) {
-  .title-phone { max-height: none; }
 }

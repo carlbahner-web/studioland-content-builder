@@ -97,12 +97,12 @@ for (const p of ASSETS) inline[p] = await dataUri(p);
  * are restated against the element rather than the viewport. */
 const ARTIFACT_SHIM = `
 html, body { height: 100%; }
-.listing { min-height: 100%; }
+.listing, .title { min-height: 100%; }
 .listing-panel { max-height: 100dvh; }
-.listing-canvas, .title-phone { max-height: calc(100dvh - 140px); }
+.listing-canvas { max-height: calc(100dvh - 140px); }
 @media (max-width: 900px) {
   .listing-panel { max-height: none; }
-  .listing-canvas, .title-phone { max-height: none; }
+  .listing-canvas { max-height: none; }
 }
 `;
 

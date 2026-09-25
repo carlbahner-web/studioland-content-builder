@@ -35,18 +35,19 @@ export type Box = { x: number; y: number; w: number; h: number };
  * Each edge is a decision, and each is written down here so it can be changed
  * in one place rather than rediscovered:
  *
- *   top     270  Meta's published guidance for reels: keep the top 14% of the
- *                1920px frame clear of text, because the app's own buttons land
- *                there (on her own reel they end ~200px down; 270 also covers
- *                ads, other phones, and whatever Instagram adds next).
+ *   top     220  Measured off a screenshot of her own reel: Instagram's back
+ *                arrow and camera button end ~200px down the 1920px frame.
+ *                Chosen over Meta's blanket 14% (270px), which also allows for
+ *                ads, to keep the banner off more of her face.
  *   sides    65  Meta's 6% side margin, on each side.
- *   bottom  490  How far down a title may reach. This is the choice that keeps
+ *   bottom  440  How far down a title may reach. This is the choice that keeps
  *                the banner off her face - 220px of type is enough for four
- *                lines, and the banner ends 50px below it, at 28% of the frame.
+ *                lines, and the banner ends 50px below it, at about a quarter
+ *                of the frame.
  *
  * The banner is NOT held inside the box. It runs from the top edge of the frame
  * to BANNER_BOTTOM, so Instagram's buttons sit on navy rather than on video. */
-export const SAFE_BOX: Box = { x: 65, y: 270, w: 950, h: 220 };
+export const SAFE_BOX: Box = { x: 65, y: 220, w: 950, h: 220 };
 
 /* The banner is the same height on every reel, whatever the title, so a feed of
  * them reads as a series. Its bottom edge is 50px below the safe box: close to

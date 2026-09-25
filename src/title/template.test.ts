@@ -72,8 +72,8 @@ test("the block is centred in the safe box both ways", () => {
   }
 });
 
-test("the safe box keeps Meta's reel margins, and the banner sits under it", () => {
-  assert.ok(SAFE_BOX.y >= CANVAS.h * 0.14, "clear of the top 14%");
+test("the safe box clears Instagram's buttons and Meta's side margins, and the banner sits under it", () => {
+  assert.ok(SAFE_BOX.y >= 200, "below where the back arrow and camera button end");
   assert.ok(SAFE_BOX.x >= CANVAS.w * 0.06, "6% in from the sides");
   assert.equal(SAFE_BOX.x + SAFE_BOX.w, CANVAS.w - SAFE_BOX.x);
   assert.ok(BANNER_BOTTOM > SAFE_BOX.y + SAFE_BOX.h);

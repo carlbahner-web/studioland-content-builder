@@ -6,14 +6,13 @@
  * size of the reel. There is nothing to position because there is nothing that
  * could usefully be anywhere else.
  *
- * The two things on the panel that are not the title only affect the preview:
- * a still from the video to judge it against, and where Instagram's buttons
- * will sit. Neither is in the export.
+ * The one thing that is not the title is a screenshot of the video to preview
+ * the banner over. It is not in the export.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
-import { BANNER_BOTTOM, CANVAS, SAFE_BOX, SEED, filenameFor, layoutTitle } from "./template.ts";
+import { CANVAS, SEED, filenameFor, layoutTitle } from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
 import "../listing/listing.css";
 import "./title.css";
@@ -24,7 +23,7 @@ const COARSE =
   typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
 
 /** Preview width in CSS px. The canvas behind it is drawn at device resolution. */
-const PREVIEW_W = 360;
+const PREVIEW_W = 420;
 const PREVIEW_SCALE = PREVIEW_W / CANVAS.w;
 
 /* The frame art the paper is cut from, and the font, both loaded before the
@@ -60,7 +59,6 @@ function useArt(): { paper: HTMLCanvasElement | null; ready: boolean; failed: bo
 export default function TitleBuilder({ standalone = false }: { standalone?: boolean }) {
   const [text, setText] = useState(SEED);
   const [backdrop, setBackdrop] = useState<string | null>(null);
-  const [showUi, setShowUi] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [held, setHeld] = useState<string | null>(null);
@@ -90,9 +88,6 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
   }, [ready]);
 
   const layout = useMemo(() => layoutTitle(text, measure), [text, measure]);
-
-/* Percentages of the frame, for positioning the preview-only overlay. */
-const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -140,136 +135,80 @@ const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 
   const empty = !layout.lines.length;
 
+  /* One column, top to bottom, at every width: type it, see it, save it. This
+   * is used from a phone, where a side panel would be a second screen to
+   * scroll to, and a desk gains nothing from the extra room. */
   return (
-    <div className="listing">
+    <div className="title">
       {held && (
         <div className="held">
           <img src={held} alt="The finished reel title" />
-          <p>
-            Press and hold the image to save it. It is see-through everywhere but the banner, so it
-            shows as a tall picture with the title at the top.
-          </p>
+          <p>Press and hold the image, then tap Save to Photos.</p>
           <button type="button" className="ghost" onClick={() => setHeld(null)}>
             Done
           </button>
         </div>
       )}
       <header className="listing-head">
-        <h1>ANGELA RERA - REEL TITLE BUILDER</h1>
+        <h1>ANGELA RERA - REEL TITLES</h1>
         {!standalone && (
           <a href="#/listing" className="listing-elsewhere">
-            Listing post builder →
+            Listing posts →
           </a>
         )}
       </header>
 
-      <div className="listing-body">
-        <div className="listing-stage">
-          <div className={`title-phone${backdrop ? "" : " title-checker"}`}>
+      <main className="title-column">
+        <label className="title-label" htmlFor="title-text">
+          Title
+        </label>
+        <textarea
+          id="title-text"
+          className="title-input"
+          value={text}
+          rows={2}
+          spellCheck
+          placeholder="Type your title"
+          onChange={(e) => setText(e.target.value)}
+        />
+        <p className="title-hint">Press Enter to start a new line where you want one.</p>
+
+        {/* The top of the frame only: the banner is all there is to see, and the
+            rest of a 9:16 preview is a long stretch of nothing on a phone. */}
+        <div className={`title-phone${backdrop ? "" : " title-checker"}`}>
+          <div className="title-frame">
             {backdrop && <img className="title-backdrop" src={backdrop} alt="" />}
             <canvas ref={canvasRef} className="title-canvas" />
-            {showUi && (
-              <>
-                <div className="title-ui" style={{ height: pct(SAFE_BOX.y, CANVAS.h) }} aria-hidden>
-                  <span>‹</span>
-                  <span>◎</span>
-                </div>
-                <div
-                  className="title-safe"
-                  aria-hidden
-                  style={{
-                    left: pct(SAFE_BOX.x, CANVAS.w),
-                    top: pct(SAFE_BOX.y, CANVAS.h),
-                    width: pct(SAFE_BOX.w, CANVAS.w),
-                    height: pct(SAFE_BOX.h, CANVAS.h),
-                  }}
-                />
-              </>
-            )}
           </div>
         </div>
 
-        <div className="listing-panel">
-          {failed && (
-            <p className="listing-warn">
-              The peony paper did not load, so the banner is plain navy. The title is still right.
-            </p>
-          )}
+        <button type="button" className="title-go" onClick={download} disabled={busy || !ready || empty}>
+          {busy ? "Saving…" : "Save title image"}
+        </button>
+        {note && <p className="title-hint">{note}</p>}
+        <p className="title-hint">Lay it over the whole video. It lines up by itself.</p>
 
-          <section>
-            <h2>Title</h2>
-            <div className="listing-block">
-              <textarea
-                id="title-text"
-                value={text}
-                rows={3}
-                spellCheck
-                placeholder="Type the title"
-                onChange={(e) => setText(e.target.value)}
-              />
-            </div>
-            <p className="title-hint">
-              {empty
-                ? "Type a title and it will be set on the banner."
-                : layout.manual
-                  ? `${layout.lines.length} ${layout.lines.length === 1 ? "line" : "lines"}, where you pressed Enter. Take the line breaks out to let it choose.`
-                  : `Split into ${layout.lines.length} ${layout.lines.length === 1 ? "line" : "lines"} automatically. Press Enter in the text to choose your own.`}
-            </p>
-            {!empty && (
-              <p className="title-hint">
-                Type at {Math.round(layout.size)}px, centred in the safe box. The banner is the same
-                on every reel: the top {Math.round((BANNER_BOTTOM / CANVAS.h) * 100)}% of the video.
-              </p>
-            )}
-          </section>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="listing-file"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f && f.type.startsWith("image/")) setBackdrop(URL.createObjectURL(f));
+          }}
+        />
+        <button
+          type="button"
+          className="title-quiet"
+          onClick={() => (backdrop ? setBackdrop(null) : fileRef.current?.click())}
+        >
+          {backdrop ? "Remove the screenshot" : "Preview it over a screenshot of the video"}
+        </button>
 
-          <section>
-            <h2>Preview only</h2>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="listing-file"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f && f.type.startsWith("image/")) setBackdrop(URL.createObjectURL(f));
-              }}
-            />
-            <div className="listing-row">
-              <button type="button" onClick={() => fileRef.current?.click()}>
-                {backdrop ? "Change the still" : "Try it over a still"}
-              </button>
-              {backdrop && (
-                <button type="button" className="listing-quiet" onClick={() => setBackdrop(null)}>
-                  Remove
-                </button>
-              )}
-            </div>
-            <label className="title-check">
-              <input type="checkbox" checked={showUi} onChange={(e) => setShowUi(e.target.checked)} />
-              Show the safe box
-            </label>
-            <p className="title-hint">Neither of these is in the download.</p>
-          </section>
-
-          <section>
-            <button
-              type="button"
-              className="listing-go"
-              onClick={download}
-              disabled={busy || !ready || empty}
-            >
-              {busy ? "Exporting…" : `Download ${CANVAS.w}×${CANVAS.h} transparent PNG`}
-            </button>
-            {note && <p className="listing-note">{note}</p>}
-            <p className="title-hint">
-              The PNG is the same size as a reel. Lay it over the whole video - it lines up by
-              itself.
-            </p>
-          </section>
-        </div>
-      </div>
+        {failed && <p className="title-hint">The flower pattern did not load, so the banner is plain navy.</p>}
+      </main>
     </div>
   );
 }
