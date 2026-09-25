@@ -4,20 +4,17 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import {
+  BANNER_BOTTOM,
   CANVAS,
   CAP_RATIO,
   MAX_SIZE,
-  MAX_TEXT_H,
   PITCH,
-  SAFE_TOP,
+  SAFE_BOX,
   SEED,
-  SIDE,
-  bannerLowest,
   breakTitle,
   clean,
   filenameFor,
   layoutTitle,
-  toCanvas,
 } from "./template.ts";
 
 const measure = (line: string, size: number, tracking: number) =>
@@ -27,10 +24,11 @@ test("titles are set in capitals, with spaces tidied", () => {
   assert.equal(clean("  pet   owners:\n  to fence "), "PET OWNERS:\nTO FENCE");
 });
 
-test("the seed breaks where a person would, not just where it balances", () => {
+test("the seed breaks after its colon, never across it", () => {
   const { lines, manual } = breakTitle(SEED, measure);
   assert.equal(manual, false);
-  assert.deepEqual(lines, ["PET OWNERS:", "TO FENCE", "OR NOT TO FENCE?"]);
+  assert.equal(lines[0], "PET OWNERS:");
+  for (const line of lines) assert.ok(!/[:?] /.test(line), `"${line}" has a break inside it`);
 });
 
 test("a short title stays on one line at the ceiling size", () => {
@@ -45,40 +43,41 @@ test("typed line breaks are kept exactly", () => {
   assert.deepEqual(lines, ["JUST", "LISTED IN", "MEDIA"]);
 });
 
-test("every line fits across the frame and the block fits the height budget", () => {
-  for (const t of [SEED, "Open house this Sunday 1 to 3", "Five things nobody tells you about closing costs in Pennsylvania", "x"]) {
+const SAMPLES = [
+  SEED,
+  "Sold",
+  "Open house this Sunday 1 to 3",
+  "Five things nobody tells you about closing costs in Pennsylvania",
+  "Just\nlisted",
+];
+
+test("every title's ink lands inside the safe box", () => {
+  const b = SAFE_BOX;
+  for (const t of SAMPLES) {
     const l = layoutTitle(t, measure);
-    for (const line of l.lines) assert.ok(line.w <= CANVAS.w - SIDE * 2 + 0.01, `${line.text} is ${line.w}px`);
-    const h = l.size * (CAP_RATIO + (l.lines.length - 1) * PITCH);
-    assert.ok(h <= MAX_TEXT_H + 0.01 || l.size === 36, `${t}: ${h}px tall`);
+    for (const line of l.lines) {
+      assert.ok(line.x - line.w / 2 >= b.x - 0.01 && line.x + line.w / 2 <= b.x + b.w + 0.01, `${line.text} is ${line.w}px wide`);
+    }
+    assert.ok(l.ink.y >= b.y - 0.01, `${t}: top at ${l.ink.y}`);
+    assert.ok(l.ink.y + l.ink.h <= b.y + b.h + 0.01, `${t}: bottom at ${l.ink.y + l.ink.h}`);
+    assert.ok(Math.abs(l.ink.h - l.size * (CAP_RATIO + (l.lines.length - 1) * PITCH)) < 0.01);
   }
 });
 
-test("no letter is under Instagram's buttons once the banner is turned", () => {
-  for (const t of [SEED, "Sold", "A very long title that has to go on to four whole lines to fit"]) {
-    const l = layoutTitle(t, measure);
-    l.lines.forEach((line, i) => {
-      const top = l.pivot.y + i * l.size * PITCH;
-      for (const x of [line.x - line.w / 2, line.x + line.w / 2]) {
-        const p = toCanvas(l, { x, y: top });
-        assert.ok(p.y >= SAFE_TOP - 0.01, `${t}: ${line.text} reaches ${p.y}`);
-      }
-    });
+test("the block is centred in the safe box both ways", () => {
+  for (const t of SAMPLES) {
+    const { ink } = layoutTitle(t, measure);
+    assert.ok(Math.abs(ink.x + ink.w / 2 - (SAFE_BOX.x + SAFE_BOX.w / 2)) < 0.01, `${t}: off centre sideways`);
+    assert.ok(Math.abs(ink.y + ink.h / 2 - (SAFE_BOX.y + SAFE_BOX.h / 2)) < 0.01, `${t}: off centre vertically`);
   }
 });
 
-test("the title sits as close under the buttons as it can", () => {
-  const l = layoutTitle(SEED, measure);
-  const first = l.lines[0];
-  const corner = toCanvas(l, { x: first.x + first.w / 2, y: l.pivot.y });
-  assert.ok(Math.abs(corner.y - SAFE_TOP) < 0.5, `top line's corner is at ${corner.y}`);
-});
-
-test("the banner grows with the title, and a three-line one stays off her face", () => {
-  const one = bannerLowest(layoutTitle("Sold", measure));
-  const three = bannerLowest(layoutTitle(SEED, measure));
-  assert.ok(one < three);
-  assert.ok(three / CANVAS.h < 0.34, `covers ${Math.round((three / CANVAS.h) * 100)}%`);
+test("the safe box keeps Meta's reel margins, and the banner sits under it", () => {
+  assert.ok(SAFE_BOX.y >= CANVAS.h * 0.14, "clear of the top 14%");
+  assert.ok(SAFE_BOX.x >= CANVAS.w * 0.06, "6% in from the sides");
+  assert.equal(SAFE_BOX.x + SAFE_BOX.w, CANVAS.w - SAFE_BOX.x);
+  assert.ok(BANNER_BOTTOM > SAFE_BOX.y + SAFE_BOX.h);
+  assert.ok(BANNER_BOTTOM / CANVAS.h < 0.3, "the banner stays off the top third");
 });
 
 test("an empty title lays out nothing", () => {

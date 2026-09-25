@@ -43,9 +43,15 @@
   justify-content: space-between;
   padding: 0 14px 10px;
   background: rgb(0 0 0 / 28%);
-  border-bottom: 1px dashed rgb(255 255 255 / 70%);
   color: #fff;
   font: 22px/1 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+/* The safe box itself: every letter lands inside this line. */
+.title-safe {
+  position: absolute;
+  border: 1.5px dashed #7fd4c1;
   pointer-events: none;
 }
 

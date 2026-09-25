@@ -13,6 +13,7 @@
  */
 import { applyFont, measurer, supportsLetterSpacing } from "../listing/draw.ts";
 import {
+  BANNER_BOTTOM,
   BANNER_NAVY,
   CANVAS,
   TRACKING,
@@ -38,11 +39,6 @@ export const PAPER_CROP = { x: 566, y: 100, w: 514, h: 570 } as const;
 /* Enlarged a little: at 1:1 the flowers are sized for a 1080px square post and
  * look busy across a banner this wide. */
 const PAPER_SCALE = 1.25;
-
-/* The overhang past the frame on every side of the banner, in its own frame.
- * The banner is turned, so a rectangle exactly the frame's width would show
- * transparent corners; this is comfortably more than the turn exposes. */
-const BLEED = 400;
 
 /** The frame art, already loaded. The paper is cut from it once. */
 export function makePaper(frame: CanvasImageSource | undefined): HTMLCanvasElement | null {
@@ -90,15 +86,7 @@ export function drawTitle(
     return;
   }
 
-  // Into the banner's own frame: everything below is drawn flat and turned.
-  ctx.translate(layout.pivot.x, layout.pivot.y);
-  ctx.rotate(layout.angle);
-  ctx.translate(-layout.pivot.x, -layout.pivot.y);
-
-  const x0 = -BLEED;
-  const y0 = -BLEED - layout.pivot.y;
-  const w = CANVAS.w + BLEED * 2;
-  const h = layout.bottom - y0;
+  const h = BANNER_BOTTOM;
 
   /* The navy goes down first, carrying the shadow; the paper goes over it with
    * none. A shadow cast by the pattern itself would be cast by every line of
@@ -109,7 +97,7 @@ export function drawTitle(
   ctx.shadowBlur = 28 * scale;
   ctx.shadowOffsetY = 8 * scale;
   ctx.fillStyle = BANNER_NAVY;
-  ctx.fillRect(x0, y0, w, h);
+  ctx.fillRect(0, 0, CANVAS.w, h);
   ctx.restore();
 
   if (paper) {
@@ -122,7 +110,7 @@ export function drawTitle(
         .scaleSelf(PAPER_SCALE, PAPER_SCALE);
       pattern.setTransform(m);
       ctx.fillStyle = pattern;
-      ctx.fillRect(x0, y0, w, h);
+      ctx.fillRect(0, 0, CANVAS.w, h);
     }
   }
 

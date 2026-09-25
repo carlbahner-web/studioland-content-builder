@@ -481,33 +481,45 @@ It is full frame on purpose. A banner-sized PNG has to be positioned and scaled
 by hand in whatever app the reel is edited in; one the size of the reel is laid
 over the whole video and is already in the right place.
 
-Nothing is a control except the words:
+Nothing is a control except the words.
+
+### The safe box
+
+Every letter of a title lands inside one rectangle, `SAFE_BOX` in
+`src/title/template.ts`, and each of its edges is a decision:
+
+| Edge | Value | Why |
+| --- | --- | --- |
+| Top | 270px | Meta's guidance for reels: keep text out of the top 14% of the frame, where Instagram's buttons land. On her own reel they end about 200px down; 270 also covers ads and other phones. |
+| Sides | 65px each | Meta's 6% side margin. |
+| Bottom | 490px | How far down a title may reach. 220px of height is enough for four lines. |
+
+The banner is not held inside the box. It runs from the top edge of the frame,
+so Instagram's buttons sit on navy, down to 50px below the box (540px, 28% of
+the video). It is **the same height on every reel**, so a feed of them reads as
+a series, and it is level, like her listing posts.
+
+### Placing and spacing the text
 
 - **Line breaks** are chosen by trying every break into one to four lines and
-  keeping the one that lets the type be biggest - which is the same thing as
-  the most balanced. A break after punctuation is preferred and a line ending
-  on "to", "the", "or" and the like is avoided, so the seed comes out as
-  *PET OWNERS: / TO FENCE / OR NOT TO FENCE?* rather than a balanced but odd
-  split. Pressing Enter in the text overrides all of that and keeps her breaks.
-- **Size** is the largest that fits 72px in from each side and inside a 240px
-  block of type, capped at 118px so a one-word title is not a billboard.
-- **The banner hugs the title**: its bottom edge is 48px under the last line,
-  so a one-line title makes a slim banner and a three-line one ends about 30%
-  of the way down.
-- **Tilt**: the banner and every line share one 4° climb to the right, turned
-  about the top of the type.
-- **Instagram's buttons**: the top line's highest corner is placed exactly at
-  y=220 - measured off a screenshot of her reel, where the back arrow and
-  camera button end - so no letter is ever under them. The banner itself still
-  runs off the top edge, so the buttons sit on navy.
+  keeping the one that lets the type be biggest, which is the same as the most
+  balanced. A break after punctuation is preferred, a colon or question mark in
+  the middle of a line is avoided, and so is a line ending on "to", "the", "or"
+  and the like. Pressing Enter in the text overrides all of that.
+- **Size** is the largest that fits the safe box both ways, capped at 118px so a
+  one-word title is not a billboard.
+- **Position**: the block is centred in the safe box both ways. Vertically it is
+  the ink that is centred, from the top of the first line's capitals to the
+  last baseline, so a short title does not sit visibly high.
+- **Spacing**: lines sit 1.16em apart, baseline to baseline, and letters use
+  the listing address's -0.1em tracking, so titles read as the same brand as
+  her listing posts.
 
 The peony paper is not a new asset. It is the clean navy field cut out of
 `public/listing/frame.png`, tiled against its own mirror image - which is what
 the mirrored listing layout already is, so the repeat has no seam.
 
-The text is TAY Wingman in the strapline's cream (`INK`), set at the listing address's -0.1em tracking - the reel was
-the idea to borrow, not its spacing, so the titles read as the same brand as
-her listing posts. The
+The text is TAY Wingman in the strapline's cream (`INK`). The
 layout is pure and tested in `src/title/template.test.ts`; drawing is
 `src/title/draw.ts`, shared by the preview and the export.
 

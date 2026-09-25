@@ -1,8 +1,8 @@
 /* The reel title builder.
  *
  * One text box and a download button. Type the title; the tool breaks it into
- * lines, sizes it to the space, sets it on the peony banner at the banner's
- * angle and below Instagram's buttons, and hands back a transparent PNG the
+ * lines, sizes it to the safe box, centres it there on the peony banner, and
+ * hands back a transparent PNG the
  * size of the reel. There is nothing to position because there is nothing that
  * could usefully be anywhere else.
  *
@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
-import { CANVAS, SAFE_TOP, SEED, bannerLowest, filenameFor, layoutTitle } from "./template.ts";
+import { BANNER_BOTTOM, CANVAS, SAFE_BOX, SEED, filenameFor, layoutTitle } from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
 import "../listing/listing.css";
 import "./title.css";
@@ -90,7 +90,9 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
   }, [ready]);
 
   const layout = useMemo(() => layoutTitle(text, measure), [text, measure]);
-  const coverage = Math.round((bannerLowest(layout) / CANVAS.h) * 100);
+
+/* Percentages of the frame, for positioning the preview-only overlay. */
+const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -167,10 +169,22 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
             {backdrop && <img className="title-backdrop" src={backdrop} alt="" />}
             <canvas ref={canvasRef} className="title-canvas" />
             {showUi && (
-              <div className="title-ui" style={{ height: `${(SAFE_TOP / CANVAS.h) * 100}%` }} aria-hidden>
-                <span>‹</span>
-                <span>◎</span>
-              </div>
+              <>
+                <div className="title-ui" style={{ height: pct(SAFE_BOX.y, CANVAS.h) }} aria-hidden>
+                  <span>‹</span>
+                  <span>◎</span>
+                </div>
+                <div
+                  className="title-safe"
+                  aria-hidden
+                  style={{
+                    left: pct(SAFE_BOX.x, CANVAS.w),
+                    top: pct(SAFE_BOX.y, CANVAS.h),
+                    width: pct(SAFE_BOX.w, CANVAS.w),
+                    height: pct(SAFE_BOX.h, CANVAS.h),
+                  }}
+                />
+              </>
             )}
           </div>
         </div>
@@ -203,8 +217,8 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
             </p>
             {!empty && (
               <p className="title-hint">
-                Type at {Math.round(layout.size)}px · banner covers the top {coverage}% of the video
-                {coverage > 34 ? ", which is a lot - a shorter title will sit smaller" : ""}.
+                Type at {Math.round(layout.size)}px, centred in the safe box. The banner is the same
+                on every reel: the top {Math.round((BANNER_BOTTOM / CANVAS.h) * 100)}% of the video.
               </p>
             )}
           </section>
@@ -234,7 +248,7 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
             </div>
             <label className="title-check">
               <input type="checkbox" checked={showUi} onChange={(e) => setShowUi(e.target.checked)} />
-              Show where Instagram's buttons sit
+              Show the safe box
             </label>
             <p className="title-hint">Neither of these is in the download.</p>
           </section>

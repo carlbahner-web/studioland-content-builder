@@ -8,8 +8,8 @@
  * timeline and lands where it belongs, because it is the same size as the video.
  *
  * Nothing here is a control. The person using it types words; the line breaks,
- * the size and the height of the banner all follow from those words and the
- * space available. A title that is typed with Enter keeps the breaks it was
+ * the size and the position all follow from those words and the safe box. The
+ * banner does not: it is the same on every reel. A title that is typed with Enter keeps the breaks it was
  * given - that is the one override, and it is the one people reach for.
  *
  * Kept free of DOM and canvas so the layout can be tested at a desk.
@@ -28,36 +28,37 @@ export { CAP_RATIO, FONT_FAMILY };
 /** A reel. Instagram, TikTok and Shorts all take 9:16 at this size. */
 export const CANVAS = { w: 1080, h: 1920 } as const;
 
-/* Where Instagram's own buttons stop.
+export type Box = { x: number; y: number; w: number; h: number };
+
+/* THE SAFE BOX: the one rectangle every letter of a title must land inside.
  *
- * Measured off a screenshot of the reel this was drawn for: the back arrow and
- * the camera button sit over the top of the video and finish ~200px down the
- * 1920px frame, and the phone's clock and camera cut-out sit above them. Every
- * letter of the title has to land below this line. The banner itself is NOT
- * held below it - it runs off the top edge, the way the original does, so the
- * buttons sit on navy rather than on her face. */
-export const SAFE_TOP = 220;
+ * Each edge is a decision, and each is written down here so it can be changed
+ * in one place rather than rediscovered:
+ *
+ *   top     270  Meta's published guidance for reels: keep the top 14% of the
+ *                1920px frame clear of text, because the app's own buttons land
+ *                there (on her own reel they end ~200px down; 270 also covers
+ *                ads, other phones, and whatever Instagram adds next).
+ *   sides    65  Meta's 6% side margin, on each side.
+ *   bottom  490  How far down a title may reach. This is the choice that keeps
+ *                the banner off her face - 220px of type is enough for four
+ *                lines, and the banner ends 50px below it, at 28% of the frame.
+ *
+ * The banner is NOT held inside the box. It runs from the top edge of the frame
+ * to BANNER_BOTTOM, so Instagram's buttons sit on navy rather than on video. */
+export const SAFE_BOX: Box = { x: 65, y: 270, w: 950, h: 220 };
 
-/* The tilt. The original's banner climbs about 5 degrees to the right, but its
- * three lines were each set at a slightly different angle; here the banner and
- * every line share one, a little shallower so a long single line does not climb
- * far enough to look like it is sliding off. Negative is up to the right. */
-export const ANGLE_DEG = -4;
-
-/** Clear space between the type and each side of the frame. */
-export const SIDE = 72;
+/* The banner is the same height on every reel, whatever the title, so a feed of
+ * them reads as a series. Its bottom edge is 50px below the safe box: close to
+ * the box's 65px side margins, so the navy frames the type about evenly. */
+export const BANNER_PAD = 50;
+export const BANNER_BOTTOM = SAFE_BOX.y + SAFE_BOX.h + BANNER_PAD;
 
 /* The type's range. The ceiling is what a short title ("SOLD" or "OPEN HOUSE")
  * sets at, so it reads as a title and not a billboard; the floor is the point
  * past which a title is really a caption and should be cut. */
 export const MAX_SIZE = 118;
 export const MIN_SIZE = 36;
-
-/* How tall the block of type may get. This is the number that decides whether a
- * long title goes to three lines or four, and it is what keeps the banner off
- * her face: with a 3-line title the banner ends a little under a third of the
- * way down, about where the original's did. */
-export const MAX_TEXT_H = 240;
 
 /** Most lines a title is broken into automatically. */
 export const MAX_LINES = 4;
@@ -72,21 +73,16 @@ export const PITCH = 1.16;
  */
 export const TRACKING = LISTING_TRACKING;
 
-/** Navy below the last line, above the banner's bottom edge. */
-export const PAD_BOTTOM = 48;
-
 /** Cream type, from the listing art's strapline. */
 export const TYPE_INK = INK;
 /** The banner's flat navy, laid under the peony paper. */
 export const BANNER_NAVY = OUTLINE;
 
-export type Point = { x: number; y: number };
-
 export type TitleLine = {
   text: string;
-  /** Centre of the line, in the banner's own (unrotated) frame. */
+  /** Centre of the line, in canvas px. */
   x: number;
-  /** Alphabetic baseline, in the banner's own frame. */
+  /** Alphabetic baseline, in canvas px. */
   y: number;
   /** Advance width at the chosen size, including tracking. */
   w: number;
@@ -95,17 +91,12 @@ export type TitleLine = {
 export type TitleLayout = {
   lines: TitleLine[];
   size: number;
-  /** The point the banner turns about, in canvas px. */
-  pivot: Point;
-  /** Radians. */
-  angle: number;
-  /** The banner's bottom edge, in the banner's own frame. */
-  bottom: number;
+  /** The ink of the whole block - cap top of the first line to baseline of the
+   *  last, widest line's width - in canvas px. Always inside SAFE_BOX. */
+  ink: Box;
   /** Whether the breaks came from the words or from the person typing Enter. */
   manual: boolean;
 };
-
-const RAD = (ANGLE_DEG * Math.PI) / 180;
 
 /* ------------------------------------------------------------- the words */
 
@@ -137,7 +128,7 @@ const DANGLE_COST = 0.06;
  * of a line - "PET OWNERS: TO FENCE" - is a break that should have happened
  * and did not. Weighted a little more, because it reads worse than a line that
  * is merely a bit smaller. */
-const INSIDE_COST = 0.1;
+const INSIDE_COST = 0.2;
 
 /* Every way to put `words` on `n` lines, in order. A title is a handful of
  * words and n is at most four, so exhaustive is cheap - twenty words is under a
@@ -154,16 +145,16 @@ function* partitions(words: string[], n: number): Generator<string[]> {
   }
 }
 
-/* The size a set of lines can be drawn at: as big as fits across the frame,
- * down the height budget, and under the ceiling. Advance width is linear in size
+/* The size a set of lines can be drawn at: as big as fits the safe box both
+ * ways, and under the ceiling. Advance width is linear in size
  * once tracking is expressed in em, so one measurement at a reference size
  * stands in for a search. */
 const REF = 100;
 
 function sizeFor(lines: string[], measure: Measure): number {
   const widest = Math.max(...lines.map((l) => measure(l, REF, TRACKING)));
-  const byWidth = widest > 0 ? ((CANVAS.w - SIDE * 2) / widest) * REF : MAX_SIZE;
-  const byHeight = MAX_TEXT_H / (CAP_RATIO + (lines.length - 1) * PITCH);
+  const byWidth = widest > 0 ? (SAFE_BOX.w / widest) * REF : MAX_SIZE;
+  const byHeight = SAFE_BOX.h / (CAP_RATIO + (lines.length - 1) * PITCH);
   return Math.min(MAX_SIZE, byWidth, byHeight);
 }
 
@@ -211,59 +202,32 @@ export function breakTitle(text: string, measure: Measure): { lines: string[]; s
 
 /* Everything, in canvas terms.
  *
- * The banner and its type are laid out flat, in the banner's own frame, and the
- * whole frame is then turned about a pivot at the centre of the type's top edge.
- * The type's top is set as high as it can go with no letter crossing SAFE_TOP
- * once turned - which is the top line's right-hand end, since the banner climbs
- * to the right - so the title always sits as close under Instagram's buttons as
- * it safely can, whatever its length.
+ * The block is centred in the safe box both ways. Vertically that means the INK
+ * is centred - from the top of the first line's capitals to the baseline of the
+ * last - not the em boxes, which carry space above the caps and below the
+ * baseline that nobody can see, and would sit a short title visibly high.
+ *
+ * Centred rather than hung from the top, because the banner no longer grows
+ * with the title: a one-word title in a fixed banner, pushed to the top of it,
+ * leaves a band of empty navy underneath that reads as a mistake.
  */
 export function layoutTitle(text: string, measure: Measure): TitleLayout {
   const { lines, size, manual } = breakTitle(text, measure);
   const pitch = size * PITCH;
   const cap = size * CAP_RATIO;
-  const cx = CANVAS.w / 2;
+  const cx = SAFE_BOX.x + SAFE_BOX.w / 2;
 
   const widths = lines.map((l) => measure(l, size, TRACKING));
-
-  /* Turning about (cx, top), a point dx right of centre and dy below the top
-   * rises by dx*sin and drops by dy*cos. The top of line i's caps is at dy =
-   * i*pitch, and its highest point is its right-hand end. */
-  const sin = Math.sin(RAD);
-  const cos = Math.cos(RAD);
-  let rise = 0;
-  widths.forEach((w, i) => {
-    rise = Math.max(rise, -((w / 2) * sin + i * pitch * cos));
-  });
-  const top = SAFE_TOP + Math.max(0, rise);
+  const h = lines.length ? cap + (lines.length - 1) * pitch : 0;
+  const w = Math.max(0, ...widths);
+  const top = SAFE_BOX.y + (SAFE_BOX.h - h) / 2;
 
   return {
     lines: lines.map((t, i) => ({ text: t, x: cx, y: top + cap + i * pitch, w: widths[i] })),
     size,
-    pivot: { x: cx, y: top },
-    angle: RAD,
-    bottom: top + cap + Math.max(0, lines.length - 1) * pitch + PAD_BOTTOM,
+    ink: { x: cx - w / 2, y: top, w, h },
     manual,
   };
-}
-
-/** A point in the banner's frame, turned into canvas px. */
-export function toCanvas(layout: TitleLayout, p: Point): Point {
-  const { pivot, angle } = layout;
-  const dx = p.x - pivot.x;
-  const dy = p.y - pivot.y;
-  return {
-    x: pivot.x + dx * Math.cos(angle) - dy * Math.sin(angle),
-    y: pivot.y + dx * Math.sin(angle) + dy * Math.cos(angle),
-  };
-}
-
-/* The lowest the banner reaches, in canvas px: the left end of its bottom edge,
- * since it climbs to the right. What decides how much of the video it covers. */
-export function bannerLowest(layout: TitleLayout): number {
-  const left = toCanvas(layout, { x: 0, y: layout.bottom });
-  const right = toCanvas(layout, { x: CANVAS.w, y: layout.bottom });
-  return Math.max(left.y, right.y);
 }
 
 /** A title turned into something a file can be called. */
