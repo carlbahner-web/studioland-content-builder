@@ -46,23 +46,41 @@
   outline-offset: 1px;
 }
 
-/* The top of the reel only - down to about half way, where the banner and a
-   good stretch of video below it are both in view. The frame inside is the
-   full 9:16 and simply runs out of the bottom. */
-.title-phone {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1080 / 1000;
+/* The banner, big, beside the whole reel, small. Side by side at every width,
+   phone included: the reel preview is only there to show where the banner sits
+   and that the rest is see-through, which it does at thumbnail size. */
+.title-previews {
+  display: grid;
+  grid-template-columns: 1fr 24%;
+  gap: 12px;
+  align-items: start;
   margin-top: 8px;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #8a8578;
+}
+.title-banner {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
   box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
 }
-.title-frame {
-  position: absolute;
-  inset: 0 0 auto 0;
+.title-reel {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.title-reel-frame {
+  position: relative;
+  width: 100%;
   aspect-ratio: 1080 / 1920;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #8a8578;
+  box-shadow: 0 4px 12px rgb(44 44 42 / 14%);
+}
+.title-reel figcaption {
+  font-size: 11px;
+  text-align: center;
+  opacity: 0.6;
 }
 /* The usual image-editor checkerboard: grey and white says "see-through" to
    anyone who has used one, and a flat colour would say "this will be grey". */
@@ -73,8 +91,8 @@
     linear-gradient(-45deg, #d9d6cf 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, #d9d6cf 75%),
     linear-gradient(-45deg, transparent 75%, #d9d6cf 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
 }
 .title-backdrop,
 .title-canvas {

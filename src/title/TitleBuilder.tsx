@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
-import { CANVAS, SEED, filenameFor, layoutTitle } from "./template.ts";
+import { BANNER_BOTTOM, CANVAS, SEED, filenameFor, layoutTitle } from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
 import "../listing/listing.css";
 import "./title.css";
@@ -22,9 +22,34 @@ import "./title.css";
 const COARSE =
   typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
 
-/** Preview width in CSS px. The canvas behind it is drawn at device resolution. */
-const PREVIEW_W = 420;
-const PREVIEW_SCALE = PREVIEW_W / CANVAS.w;
+/* Two previews, drawn at these CSS widths and device resolution: the banner on
+ * its own, big enough to read, and the whole reel small, for the transparency.
+ * Both are the same drawTitle call as the export, so neither can disagree
+ * with the file. */
+const BANNER_PREVIEW_W = 460;
+const REEL_PREVIEW_W = 140;
+
+function paint(
+  canvas: HTMLCanvasElement | null,
+  cssW: number,
+  frameH: number,
+  layout: ReturnType<typeof layoutTitle>,
+  paper: HTMLCanvasElement | null,
+): void {
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx) return;
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const scale = (cssW / CANVAS.w) * dpr;
+  const w = Math.round(CANVAS.w * scale);
+  const h = Math.round(frameH * scale);
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  drawTitle(ctx, layout, paper, { scale });
+}
 
 /* The frame art the paper is cut from, and the font, both loaded before the
  * first real paint - a title laid out against the fallback face is laid out
@@ -64,7 +89,8 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
   const [held, setHeld] = useState<string | null>(null);
   const [canSave, setCanSave] = useState(true);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bannerRef = useRef<HTMLCanvasElement>(null);
+  const reelRef = useRef<HTMLCanvasElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { paper, ready, failed } = useArt();
 
@@ -90,20 +116,10 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
   const layout = useMemo(() => layoutTitle(text, measure), [text, measure]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
-    const w = Math.round(PREVIEW_W * dpr);
-    const h = Math.round(PREVIEW_W * (CANVAS.h / CANVAS.w) * dpr);
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    drawTitle(ctx, layout, paper, { scale: PREVIEW_SCALE * dpr });
+    // The banner preview is cut off exactly where the banner ends: it is the
+    // part being worked on, and everything below it is the reel preview's job.
+    paint(bannerRef.current, BANNER_PREVIEW_W, BANNER_BOTTOM, layout, paper);
+    paint(reelRef.current, REEL_PREVIEW_W, CANVAS.h, layout, paper);
   }, [layout, paper]);
 
   // The backdrop is an object URL, and has to be released when replaced.
@@ -173,13 +189,20 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
         />
         <p className="title-hint">Press Enter to start a new line where you want one.</p>
 
-        {/* The top of the frame only: the banner is all there is to see, and the
-            rest of a 9:16 preview is a long stretch of nothing on a phone. */}
-        <div className={`title-phone${backdrop ? "" : " title-checker"}`}>
-          <div className="title-frame">
-            {backdrop && <img className="title-backdrop" src={backdrop} alt="" />}
-            <canvas ref={canvasRef} className="title-canvas" />
-          </div>
+        <div className="title-previews">
+          <canvas
+            ref={bannerRef}
+            className="title-banner"
+            style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}
+            aria-label="The banner"
+          />
+          <figure className="title-reel">
+            <div className={`title-reel-frame${backdrop ? "" : " title-checker"}`}>
+              {backdrop && <img className="title-backdrop" src={backdrop} alt="" />}
+              <canvas ref={reelRef} className="title-canvas" aria-label="The whole reel" />
+            </div>
+            <figcaption>Whole reel</figcaption>
+          </figure>
         </div>
 
         <button type="button" className="title-go" onClick={download} disabled={busy || !ready || empty}>
