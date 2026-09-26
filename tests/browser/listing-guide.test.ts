@@ -69,6 +69,9 @@ test("the whole flow on a laptop, down to the saved file", async () => {
   const next2 = page.getByRole("button", { name: /Next: sold or pending/ });
   assert.equal(await next2.isDisabled(), true, "Next is off until there is a photo");
   await choosePhoto(page);
+  // The side is picked while framing the photo, where the arch's overlap shows.
+  await page.locator("#side-mirrored").click();
+  assert.equal(await page.locator("#side-mirrored").getAttribute("aria-pressed"), "true");
   await page.getByRole("button", { name: "Move the photo" }).click();
   await page.getByRole("button", { name: /Bigger/ }).click();
   await page.getByRole("button", { name: /Put it back/ }).click();
@@ -82,8 +85,7 @@ test("the whole flow on a laptop, down to the saved file", async () => {
   assert.match(await heading(page), /Which photo of you/);
   assert.equal(await page.locator("[id^=you-]").count(), 7, "every headshot is offered");
   await page.locator("#you-sitting").click();
-  await page.locator("#side-mirrored").click();
-  assert.equal(await page.locator("#side-mirrored").getAttribute("aria-pressed"), "true");
+  assert.equal(await page.locator("[id^=side-]").count(), 0, "the side was already chosen with the photo");
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),

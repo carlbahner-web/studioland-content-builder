@@ -183,12 +183,14 @@ styles shared from `src/title/title.css` plus `src/listing/guide.css`):
    added for her (`CONTACT_LINES` in `src/listing/guide.ts`) and never shown
    as editable. The address is always centred, as the design is.
 2. **Add the photo of the house.** One button, or drag a photo onto the
-   preview. It fills the space automatically; "Move the photo" offers drag,
+   preview. It fills the space automatically. Which side her own photo goes on
+   is chosen here, next to the framing, because her arch covers the bottom
+   corner of the house photo on that side. "Move the photo" offers drag,
    Bigger/Smaller and "Put it back how it was" (no slider, no pinch).
 3. **Sold or pending?** Three small copies of her post to tap: just the house,
    SOLD!, PENDING!, plus "Something else…" for her own words.
-4. **Which photo of you?** Every headshot, and left or right, as small copies of
-   the post. Then "Looks good — save it".
+4. **Which photo of you?** Every headshot, as small copies of the post. Then
+   "Looks good — save it".
 5. **Saved!** The file name (`Sep26 listing 373 Meetinghouse.png`) and where it
    went, then how to post it from the computer (instagram.com) or the phone.
    Both lists are plain data (`POST_FROM_LAPTOP`, `POST_FROM_PHONE`).

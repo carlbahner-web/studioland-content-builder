@@ -455,6 +455,26 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
             {preview}
             {photo && (
               <>
+                {/* The side is chosen HERE, beside the framing, not later: her
+                    arch covers the bottom corner of the house photo on
+                    whichever side it sits, so the photo has to be framed with
+                    the arch where it will really be. */}
+                <p className="lg-question">Which side should your photo go on?</p>
+                <div className="lg-tabs" role="group" aria-label="Which side should your photo go on?">
+                  {LAYOUTS.map((l) => (
+                    <button
+                      key={l.key}
+                      id={`side-${l.key}`}
+                      type="button"
+                      className={layout === l.key ? "tb-choice tb-choice-on" : "tb-choice"}
+                      aria-pressed={layout === l.key}
+                      onClick={() => setLayout(l.key)}
+                    >
+                      {layout === l.key ? "✓ " : ""}
+                      {l.key === "standard" ? "On the left" : "On the right"}
+                    </button>
+                  ))}
+                </div>
                 {!moving ? (
                   <button type="button" className="tb-secondary" onClick={() => setMoving(true)}>
                     Move the photo
@@ -566,22 +586,6 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
                   on={headshot === h.key}
                   label={h.label}
                   onPick={() => setHeadshot(h.key)}
-                />
-              ))}
-            </div>
-            <p className="tb-lead">Which side should your photo go on?</p>
-            <div className="lg-choices lg-two">
-              {LAYOUTS.map((l) => (
-                <MiniPost
-                  key={l.key}
-                  id={`side-${l.key}`}
-                  doc={variant({ layout: l.key })}
-                  art={art}
-                  photo={photoRef.current}
-                  redraw={fontReady}
-                  on={layout === l.key}
-                  label={l.key === "standard" ? "On the left" : "On the right"}
-                  onPick={() => setLayout(l.key)}
                 />
               ))}
             </div>

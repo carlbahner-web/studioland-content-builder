@@ -64,3 +64,9 @@
   align-items: center;
   font-size: 18px;
 }
+
+.lg-question {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+}
