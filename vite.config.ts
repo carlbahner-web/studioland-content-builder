@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { resolve } from "node:path";
 
 // One app, one entry point. This tool was prototyped as a second entry point
 // inside the CRM repo (ss-frontend), where it had to be gated behind a
@@ -15,7 +16,19 @@ import react from "@vitejs/plugin-react";
 // carry that prefix or the page loads and then quietly fetches nothing. Dev,
 // `npm run build` and the single-file build all leave it unset and get "/",
 // which is what they want; only the Pages workflow sets it.
+//
+// Two pages. index.html is every tool behind the hash router; angela/index.html
+// is Angela's own address - her home page and the two guided tools - with its
+// own title and link preview, because a link preview never sees past a #.
 export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, "index.html"),
+        angela: resolve(import.meta.dirname, "angela/index.html"),
+      },
+    },
+  },
 });

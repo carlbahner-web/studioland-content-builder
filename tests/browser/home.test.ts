@@ -69,3 +69,28 @@ test("the two cards open the two tools, and each comes back home", async () => {
   assert.deepEqual(errors, []);
   await page.close();
 });
+
+test("her own address opens on the question, with her name and preview on the page", async () => {
+  const page = await newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(`uncaught: ${e.message}`));
+  await page.goto(`${BASE}angela/`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".home-cards", { timeout: 20_000 });
+
+  assert.equal(await page.title(), "Angela's Post Builder");
+  const meta = (sel: string) => page.locator(sel).getAttribute("content");
+  assert.equal(await meta('meta[property="og:title"]'), "Angela's Post Builder");
+  assert.match((await meta('meta[property="og:image"]'))!, /^https:\/\/.+\/angela\/preview\.jpg$/);
+  const img = await page.request.get(`${BASE}angela/preview.jpg`);
+  assert.equal(img.status(), 200, "the preview image is served");
+
+  // The cards switch tools in place here - there is no router on this page.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /A reel title/ }).click();
+  await page.waitForSelector("#title-text", { timeout: 20_000 });
+  await page.getByRole("button", { name: /Home/ }).click();
+  await page.waitForSelector(".home-cards");
+
+  assert.deepEqual(errors, []);
+  await page.close();
+});

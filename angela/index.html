@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Angela's own address, so her link has its own name and preview.
+         Everything after a # is invisible to link previews and bookmarks'
+         defaults, so #/angela on the main page could only ever show the brand
+         builder's title; this page is what makes "Angela's Post Builder" the
+         name a shared link, a bookmark and a browser tab all show.
+
+         Still unlisted: noindex, like the rest of the site. The title and the
+         preview are for people she shares it with, not for search engines. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Angela's Post Builder</title>
+    <meta name="description" content="Make a listing post or a reel title in Angela Rera's style, one step at a time." />
+
+    <!-- Link previews (texts, iMessage, Facebook, Slack...). The image URL has
+         to be absolute - previews are fetched by other companies' servers,
+         which cannot resolve a relative path - so it names the live site. The
+         card itself is made by `npm run og` from her artwork. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Angela Rera" />
+    <meta property="og:title" content="Angela's Post Builder" />
+    <meta property="og:description" content="Make a listing post or a reel title in Angela Rera's style, one step at a time." />
+    <meta property="og:url" content="https://carlbahner-web.github.io/studioland-content-builder/angela/" />
+    <meta property="og:image" content="https://carlbahner-web.github.io/studioland-content-builder/angela/preview.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Angela's Post Builder: Angela Rera in her floral arch on navy" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Angela's Post Builder" />
+    <meta name="twitter:image" content="https://carlbahner-web.github.io/studioland-content-builder/angela/preview.jpg" />
+
+    <link rel="icon" type="image/png" href="%BASE_URL%favicon.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%angela/icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/home/main.tsx"></script>
+  </body>
+</html>

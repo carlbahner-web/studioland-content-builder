@@ -505,7 +505,21 @@ them.
 
 ## Angela's home page
 
-`#/angela` is the one address Angela keeps: "What would you like to make?" and
+**Her address is `/angela/`** (`https://carlbahner-web.github.io/studioland-content-builder/angela/`),
+a page of its own (`angela/index.html`, a second Vite input) rather than a hash
+route, because a link preview, a bookmark's default name and a browser tab
+never see past a `#`. It is titled **Angela's Post Builder** and carries its
+own link preview: `public/angela/preview.jpg` (1200×630) and a home-screen icon,
+`public/angela/icon.png`. Both are drawn from her artwork by the tools' own
+drawing code - the peony paper and the listing arch with her default headshot -
+so `npm run og` remakes them after any artwork or headshot change. The page is
+still `noindex`: the title and preview are for people she shares it with.
+
+It runs the same entry as her Claude artifact (`src/home/main.tsx`), switching
+between the home page and the two tools in place. `#/angela` on the main page
+still works too.
+
+The home page is the one address Angela keeps: "What would you like to make?" and
 two big cards, **A listing post** and **A reel title**. Each tool's header has
 a "← Home" link back to it (the brand content builder is still at the site's
 root, just not linked from her tools).

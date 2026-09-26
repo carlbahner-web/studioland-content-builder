@@ -1,5 +1,6 @@
-/* Angela's tools as one self-contained page - the entry point for
- * `npm run build:angela`, which is what gets published as her Claude artifact.
+/* Angela's tools as one page - the entry point for her own address on the site
+ * (angela/index.html) and for `npm run build:angela`, the one-file copy that
+ * gets published as her Claude artifact.
  *
  * It opens on her home page ("What would you like to make?") with the
  * bookmark reminder, exactly like #/angela on the site, and switches between
@@ -9,6 +10,9 @@
  * listing editor are not in this build at all.
  */
 import { StrictMode, useState } from "react";
+// The shared chrome - palette, the webfont, the base type - which the routed
+// site gets through App. The one-file build inlines it itself and ignores this.
+import "../studio.css";
 import { createRoot } from "react-dom/client";
 import AngelaHome from "./AngelaHome.tsx";
 import type { Tool } from "./AngelaHome.tsx";
