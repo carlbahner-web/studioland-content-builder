@@ -159,8 +159,18 @@ function sizeFor(lines: string[], measure: Measure): number {
   return Math.min(MAX_SIZE, byWidth, byHeight);
 }
 
-function score(lines: string[], size: number): number {
+/* The last word on near-ties: evenly matched lines. "PET / OWNERS: / TO FENCE
+ * OR NOT TO FENCE?" and "PET OWNERS: / TO FENCE / OR NOT TO FENCE?" set at the
+ * same size and both break after the colon, and without this the first one
+ * found - the lopsided one - wins. Small enough that it never outweighs a real
+ * difference in size or a better break. */
+const RAG_COST = 0.03;
+
+function score(lines: string[], size: number, measure: Measure): number {
   let k = 1;
+  const widths = lines.map((l) => measure(l, REF, TRACKING));
+  const widest = Math.max(...widths);
+  if (lines.length > 1 && widest > 0) k -= RAG_COST * (1 - Math.min(...widths) / widest);
   for (const line of lines.slice(0, -1)) {
     if (/[:,.?!;—–-]$/.test(line)) k += BREAK_BONUS;
     const last = line.split(" ").pop() ?? "";
@@ -191,12 +201,48 @@ export function breakTitle(text: string, measure: Measure): { lines: string[]; s
   for (let n = 1; n <= Math.min(MAX_LINES, words.length); n++) {
     for (const lines of partitions(words, n)) {
       const size = sizeFor(lines, measure);
-      const s = score(lines, size);
+      const s = score(lines, size, measure);
       // Strictly better only, so the fewer-lines candidate found first keeps a tie.
       if (!best || s > best.score + 0.01) best = { lines, size, score: s };
     }
   }
   return { lines: best!.lines, size: Math.max(MIN_SIZE, best!.size), manual: false };
+}
+
+/* A few different ways to break the same words, best first, for someone to
+ * pick between by eye rather than by typing line breaks.
+ *
+ * One per line count - the best two-line break, the best three-line break and
+ * so on - because two breaks with the same number of lines mostly look alike,
+ * and a choice between near-twins is not a choice. Anything that would set the
+ * type much smaller than the best is left out; it is never the better picture.
+ * The first is always the one breakTitle would have chosen. Typed breaks are
+ * the only choice there is. */
+export function titleChoices(text: string, measure: Measure, max = 3): string[][] {
+  const t = clean(text);
+  if (!t) return [];
+  if (t.includes("\n")) return [t.split("\n").filter(Boolean)];
+
+  const words = t.split(" ");
+  const perCount: { lines: string[]; size: number; score: number }[] = [];
+  for (let n = 1; n <= Math.min(MAX_LINES, words.length); n++) {
+    let best: { lines: string[]; size: number; score: number } | null = null;
+    for (const lines of partitions(words, n)) {
+      const size = sizeFor(lines, measure);
+      const s = score(lines, size, measure);
+      if (!best || s > best.score + 0.01) best = { lines, size, score: s };
+    }
+    if (best) perCount.push(best);
+  }
+  // Best first; near-ties go to fewer lines, the same rule breakTitle uses.
+  perCount.sort((a, b) =>
+    Math.abs(a.score - b.score) <= 0.01 ? a.lines.length - b.lines.length : b.score - a.score,
+  );
+  const top = perCount[0].size;
+  return perCount
+    .filter((c) => c.size >= top * 0.7)
+    .slice(0, max)
+    .map((c) => c.lines);
 }
 
 /* ------------------------------------------------------------ the placing */
@@ -231,15 +277,19 @@ export function layoutTitle(text: string, measure: Measure): TitleLayout {
   };
 }
 
-/** A title turned into something a file can be called. */
+/* A title turned into a file name someone can recognise in their Downloads
+ * folder: "Reel title - Pet owners to fence or not to fence.png". Written as
+ * typed rather than slugged, because a person looks for their own words, and
+ * with the characters Windows refuses in a file name taken out. */
 export function filenameFor(text: string): string {
-  const slug = clean(text)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 48)
-    .replace(/-$/, "");
-  return `${slug || "reel"}-title.png`;
+  const words = text
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60)
+    .trim()
+    .replace(/[. ]+$/, "");
+  return words ? `Reel title - ${words}.png` : "Reel title.png";
 }
 
 export const SEED = "Pet owners: to fence or not to fence?";

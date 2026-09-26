@@ -15,6 +15,7 @@ import {
   clean,
   filenameFor,
   layoutTitle,
+  titleChoices,
 } from "./template.ts";
 
 const measure = (line: string, size: number, tracking: number) =>
@@ -84,7 +85,20 @@ test("an empty title lays out nothing", () => {
   assert.equal(layoutTitle("   ", measure).lines.length, 0);
 });
 
-test("filenames", () => {
-  assert.equal(filenameFor(SEED), "pet-owners-to-fence-or-not-to-fence-title.png");
-  assert.equal(filenameFor("!!!"), "reel-title.png");
+test("file names are the title as typed, safe for Windows", () => {
+  assert.equal(filenameFor(SEED), "Reel title - Pet owners to fence or not to fence.png");
+  assert.equal(filenameFor("Just\nlisted!"), "Reel title - Just listed!.png");
+  assert.equal(filenameFor(' <"?> '), "Reel title.png");
+});
+
+test("layout choices start with the automatic one and differ in line count", () => {
+  for (const t of SAMPLES) {
+    const choices = titleChoices(t, measure);
+    assert.ok(choices.length >= 1);
+    assert.deepEqual(choices[0], breakTitle(t, measure).lines, t);
+    const counts = choices.map((c) => c.length);
+    assert.equal(new Set(counts).size, counts.length, `${t}: two choices with the same line count`);
+  }
+  assert.deepEqual(titleChoices("Just\nlisted", measure), [["JUST", "LISTED"]]);
+  assert.deepEqual(titleChoices("  ", measure), []);
 });

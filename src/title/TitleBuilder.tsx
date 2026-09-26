@@ -1,34 +1,85 @@
 /* The reel title builder.
  *
- * One text box and a download button. Type the title; the tool breaks it into
- * lines, sizes it to the safe box, centres it there on the peony banner, and
- * hands back a transparent PNG the
- * size of the reel. There is nothing to position because there is nothing that
- * could usefully be anywhere else.
+ * Four steps, one thing to do on each: type the words, check how they look,
+ * save the picture, put it on the video. The person using it never positions,
+ * sizes or configures anything - the layout engine in template.ts does all of
+ * that - so every screen can be a single question with a single big button.
  *
- * The one thing that is not the title is a screenshot of the video to preview
- * the banner over. It is not in the export.
+ * Written for a laptop first. The reel is edited in Descript on a Windows
+ * laptop, so a title made on the same machine lands in Downloads and goes
+ * straight into Descript: no phone, no cable, no moving files between devices.
+ * It still works on a phone, where saving falls back to press-and-hold.
+ *
+ * Words on screen are the person's words, not the tool's: "picture", "save",
+ * "Downloads folder" - never PNG, export, transparent or safe zone.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
-import { BANNER_BOTTOM, CANVAS, SAFE_BOX, SEED, filenameFor, layoutTitle } from "./template.ts";
+import {
+  BANNER_BOTTOM,
+  CANVAS,
+  SAFE_BOX,
+  filenameFor,
+  layoutTitle,
+  titleChoices,
+} from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
 import { LISTING_ARTIFACT } from "../links.ts";
 import "../listing/listing.css";
 import "./title.css";
 
 /* See ListingBuilder: iOS will not reliably save a blob download, so on a
- * touch device the finished PNG is shown full size to press and hold. */
+ * touch device the finished picture is shown full size to press and hold. */
 const COARSE =
   typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
 
-/* Two previews, drawn at these CSS widths and device resolution: the banner on
- * its own, big enough to read, and the whole reel small, for the transparency.
- * Both are the same drawTitle call as the export, so neither can disagree
- * with the file. */
-const BANNER_PREVIEW_W = 460;
-const REEL_PREVIEW_W = 140;
+/* `?guides` in the address shows the safe box on the preview. For whoever is
+ * looking after the tool, not for the person using it, so it is off unless
+ * asked for and there is no control for it on the page. */
+const GUIDES =
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("guides");
+
+/* Kept in the browser so closing the tab by accident loses nothing. Storage can
+ * be missing or refuse (private windows, blocked site data), and the page has
+ * to work exactly the same without it. */
+const DRAFT_KEY = "reel-title-draft";
+function readDraft(): string {
+  try {
+    return localStorage.getItem(DRAFT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+function writeDraft(text: string): void {
+  try {
+    if (text) localStorage.setItem(DRAFT_KEY, text);
+    else localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* not kept; nothing else changes */
+  }
+}
+
+/* Below this the type is small enough to be hard to read on a phone. Said
+ * kindly and never enforced: it is her title. */
+const SMALL_TYPE = 64;
+
+/* How to put the picture on a video in Descript. Kept as plain data so the
+ * wording can be corrected without touching the page - Descript changes its
+ * screens, and these should match what she actually sees. */
+const DESCRIPT_STEPS = [
+  "Open your video in Descript.",
+  "Open your Downloads folder: hold the Windows key and press E, then click Downloads on the left.",
+  "Find the picture called “{name}” and drag it onto your video in Descript.",
+  "If it doesn't cover the whole video, drag its corners out to the edges. Only the banner shows; your video stays visible underneath.",
+  "Make it last as long as you want the title on screen: in the timeline at the bottom, drag the end of the title picture to where it should stop.",
+];
+
+/* Two sizes of preview, both the same drawTitle call as the saved picture, so
+ * what she sees is what she gets. */
+const BANNER_PREVIEW_W = 560;
+const REEL_PREVIEW_W = 150;
+const CHOICE_PREVIEW_W = 240;
 
 function paint(
   canvas: HTMLCanvasElement | null,
@@ -81,10 +132,8 @@ function useArt(): { paper: HTMLCanvasElement | null; ready: boolean; failed: bo
   return state;
 }
 
-/* The safe box, drawn over a preview as a dashed outline. Preview only - it is
- * HTML over the canvas, so it cannot reach the export. Positioned in percent of
- * whatever part of the frame the preview shows, which is the whole reel for the
- * small preview and the top BANNER_BOTTOM px for the banner. */
+/* The safe box as a dashed outline, over the banner preview when `?guides` is
+ * set. HTML over the canvas, so it cannot reach the saved picture. */
 function SafeZone({ frameH }: { frameH: number }) {
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
   return (
@@ -101,19 +150,51 @@ function SafeZone({ frameH }: { frameH: number }) {
   );
 }
 
+/** One layout choice, drawn small, as a button. */
+function Choice(props: {
+  lines: string[];
+  on: boolean;
+  label: string;
+  measure: Parameters<typeof layoutTitle>[1];
+  paper: HTMLCanvasElement | null;
+  onPick: () => void;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const { lines, measure, paper } = props;
+  useEffect(() => {
+    paint(ref.current, CHOICE_PREVIEW_W, BANNER_BOTTOM, layoutTitle(lines.join("\n"), measure), paper);
+  }, [lines, measure, paper]);
+  return (
+    <button
+      type="button"
+      className={`tb-choice${props.on ? " tb-choice-on" : ""}`}
+      aria-pressed={props.on}
+      onClick={props.onPick}
+    >
+      <canvas ref={ref} style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }} aria-hidden />
+      <span>{props.on ? "✓ " : ""}{props.label}</span>
+    </button>
+  );
+}
+
+type Step = 1 | 2 | 3 | 4;
+
 /** `standalone` is the one-file build, which links out to the listing builder
  *  artifact rather than to a route. */
 export default function TitleBuilder({ standalone = false }: { standalone?: boolean }) {
-  const [text, setText] = useState(SEED);
-  const [backdrop, setBackdrop] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(1);
+  const [text, setText] = useState(readDraft);
+  const [choice, setChoice] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  /** The saved picture, shown full size for press-and-hold on a phone. */
   const [held, setHeld] = useState<string | null>(null);
+  const [savedName, setSavedName] = useState<string | null>(null);
   const [canSave, setCanSave] = useState(true);
 
   const bannerRef = useRef<HTMLCanvasElement>(null);
   const reelRef = useRef<HTMLCanvasElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const { paper, ready, failed } = useArt();
 
   useEffect(() => {
@@ -124,10 +205,17 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
     };
   }, []);
 
-  /* One measuring context for the life of the tool: it only ever measures, and
-   * its cache is what keeps trying every line break cheap per keystroke. It is
-   * rebuilt once the font lands, because widths cached against the fallback
-   * face are wrong. */
+  useEffect(() => writeDraft(text), [text]);
+
+  /* Each new step starts at the top with its heading focused, so a screen
+   * reader announces it and a keyboard user starts in the right place. */
+  useEffect(() => {
+    window.scrollTo?.({ top: 0 });
+    headingRef.current?.focus();
+  }, [step]);
+
+  /* One measuring context for the life of the tool, rebuilt once the font
+   * lands, because widths measured against the fallback face are wrong. */
   const measure = useMemo(() => {
     const ctx = document.createElement("canvas").getContext("2d");
     return ctx ? titleMeasurer(ctx) : () => 0;
@@ -135,58 +223,64 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
-  const layout = useMemo(() => layoutTitle(text, measure), [text, measure]);
+  const choices = useMemo(() => titleChoices(text, measure), [text, measure]);
+  const picked = choices[Math.min(choice, choices.length - 1)] ?? [];
+  // The chosen breaks, as typed breaks: the layout engine keeps those as given.
+  const finalText = picked.join("\n");
+  const layout = useMemo(() => layoutTitle(finalText, measure), [finalText, measure]);
+  const empty = !text.trim();
 
   useEffect(() => {
-    // The banner preview is cut off exactly where the banner ends: it is the
-    // part being worked on, and everything below it is the reel preview's job.
+    if (step !== 2) return;
     paint(bannerRef.current, BANNER_PREVIEW_W, BANNER_BOTTOM, layout, paper);
     paint(reelRef.current, REEL_PREVIEW_W, CANVAS.h, layout, paper);
-  }, [layout, paper]);
-
-  // The backdrop is an object URL, and has to be released when replaced.
-  useEffect(() => () => {
-    if (backdrop) URL.revokeObjectURL(backdrop);
-  }, [backdrop]);
+  }, [step, layout, paper]);
 
   const filename = filenameFor(text);
 
-  const download = async () => {
+  const save = async () => {
     setBusy(true);
-    setNote(null);
+    setProblem(null);
     try {
-      const canvas = renderFull(text, measure, paper);
+      const canvas = renderFull(finalText, measure, paper);
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
-      if (!blob) throw new Error("the canvas would not encode");
+      if (!blob) throw new Error("no picture");
       const outcome = await saveFile(filename, blob);
+      if (outcome === "declined") {
+        setProblem("It wasn't saved. Press the button again, and choose Save when asked.");
+        return;
+      }
+      if (outcome === "browser" && !canSave) {
+        setProblem("This page can't save pictures here. Open it in its own browser tab and try again.");
+        return;
+      }
       if (outcome === "browser" && COARSE) setHeld(canvas.toDataURL("image/png"));
-      else if (outcome === "declined") setNote("Save cancelled.");
-      else if (outcome === "browser" && !canSave) {
-        setNote(`This viewer will not let the page save files. Open it in its own tab to get ${filename}.`);
-      } else setNote(`Saved ${filename}`);
-    } catch (err) {
-      setNote(`Could not export: ${(err as Error).message}`);
+      setSavedName(filename);
+      setStep(3);
+    } catch {
+      setProblem("Something went wrong making the picture. Please press the button again.");
     } finally {
       setBusy(false);
     }
   };
 
-  const empty = !layout.lines.length;
+  const startOver = () => {
+    setText("");
+    setChoice(0);
+    setSavedName(null);
+    setHeld(null);
+    setProblem(null);
+    setStep(1);
+  };
 
-  /* One column, top to bottom, at every width: type it, see it, save it. This
-   * is used from a phone, where a side panel would be a second screen to
-   * scroll to, and a desk gains nothing from the extra room. */
+  const back = (to: Step) => (
+    <button type="button" className="tb-back" onClick={() => setStep(to)}>
+      ← Back
+    </button>
+  );
+
   return (
     <div className="title">
-      {held && (
-        <div className="held">
-          <img src={held} alt="The finished reel title" />
-          <p>Press and hold the image, then tap Save to Photos.</p>
-          <button type="button" className="ghost" onClick={() => setHeld(null)}>
-            Done
-          </button>
-        </div>
-      )}
       <header className="listing-head">
         <h1>ANGELA RERA - REEL TITLES</h1>
         <a href={standalone ? LISTING_ARTIFACT : "#/listing"} className="listing-elsewhere">
@@ -194,62 +288,170 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
         </a>
       </header>
 
-      <main className="title-column">
-        <label className="title-label" htmlFor="title-text">
-          Title
-        </label>
-        <textarea
-          id="title-text"
-          className="title-input"
-          value={text}
-          rows={2}
-          spellCheck
-          placeholder="Type your title"
-          onChange={(e) => setText(e.target.value)}
-        />
-        <p className="title-hint">Press Enter to start a new line where you want one.</p>
+      <main className="tb">
+        <p className="tb-progress" aria-label={`Step ${step} of 4`}>
+          {[1, 2, 3, 4].map((n) => (
+            <span key={n} className={n <= step ? "tb-dot tb-dot-on" : "tb-dot"} aria-hidden />
+          ))}
+          <span>Step {step} of 4</span>
+        </p>
 
-        <div className="title-previews">
-          <div className="title-banner-frame" style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}>
-            <canvas ref={bannerRef} className="title-canvas" aria-label="The banner" />
-            <SafeZone frameH={BANNER_BOTTOM} />
-          </div>
-          <figure className="title-reel">
-            <div className={`title-reel-frame${backdrop ? "" : " title-checker"}`}>
-              {backdrop && <img className="title-backdrop" src={backdrop} alt="" />}
-              <canvas ref={reelRef} className="title-canvas" aria-label="The whole reel" />
-              <SafeZone frameH={CANVAS.h} />
+        {step === 1 && (
+          <section className="tb-step">
+            <h2 ref={headingRef} tabIndex={-1}>
+              What should your title say?
+            </h2>
+            <p className="tb-lead">Type it just the way you'd say it. We'll do the rest.</p>
+            <label className="tb-visually-hidden" htmlFor="title-text">
+              Your title
+            </label>
+            <textarea
+              id="title-text"
+              className="tb-input"
+              value={text}
+              rows={3}
+              spellCheck
+              placeholder="For example: Pet owners: to fence or not to fence?"
+              onChange={(e) => {
+                setText(e.target.value);
+                setChoice(0);
+              }}
+            />
+            <button
+              type="button"
+              className="tb-primary"
+              disabled={empty || !ready}
+              onClick={() => setStep(2)}
+            >
+              {ready ? "Next: see how it looks" : "Getting ready…"}
+            </button>
+            {empty && <p className="tb-hint">Type a few words above, then press the button.</p>}
+          </section>
+        )}
+
+        {step === 2 && (
+          <section className="tb-step">
+            {back(1)}
+            <h2 ref={headingRef} tabIndex={-1}>
+              Here's your title
+            </h2>
+            <p className="tb-lead">This is the banner that will sit across the top of your video.</p>
+
+            <div className="tb-previews">
+              <div className="tb-banner" style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}>
+                <canvas ref={bannerRef} className="title-canvas" aria-label={`Your title: ${picked.join(" ")}`} />
+                {GUIDES && <SafeZone frameH={BANNER_BOTTOM} />}
+              </div>
+              <figure className="tb-reel">
+                <div className="tb-reel-frame">
+                  <span className="tb-reel-video" aria-hidden>
+                    Your video
+                  </span>
+                  <canvas ref={reelRef} className="title-canvas" aria-hidden />
+                </div>
+                <figcaption>On your video</figcaption>
+              </figure>
             </div>
-            <figcaption>Whole reel</figcaption>
-          </figure>
-        </div>
 
-        <button type="button" className="title-go" onClick={download} disabled={busy || !ready || empty}>
-          {busy ? "Saving…" : "Save title image"}
-        </button>
-        {note && <p className="title-hint">{note}</p>}
-        <p className="title-hint">Lay it over the whole video. It lines up by itself.</p>
+            {layout.size < SMALL_TYPE && (
+              <p className="tb-note">
+                That's quite a few words, so the letters are small. A shorter title is easier to read
+                on a phone, but this one will work too.
+              </p>
+            )}
 
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="listing-file"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = "";
-            if (f && f.type.startsWith("image/")) setBackdrop(URL.createObjectURL(f));
-          }}
-        />
-        <button
-          type="button"
-          className="title-quiet"
-          onClick={() => (backdrop ? setBackdrop(null) : fileRef.current?.click())}
-        >
-          {backdrop ? "Remove the screenshot" : "Preview it over a screenshot of the video"}
-        </button>
+            {choices.length > 1 && (
+              <div className="tb-choices">
+                <p className="tb-choices-q">Want the lines split differently? Tap the one you like best.</p>
+                <div className="tb-choice-row">
+                  {choices.map((c, i) => (
+                    <Choice
+                      key={c.join("|")}
+                      lines={c}
+                      on={i === Math.min(choice, choices.length - 1)}
+                      label={`${c.length} ${c.length === 1 ? "line" : "lines"}`}
+                      measure={measure}
+                      paper={paper}
+                      onPick={() => setChoice(i)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {failed && <p className="title-hint">The flower pattern did not load, so the banner is plain navy.</p>}
+            <button type="button" className="tb-primary" onClick={save} disabled={busy}>
+              {busy ? "Saving…" : "Looks good — save it"}
+            </button>
+            <button type="button" className="tb-secondary" onClick={() => setStep(1)}>
+              Change the words
+            </button>
+            {problem && (
+              <p className="tb-problem" role="alert">
+                {problem}
+              </p>
+            )}
+            {failed && (
+              <p className="tb-hint">The flower pattern didn't load, so the banner is plain navy. It still works.</p>
+            )}
+          </section>
+        )}
+
+        {step === 3 && (
+          <section className="tb-step">
+            {back(2)}
+            {held ? (
+              <>
+                <h2 ref={headingRef} tabIndex={-1}>
+                  One more tap to save it
+                </h2>
+                <p className="tb-lead">
+                  Press and hold the picture below, then tap <strong>Save to Photos</strong>.
+                </p>
+                <img className="tb-held" src={held} alt="Your title picture" />
+              </>
+            ) : (
+              <>
+                <h2 ref={headingRef} tabIndex={-1}>
+                  ✓ Saved!
+                </h2>
+                <p className="tb-lead">Your title picture is in your <strong>Downloads</strong> folder. It's called:</p>
+                <p className="tb-filename">{savedName}</p>
+              </>
+            )}
+            <button type="button" className="tb-primary" onClick={() => setStep(4)}>
+              Next: put it on your video
+            </button>
+            <button type="button" className="tb-secondary" onClick={save} disabled={busy}>
+              {busy ? "Saving…" : "It didn't save — try again"}
+            </button>
+            {problem && (
+              <p className="tb-problem" role="alert">
+                {problem}
+              </p>
+            )}
+          </section>
+        )}
+
+        {step === 4 && (
+          <section className="tb-step">
+            {back(3)}
+            <h2 ref={headingRef} tabIndex={-1}>
+              Put it on your video in Descript
+            </h2>
+            <ol className="tb-howto">
+              {DESCRIPT_STEPS.map((s, i) => (
+                <li key={i}>{s.replace("{name}", savedName ?? filename)}</li>
+              ))}
+            </ol>
+            <p className="tb-hint">
+              The picture is see-through everywhere except the banner, so it can cover the whole
+              video without hiding anything.
+            </p>
+            <button type="button" className="tb-primary" onClick={startOver}>
+              Make another title
+            </button>
+          </section>
+        )}
       </main>
     </div>
   );

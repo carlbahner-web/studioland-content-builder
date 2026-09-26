@@ -515,6 +515,32 @@ a series, and it is level, like her listing posts.
   the listing address's -0.1em tracking, so titles read as the same brand as
   her listing posts.
 
+### The page: four guided steps
+
+The page is built for someone who wants the title and nothing else, on the
+Windows laptop where the reel is edited in Descript. A title made there
+saves straight to Downloads and drags into Descript, with no phone or cable
+involved. One thing to do per screen, big type and buttons, plain words
+(picture, save, Downloads folder; never PNG, transparent or export):
+
+1. **What should your title say?** One big text box, starting empty, with an
+   example in grey. "Next" stays off until something is typed. The draft is
+   kept in the browser, so closing the tab loses nothing.
+2. **Here's your title.** The banner, large, beside a small "on your video"
+   preview. If the words split more than one way, up to three versions are
+   shown to tap (`titleChoices`: the best split for each number of lines).
+   A kind note appears if the title is long enough to make the letters small.
+3. **Saved!** The file name, as she typed it and safe for Windows
+   (`Reel title - Pet owners to fence or not to fence.png`), and where it went.
+   On a phone this step shows the picture to press and hold instead.
+4. **Put it on your video in Descript.** Five numbered steps. They are plain
+   data (`DESCRIPT_STEPS` in `TitleBuilder.tsx`) so the wording can follow
+   Descript's screens without touching the page.
+
+Add `?guides` to the address (before the `#`) to see the safe box on the
+preview. It's there for checking the layout, and nothing on the page links to
+it. `tests/browser/title.test.ts` walks the whole flow and checks the saved file.
+
 The peony paper is not a new asset. It is the clean navy field cut out of
 `public/listing/frame.png`, tiled against its own mirror image - which is what
 the mirrored listing layout already is, so the repeat has no seam.

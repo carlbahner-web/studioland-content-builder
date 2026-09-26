@@ -1,148 +1,297 @@
-/* The reel title builder: one column, phone first. It borrows the listing
-   builder's header and cream workbench so the two tools look like one product,
-   and nothing else - there is no side panel here. */
+/* The reel title builder: four guided steps in one centred column. Big type,
+   big buttons, one thing to do per screen. It borrows the listing builder's
+   header and cream workbench so the two tools look like one product. */
 
 .title {
   min-height: 100vh;
   background: var(--cream);
+  color: var(--charcoal);
 }
 
-.title-column {
+.tb {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  box-sizing: border-box;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* ---- where you are ---- */
+
+.tb-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  font-size: 15px;
+  opacity: 0.75;
+}
+.tb-dot {
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.tb-dot-on { background: var(--teal); }
+.tb-progress span:last-child { margin-left: 6px; }
+
+/* ---- a step ---- */
+
+.tb-step {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  max-width: 460px;
-  margin: 0 auto;
-  padding: 20px 16px 40px;
-  box-sizing: border-box;
+  gap: 16px;
+}
+.tb-step h2 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.tb-step h2:focus { outline: none; }
+.tb-lead {
+  margin: 0;
+  font-size: 19px;
+}
+.tb-hint {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.75;
+}
+.tb-note {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 17px;
+  border-radius: 10px;
+  background: #fff3d6;
+  border: 1px solid #ecd9a6;
+}
+.tb-problem {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 17px;
+  border-radius: 10px;
+  background: #fbe3dc;
+  border: 1px solid #e7b9ab;
 }
 
-.title-label {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.55;
+.tb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-/* 16px or larger, or iOS zooms the whole page in when the box is tapped and
-   leaves it zoomed. */
-.title-input {
+/* 16px or larger, or iOS zooms the page in when the box is tapped. */
+.tb-input {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 14px;
+  padding: 16px 18px;
   font: inherit;
-  font-size: 17px;
+  font-size: 22px;
   line-height: 1.4;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
   background: #fff;
   color: var(--charcoal);
-  resize: none;
+  resize: vertical;
 }
-.title-input:focus {
-  outline: 2px solid var(--teal);
-  outline-offset: 1px;
+.tb-input::placeholder { color: #9a958a; }
+.tb-input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgb(58 97 104 / 25%);
 }
 
-/* The banner, big, beside the whole reel, small. Side by side at every width,
-   phone included: the reel preview is only there to show where the banner sits
-   and that the rest is see-through, which it does at thumbnail size. */
-.title-previews {
-  display: grid;
-  grid-template-columns: 1fr 24%;
-  gap: 12px;
-  align-items: start;
-  margin-top: 8px;
+/* ---- buttons ---- */
+
+.tb-primary,
+.tb-secondary {
+  width: 100%;
+  min-height: 60px;
+  padding: 14px 20px;
+  font: inherit;
+  font-size: 20px;
+  border-radius: 12px;
+  cursor: pointer;
 }
-.title-banner-frame {
+.tb-primary {
+  margin-top: 8px;
+  border: none;
+  background: var(--teal);
+  color: #fff;
+}
+.tb-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.tb-primary:disabled {
+  background: #b9b4a8;
+  cursor: default;
+}
+.tb-secondary {
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--charcoal);
+}
+.tb-secondary:hover:not(:disabled) { border-color: #b9b099; }
+.tb-primary:focus-visible,
+.tb-secondary:focus-visible,
+.tb-back:focus-visible,
+.tb-choice:focus-visible {
+  outline: 3px solid var(--charcoal);
+  outline-offset: 3px;
+}
+.tb-back {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 4px;
+  font: inherit;
+  font-size: 18px;
+  border: none;
+  background: none;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+/* ---- the previews ---- */
+
+.tb-previews {
+  display: grid;
+  grid-template-columns: 1fr 22%;
+  gap: 14px;
+  align-items: start;
+}
+.tb-banner {
   position: relative;
   width: 100%;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
 }
-
-/* The safe zone: every letter of the title lands inside this line. A light
-   teal that reads on the navy banner and on the checkerboard alike. */
-.title-safe {
-  position: absolute;
-  box-sizing: border-box;
-  border: 1.5px dashed rgb(127 212 193 / 90%);
-  pointer-events: none;
-}
-.title-reel .title-safe { border-width: 1px; }
-.title-reel {
+.tb-reel {
   margin: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.title-reel-frame {
+/* A stand-in for her video rather than a checkerboard: "see-through" is a
+   design-tool idea, "this goes on top of my video" is the one that matters. */
+.tb-reel-frame {
   position: relative;
   width: 100%;
   aspect-ratio: 1080 / 1920;
   border-radius: 8px;
   overflow: hidden;
-  background: #8a8578;
+  background: linear-gradient(160deg, #cfc8b8, #9d968a);
   box-shadow: 0 4px 12px rgb(44 44 42 / 14%);
 }
-.title-reel figcaption {
-  font-size: 11px;
+.tb-reel-video {
+  position: absolute;
+  inset: 55% 0 auto 0;
   text-align: center;
-  opacity: 0.6;
+  font-size: 12px;
+  color: #fff;
+  opacity: 0.9;
 }
-/* The usual image-editor checkerboard: grey and white says "see-through" to
-   anyone who has used one, and a flat colour would say "this will be grey". */
-.title-checker {
-  background-color: #fff;
-  background-image:
-    linear-gradient(45deg, #d9d6cf 25%, transparent 25%),
-    linear-gradient(-45deg, #d9d6cf 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #d9d6cf 75%),
-    linear-gradient(-45deg, transparent 75%, #d9d6cf 75%);
-  background-size: 10px 10px;
-  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+.tb-reel figcaption {
+  font-size: 13px;
+  text-align: center;
+  opacity: 0.7;
 }
-.title-backdrop,
 .title-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
-.title-backdrop { object-fit: cover; }
 
-.title-go {
-  margin-top: 8px;
-  padding: 15px;
+/* The safe zone, shown only with ?guides in the address. */
+.title-safe {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px dashed rgb(127 212 193 / 90%);
+  pointer-events: none;
+}
+
+/* ---- layout choices ---- */
+
+.tb-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tb-choices-q {
+  margin: 0;
+  font-size: 17px;
+}
+.tb-choice-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.tb-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
   font: inherit;
   font-size: 16px;
-  border: none;
-  border-radius: 10px;
-  background: var(--charcoal);
-  color: var(--cream);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--charcoal);
   cursor: pointer;
 }
-.title-go:disabled { opacity: 0.45; cursor: default; }
-
-.title-quiet {
-  align-self: center;
-  margin-top: 6px;
-  padding: 10px;
-  font: inherit;
-  font-size: 13px;
-  border: none;
-  background: none;
-  color: var(--teal);
-  text-decoration: underline;
-  cursor: pointer;
+.tb-choice canvas {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+}
+.tb-choice-on {
+  border-color: var(--teal);
+  font-weight: 700;
 }
 
-.title-hint {
+/* ---- after saving ---- */
+
+.tb-filename {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  opacity: 0.65;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: #fff;
+  border: 2px dashed var(--line);
+  overflow-wrap: anywhere;
+}
+.tb-held {
+  width: 100%;
+  max-width: 320px;
+  align-self: center;
+  border-radius: 12px;
+  background: #cfc8b8;
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+  /* Press-and-hold has to reach the image itself, not a selection. */
+  -webkit-touch-callout: default;
+}
+
+.tb-howto {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 19px;
+}
+.tb-howto li::marker {
+  font-weight: 700;
+  color: var(--teal);
+}
+
+@media (max-width: 480px) {
+  .tb { padding: 18px 16px 48px; }
+  .tb-step h2 { font-size: 26px; }
 }
