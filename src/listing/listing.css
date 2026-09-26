@@ -36,8 +36,15 @@
   letter-spacing: 0.07em;
   text-wrap: balance;
 }
+.listing-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 16px;
+}
 .listing-elsewhere {
   font-size: 13px;
+  white-space: nowrap;
   color: var(--teal);
   text-decoration: none;
 }

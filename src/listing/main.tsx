@@ -7,9 +7,9 @@
  * never route to it, and a one-file build is exactly where that cost lands on
  * the person waiting for it to open.
  *
- * Standalone in the literal sense: no router, so no hash to get wrong, and the
- * link back to the other tool is hidden because there is nothing there to link
- * to.
+ * Standalone in the literal sense: no router, so no hash to get wrong. The one
+ * link it keeps is to the reel title builder, by that artifact's own URL (see
+ * src/links.ts); the layer editor is not reachable from here at all.
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

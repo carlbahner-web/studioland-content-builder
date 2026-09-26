@@ -25,6 +25,7 @@ import { addressBlock, badgeBlock, emptyDoc, withLayout } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
 import type { Art } from "./draw.ts";
+import { TITLE_ARTIFACT } from "../links.ts";
 import "./listing.css";
 
 /* A programmatic download is not reliable everywhere, and this tool is used
@@ -116,7 +117,8 @@ function useFontReady(): boolean {
   return ready;
 }
 
-/** `standalone` is the one-file build, where there is no other tool to link to. */
+/** `standalone` is the one-file build, which links out to the reel title
+ *  artifact rather than to a route. */
 export default function ListingBuilder({ standalone = false }: { standalone?: boolean }) {
   const [doc, setDoc] = useState<Doc>(emptyDoc);
   const [note, setNote] = useState<string | null>(null);
@@ -400,13 +402,19 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
       )}
       <header className="listing-head">
         <h1>ANGELA RERA - LISTING POST BUILDER</h1>
-        {/* Nothing on the right in the one-file build. In the routed build the
-            link stays, because it is the only way back to the other tool. */}
-        {!standalone && (
-          <a href="#/" className="listing-elsewhere">
-            Brand content builder →
+        {/* Her other tool, always. In the one-file build it is the reel title
+            artifact's own URL, because there is no router to hand a hash to;
+            the brand content builder is only reachable in the routed build. */}
+        <nav className="listing-links">
+          <a href={standalone ? TITLE_ARTIFACT : "#/title"} className="listing-elsewhere">
+            Reel titles →
           </a>
-        )}
+          {!standalone && (
+            <a href="#/" className="listing-elsewhere">
+              Brand content builder →
+            </a>
+          )}
+        </nav>
       </header>
 
       <div className="listing-body">

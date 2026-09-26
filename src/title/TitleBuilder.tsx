@@ -14,6 +14,7 @@ import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
 import { BANNER_BOTTOM, CANVAS, SAFE_BOX, SEED, filenameFor, layoutTitle } from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
+import { LISTING_ARTIFACT } from "../links.ts";
 import "../listing/listing.css";
 import "./title.css";
 
@@ -100,7 +101,8 @@ function SafeZone({ frameH }: { frameH: number }) {
   );
 }
 
-/** `standalone` is the one-file build, where there is no other tool to link to. */
+/** `standalone` is the one-file build, which links out to the listing builder
+ *  artifact rather than to a route. */
 export default function TitleBuilder({ standalone = false }: { standalone?: boolean }) {
   const [text, setText] = useState(SEED);
   const [backdrop, setBackdrop] = useState<string | null>(null);
@@ -187,11 +189,9 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
       )}
       <header className="listing-head">
         <h1>ANGELA RERA - REEL TITLES</h1>
-        {!standalone && (
-          <a href="#/listing" className="listing-elsewhere">
-            Listing posts →
-          </a>
-        )}
+        <a href={standalone ? LISTING_ARTIFACT : "#/listing"} className="listing-elsewhere">
+          Listing posts →
+        </a>
       </header>
 
       <main className="title-column">
