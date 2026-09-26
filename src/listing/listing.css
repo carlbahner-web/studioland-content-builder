@@ -36,12 +36,22 @@
   letter-spacing: 0.07em;
   text-wrap: balance;
 }
-.listing-elsewhere {
-  font-size: 13px;
-  color: var(--teal);
-  text-decoration: none;
+.listing-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 16px;
 }
-.listing-elsewhere:hover { text-decoration: underline; }
+.listing-elsewhere {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  color: var(--teal);
+}
+.listing-elsewhere:hover { text-decoration-thickness: 3px; }
 
 .listing-body {
   flex: 1;
@@ -241,4 +251,19 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #fff;
+}
+
+/* "← Home" as a button in the one-file build, looking like the link it is on the site. */
+.listing-home-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--teal);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
 }

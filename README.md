@@ -6,8 +6,9 @@ arrangement that composes the first ninety percent is no use if the last ten is
 impossible.
 A layer editor, a starting arrangement for the social ad, and the machinery the
 rest will share — plus a second, much smaller tool at `#/listing` for the one
-realtor template that is already designed and only needs filling in. See *The
-listing builder*.
+realtor template that is already designed and only needs filling in, and a
+third at `#/title` for reel titles. See *The listing builder* and *The reel title
+builder*.
 
 ```
 npm install
@@ -16,7 +17,7 @@ npm test         # the pure logic: brand rules, boil, layers, history, snapping,
 npm run test:browser   # both tools, driven in a real Chromium
 npm run build    # typecheck + dist/
 npm run art      # re-key the listing artwork from assets/listing-src/
-npm run build:listing   # the listing builder alone, as one file (the artifact copy)
+npm run build:angela    # Angela's page alone - home, listing posts, reel titles - as one file (the artifact copy)
 ```
 
 Chrome or Edge. The MP4 export needs WebCodecs and the artwork folder needs the
@@ -174,6 +175,35 @@ anything extra.
 
 ## The listing builder
 
+**Angela uses the guided version at `#/listing`**, five steps with one question
+each, built the same way as the reel title builder (`src/listing/ListingGuide.tsx`,
+styles shared from `src/title/title.css` plus `src/listing/guide.css`):
+
+1. **Which house is it?** Street, then town/state/ZIP. Her contact lines are
+   added for her (`CONTACT_LINES` in `src/listing/guide.ts`) and never shown
+   as editable. The address is always centred, as the design is.
+2. **Add the photo of the house.** One button, or drag a photo onto the
+   preview. It fills the space automatically. Which side her own photo goes on
+   is chosen here, next to the framing, because her arch covers the bottom
+   corner of the house photo on that side. "Move the photo" offers drag,
+   Bigger/Smaller and "Put it back how it was" (no slider, no pinch).
+3. **Sold or pending?** Three small copies of her post to tap: just the house,
+   SOLD!, PENDING!, plus "Something else…" for her own words.
+4. **Which photo of you?** Every headshot, as small copies of the post. Then
+   "Looks good — save it".
+5. **Saved!** The file name (`Sep26 listing 373 Meetinghouse.png`) and where it
+   went, then how to post it from the computer (instagram.com) or the phone.
+   Both lists are plain data (`POST_FROM_LAPTOP`, `POST_FROM_PHONE`).
+
+The street, town, sign, headshot and side are kept between visits; the photo
+can't be. **The full one-screen editor described below is still at
+`#/listing/advanced`**, drawing the same post with the same code, and
+`tests/browser/listing.test.ts` runs against it. The guided flow has its own
+`tests/browser/listing-guide.test.ts`. `npm run build:angela` packs the guided
+version, not this one.
+
+### The full editor
+
 There are two tools in this bundle, told apart by the hash:
 
 | | |
@@ -195,12 +225,15 @@ to get it wrong, so there is no layer list, no format picker and no undo stack.
 
 ### Two one-file builds
 
-`npm run build:single` packs both tools behind the hash router.
-`npm run build:listing` packs the listing builder alone, from its own entry at
-`src/listing/main.tsx`, and that is what gets published as a Claude artifact —
-there is no router there, no way to reach the layer editor, and no reason to
-make someone download 250kB of it plus every brand asset before a page they
-opened to change an address can paint. 2.8MB against 3.2MB, and no dead code.
+`npm run build:single` packs every tool behind the hash router.
+`npm run build:angela` packs Angela's page alone, from its own entry at
+`src/home/main.tsx`: it opens on her home page with the bookmark reminder, and
+the cards switch to the guided listing and reel title tools by state, not by
+address, because an artifact frame routes on nothing but a plain `#anchor`.
+That is what gets published as her Claude artifact, to both of her existing
+artifact links, so whichever she opens starts with "What would you like to
+make?". There is no way to reach the layer editor or the full listing editor
+from it, and no reason to make someone download them first.
 
 Two things that build has to get right, both invisible until they are wrong:
 
@@ -468,6 +501,100 @@ silently re-breaks an address that was deliberately arranged into lines. So the
 *size* gives and the arrangement survives — bisected rather than stepped down,
 because `measureText` is a real call and a keystroke should not cost hundreds of
 them.
+
+## Angela's home page
+
+`#/angela` is the one address Angela keeps: "What would you like to make?" and
+two big cards, **A listing post** and **A reel title**. Each tool's header has
+a "← Home" link back to it (the brand content builder is still at the site's
+root, just not linked from her tools).
+
+Every visit opens with a **Bookmark this page** reminder that tells her which
+keys to press on the machine she's on (Ctrl+D on Windows). "Skip for now" is
+not remembered, so the reminder comes back next visit; only "I bookmarked it"
+puts it away, kept in `localStorage`. If storage is blocked, it shows every
+time, which is the safe side to fail on. `tests/browser/home.test.ts` checks
+both.
+
+## The reel title builder
+
+`#/title` on the site, or "A reel title" on her home page. Angela types a title;
+it comes back as a **1080×1920 transparent PNG** with the navy peony banner
+across the top of the frame and the title set on it, and nothing anywhere else.
+
+It is full frame on purpose. A banner-sized PNG has to be positioned and scaled
+by hand in whatever app the reel is edited in; one the size of the reel is laid
+over the whole video and is already in the right place.
+
+Nothing is a control except the words.
+
+### The safe box
+
+Every letter of a title lands inside one rectangle, `SAFE_BOX` in
+`src/title/template.ts`, and each of its edges is a decision:
+
+| Edge | Value | Why |
+| --- | --- | --- |
+| Top | 220px | Measured off her own reel: Instagram's back arrow and camera button end about 200px down. Chosen over Meta's blanket 14% (270px), which also allows for ads, to keep the banner smaller. |
+| Sides | 65px each | Meta's 6% side margin. |
+| Bottom | 440px | How far down a title may reach. 220px of height is enough for four lines. |
+
+The banner is not held inside the box. It runs from the top edge of the frame,
+so Instagram's buttons sit on navy, down to 50px below the box (490px, about a
+quarter of the video). It is **the same height on every reel**, so a feed of them reads as
+a series, and it is level, like her listing posts.
+
+### Placing and spacing the text
+
+- **Line breaks** are chosen by trying every break into one to four lines and
+  keeping the one that lets the type be biggest, which is the same as the most
+  balanced. A break after punctuation is preferred, a colon or question mark in
+  the middle of a line is avoided, and so is a line ending on "to", "the", "or"
+  and the like. Pressing Enter in the text overrides all of that.
+- **Size** is the largest that fits the safe box both ways, capped at 118px so a
+  one-word title is not a billboard.
+- **Position**: the block is centred in the safe box both ways. Vertically it is
+  the ink that is centred, from the top of the first line's capitals to the
+  last baseline, so a short title does not sit visibly high.
+- **Spacing**: lines sit 1.16em apart, baseline to baseline, and letters use
+  the listing address's -0.1em tracking, so titles read as the same brand as
+  her listing posts.
+
+### The page: four guided steps
+
+The page is built for someone who wants the title and nothing else, on the
+Windows laptop where the reel is edited in Descript. A title made there
+saves straight to Downloads and drags into Descript, with no phone or cable
+involved. One thing to do per screen, big type and buttons, plain words
+(picture, save, Downloads folder; never PNG, transparent or export):
+
+1. **What should your title say?** One big text box, starting empty, with an
+   example in grey. "Next" stays off until something is typed. The draft is
+   kept in the browser, so closing the tab loses nothing.
+2. **Here's your title.** The banner, large, beside a small "on your video"
+   preview. If the words split more than one way, up to three versions are
+   shown to tap (`titleChoices`: the best split for each number of lines).
+   A kind note appears if the title is long enough to make the letters small.
+3. **Saved!** The file name and where it went. Names start with the month and
+   day so a Downloads folder sorts by date, then "reel title", then the first
+   three words that aren't filler (a, the, to...): `Sep26 reel title Pet owners
+   fence.png`.
+   On a phone this step shows the picture to press and hold instead.
+4. **Put it on your video in Descript.** Five numbered steps. They are plain
+   data (`DESCRIPT_STEPS` in `TitleBuilder.tsx`) so the wording can follow
+   Descript's screens without touching the page.
+
+Add `?guides` to the address (before the `#`) to see the safe box on the
+preview. It's there for checking the layout, and nothing on the page links to
+it. `tests/browser/title.test.ts` walks the whole flow and checks the saved file.
+
+The peony paper is not a new asset. It is the clean navy field cut out of
+`public/listing/frame.png`, tiled against its own mirror image - which is what
+the mirrored listing layout already is, so the repeat has no seam.
+
+The text is TAY Wingman in the strapline's cream (`INK`). The
+layout is pure and tested in `src/title/template.test.ts`; drawing is
+`src/title/draw.ts`, shared by the preview and the export.
 
 ## How it renders, and why not the DOM
 

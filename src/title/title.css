@@ -1,0 +1,355 @@
+/* The reel title builder: four guided steps in one centred column. Big type,
+   big buttons, one thing to do per screen. It borrows the listing builder's
+   header and cream workbench so the two tools look like one product. */
+
+.title {
+  /* The pale teal every instruction sits on. */
+  --instruct: #e3eeec;
+  min-height: 100vh;
+  background: var(--cream);
+  color: var(--charcoal);
+}
+
+.tb {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  box-sizing: border-box;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* ---- where you are ---- */
+
+.tb-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  font-size: 15px;
+  opacity: 0.75;
+}
+.tb-dot {
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.tb-dot-on { background: var(--teal); }
+.tb-progress span:last-child { margin-left: 6px; }
+
+/* ---- a step ---- */
+
+.tb-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.tb-step h2 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.tb-step h2:focus { outline: none; }
+.tb-lead {
+  margin: 0;
+  font-size: 19px;
+}
+/* ---- the three kinds of thing on a page, each with one look ----
+   Buttons are big boxes (below). Links are teal, bold and underlined.
+   Instructions sit in a pale teal panel with an "i" or numbered circles:
+   never boxed like a button, never underlined like a link. */
+
+.tb-hint {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 17px;
+  line-height: 1.45;
+  border-radius: 10px;
+  background: var(--instruct);
+  color: var(--charcoal);
+}
+.tb-hint::before {
+  content: "i";
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  font: 700 14px/1 Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.tb-link {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 2px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  background: none;
+  color: var(--teal);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.tb-link:hover { color: #264248; text-decoration-thickness: 3px; }
+.tb-note {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 17px;
+  border-radius: 10px;
+  background: #fff3d6;
+  border: 1px solid #ecd9a6;
+}
+.tb-problem {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 17px;
+  border-radius: 10px;
+  background: #fbe3dc;
+  border: 1px solid #e7b9ab;
+}
+
+.tb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* 16px or larger, or iOS zooms the page in when the box is tapped. */
+.tb-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1.4;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--charcoal);
+  resize: vertical;
+}
+.tb-input::placeholder { color: #9a958a; }
+.tb-input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgb(58 97 104 / 25%);
+}
+
+/* ---- buttons ---- */
+
+.tb-primary,
+.tb-secondary {
+  width: 100%;
+  min-height: 60px;
+  padding: 14px 20px;
+  font: inherit;
+  font-size: 20px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.tb-primary {
+  margin-top: 8px;
+  border: none;
+  background: var(--teal);
+  color: #fff;
+}
+.tb-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.tb-primary:disabled {
+  background: #b9b4a8;
+  cursor: default;
+}
+.tb-secondary {
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--charcoal);
+}
+.tb-secondary:hover:not(:disabled) { border-color: #b9b099; }
+.tb-primary:focus-visible,
+.tb-secondary:focus-visible,
+.tb-link:focus-visible,
+.tb-choice:focus-visible {
+  outline: 3px solid var(--charcoal);
+  outline-offset: 3px;
+}
+
+
+/* ---- the previews ---- */
+
+.tb-previews {
+  display: grid;
+  grid-template-columns: 1fr 22%;
+  gap: 14px;
+  align-items: start;
+}
+.tb-banner {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+}
+.tb-reel {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* A stand-in for her video rather than a checkerboard: "see-through" is a
+   design-tool idea, "this goes on top of my video" is the one that matters. */
+.tb-reel-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1080 / 1920;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #cfc8b8, #9d968a);
+  box-shadow: 0 4px 12px rgb(44 44 42 / 14%);
+}
+.tb-reel-video {
+  position: absolute;
+  inset: 55% 0 auto 0;
+  text-align: center;
+  font-size: 12px;
+  color: #fff;
+  opacity: 0.9;
+}
+.tb-reel figcaption {
+  font-size: 13px;
+  text-align: center;
+  opacity: 0.7;
+}
+.title-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The safe zone, shown only with ?guides in the address. */
+.title-safe {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px dashed rgb(127 212 193 / 90%);
+  pointer-events: none;
+}
+
+/* ---- layout choices ---- */
+
+.tb-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tb-choices-q {
+  margin: 0;
+  font-size: 17px;
+}
+.tb-choice-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.tb-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  font: inherit;
+  font-size: 16px;
+  /* A visible edge even when not picked, so every choice reads as something
+     to tap rather than a picture on the page. */
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--charcoal);
+  cursor: pointer;
+}
+.tb-choice:hover { border-color: #b9b099; }
+.tb-choice canvas {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+}
+.tb-choice-on {
+  border-color: var(--teal);
+  font-weight: 700;
+}
+
+/* ---- after saving ---- */
+
+.tb-filename {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: var(--instruct);
+  overflow-wrap: anywhere;
+}
+.tb-held {
+  width: 100%;
+  max-width: 320px;
+  align-self: center;
+  border-radius: 12px;
+  background: #cfc8b8;
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+  /* Press-and-hold has to reach the image itself, not a selection. */
+  -webkit-touch-callout: default;
+}
+
+.tb-howto {
+  margin: 0;
+  padding: 18px 18px 18px 16px;
+  list-style: none;
+  counter-reset: howto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 19px;
+  border-radius: 12px;
+  background: var(--instruct);
+}
+.tb-howto li {
+  counter-increment: howto;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.tb-howto li::before {
+  content: counter(howto);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .tb { padding: 18px 16px 48px; }
+  .tb-step h2 { font-size: 26px; }
+}

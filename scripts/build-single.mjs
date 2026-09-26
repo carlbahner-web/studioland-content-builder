@@ -21,16 +21,18 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 
 /* Two one-file builds, because they are for two different errands.
  *
- * The default packs the whole bundle - both tools behind the hash router. The
- * --only=listing build packs the listing builder alone, and is what gets
- * published as a Claude artifact: there is no router there, no way to reach the
- * layer editor, and no reason to make someone download 250kB of it plus every
- * brand asset before a page they opened to change an address can paint. */
+ * The default packs the whole bundle - every tool behind the hash router. The
+ * --only=angela build packs Angela's page alone - her home page and the two
+ * guided tools, switched by state - and is what gets published as her Claude
+ * artifact: there is no router there, no way to reach the layer editor, and
+ * no reason to make someone download 250kB of it plus every brand asset
+ * before the page she opened can paint. The listing artwork covers both of
+ * her tools: the reel titles' peony paper is cut from the listing frame. */
 const args = process.argv.slice(2);
-const LISTING_ONLY = args.includes("--only=listing");
+const ANGELA_ONLY = args.includes("--only=angela");
 const OUT =
   args.find((a) => !a.startsWith("--")) ??
-  path.join(ROOT, "dist-single", LISTING_ONLY ? "listing-builder.html" : "content-builder.html");
+  path.join(ROOT, "dist-single", ANGELA_ONLY ? "angela.html" : "content-builder.html");
 
 const MIME = {
   ".woff2": "font/woff2",
@@ -57,7 +59,7 @@ const LISTING_ASSETS = [
 ];
 
 /** Everything the running app asks for by path, as data URIs. */
-const ASSETS = LISTING_ONLY
+const ASSETS = ANGELA_ONLY
   ? LISTING_ASSETS
   : [
       "/brand/grain.webp",
@@ -87,7 +89,7 @@ for (const p of ASSETS) inline[p] = await dataUri(p);
  * are restated against the element rather than the viewport. */
 const ARTIFACT_SHIM = `
 html, body { height: 100%; }
-.listing { min-height: 100%; }
+.listing, .title { min-height: 100%; }
 .listing-panel { max-height: 100dvh; }
 .listing-canvas { max-height: calc(100dvh - 140px); }
 @media (max-width: 900px) {
@@ -100,14 +102,19 @@ html, body { height: 100%; }
 let css = [
   await readFile(path.join(ROOT, "src/studio.css"), "utf8"),
   await readFile(path.join(ROOT, "src/listing/listing.css"), "utf8"),
-  LISTING_ONLY ? ARTIFACT_SHIM : "",
+  await readFile(path.join(ROOT, "src/title/title.css"), "utf8"),
+  await readFile(path.join(ROOT, "src/home/home.css"), "utf8"),
+  await readFile(path.join(ROOT, "src/listing/guide.css"), "utf8"),
+  ANGELA_ONLY ? ARTIFACT_SHIM : "",
 ].join("\n");
 css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`);
 
 /* esbuild rather than Vite: one IIFE, no module graph, no import.meta - which
  * this app deliberately does not use, so nothing has to be stubbed. */
 const bundled = await build({
-  entryPoints: [path.join(ROOT, LISTING_ONLY ? "src/listing/main.tsx" : "src/main.tsx")],
+  entryPoints: [
+    path.join(ROOT, ANGELA_ONLY ? "src/home/main.tsx" : "src/main.tsx"),
+  ],
   bundle: true,
   format: "iife",
   minify: true,
@@ -130,7 +137,8 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text;
 
-const html = `<title>${LISTING_ONLY ? "Angela Rera Listing Builder" : "StudioLand content builder"}</title>
+const TITLE = ANGELA_ONLY ? "Angela Rera Tools" : "StudioLand content builder";
+const html = `<title>${TITLE}</title>
 <style>
 ${css}
 </style>

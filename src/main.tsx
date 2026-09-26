@@ -10,12 +10,19 @@ import App from "./App.tsx";
  * build working, where there is no server to rewrite anything.
  *
  *   (nothing)   the brand content builder - the general layer editor
- *   #/listing   the listing builder - one template, four controls
+ *   #/listing   the listing post, one guided step at a time (Angela's)
+ *   #/listing/advanced  the full listing editor, every control on one screen
+ *   #/title     the reel title builder - type a title, get a transparent PNG
+ *   #/angela    Angela's home page - the address she bookmarks, and the
+ *               choice between the listing builder and the reel title builder
  *
  * The listing builder is lazy so that the artwork manifest and its module graph
  * cost nothing to whoever only wanted the other tool.
  */
 const ListingBuilder = lazy(() => import("./listing/ListingBuilder.tsx"));
+const ListingGuide = lazy(() => import("./listing/ListingGuide.tsx"));
+const TitleBuilder = lazy(() => import("./title/TitleBuilder.tsx"));
+const AngelaHome = lazy(() => import("./home/AngelaHome.tsx"));
 
 function route(): string {
   return window.location.hash.replace(/^#/, "") || "/";
@@ -29,10 +36,31 @@ function Router() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  if (path.startsWith("/listing")) {
+  if (path.startsWith("/listing/advanced")) {
     return (
       <Suspense fallback={<p className="boot-msg">Loading the listing builder…</p>}>
         <ListingBuilder />
+      </Suspense>
+    );
+  }
+  if (path.startsWith("/listing")) {
+    return (
+      <Suspense fallback={<p className="boot-msg">Loading…</p>}>
+        <ListingGuide />
+      </Suspense>
+    );
+  }
+  if (path.startsWith("/angela")) {
+    return (
+      <Suspense fallback={<p className="boot-msg">Loading…</p>}>
+        <AngelaHome />
+      </Suspense>
+    );
+  }
+  if (path.startsWith("/title")) {
+    return (
+      <Suspense fallback={<p className="boot-msg">Loading the reel title builder…</p>}>
+        <TitleBuilder />
       </Suspense>
     );
   }

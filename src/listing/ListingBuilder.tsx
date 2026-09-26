@@ -7,7 +7,6 @@
  * control that is not one of those is a thing to get wrong.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
 import {
   BADGE_PRESETS,
@@ -15,7 +14,6 @@ import {
   HEADSHOTS,
   LAYOUTS,
   PHOTO_BAND,
-  PHOTO_FILES,
   clampPhotoFit,
   containZoom,
   zoomAt,
@@ -23,8 +21,8 @@ import {
 import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
 import { addressBlock, badgeBlock, emptyDoc, withLayout } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
-import { LAYER_BOXES, drawDoc, renderFull } from "./draw.ts";
-import type { Art } from "./draw.ts";
+import { drawDoc, renderFull } from "./draw.ts";
+import { useArt, useFontReady } from "./art.ts";
 import "./listing.css";
 
 /* A programmatic download is not reliable everywhere, and this tool is used
@@ -47,77 +45,7 @@ const COARSE =
 const PREVIEW_W = 540;
 const PREVIEW_SCALE = PREVIEW_W / CANVAS.w;
 
-function useArt(): { art: Art; ready: boolean; failed: string[] } {
-  const [art, setArt] = useState<Art>({});
-  const [failed, setFailed] = useState<string[]>([]);
-  /* Keyed layers are named by the manifest and live at /listing/<name>.png; the
-     mask and the photographed headshots carry their own paths. Loaded together
-     because the artboard is not drawable until all of them are in. */
-  const wanted: { id: string; url: string }[] = [
-    ...Object.keys(LAYER_BOXES).map((name) => ({ id: name, url: `/listing/${name}.png` })),
-    ...PHOTO_FILES.map((file) => ({ id: file, url: file })),
-    ...HEADSHOTS.filter((h) => h.photo).map((h) => ({ id: h.key, url: h.photo!.file })),
-  ];
-
-  useEffect(() => {
-    let live = true;
-    const loaded: Art = {};
-    const bad: string[] = [];
-    Promise.all(
-      wanted.map(
-        ({ id, url }) =>
-          new Promise<void>((done) => {
-            const img = new Image();
-            img.onload = () => {
-              loaded[id] = img;
-              done();
-            };
-            img.onerror = () => {
-              bad.push(id);
-              done();
-            };
-            img.src = assetUrl(url);
-          }),
-      ),
-    ).then(() => {
-      if (!live) return;
-      setArt(loaded);
-      setFailed(bad);
-    });
-    return () => {
-      live = false;
-    };
-    // The layer set is a build-time constant; this runs once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { art, ready: Object.keys(art).length > 0 || failed.length > 0, failed };
-}
-
-/* The webfont has to be IN before the first paint that measures it, or every
- * block is laid out against the fallback and then never re-laid out. `document.
- * fonts.load` is the only thing that actually waits for it - `ready` resolves
- * against fonts already requested, and a font nothing has rendered yet has not
- * been requested. */
-function useFontReady(): boolean {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    let live = true;
-    const done = () => live && setReady(true);
-    if (!document.fonts?.load) {
-      done();
-      return;
-    }
-    document.fonts.load('16px "TAYWingman"').then(done, done);
-    return () => {
-      live = false;
-    };
-  }, []);
-  return ready;
-}
-
-/** `standalone` is the one-file build, where there is no other tool to link to. */
-export default function ListingBuilder({ standalone = false }: { standalone?: boolean }) {
+export default function ListingBuilder() {
   const [doc, setDoc] = useState<Doc>(emptyDoc);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -400,13 +328,11 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
       )}
       <header className="listing-head">
         <h1>ANGELA RERA - LISTING POST BUILDER</h1>
-        {/* Nothing on the right in the one-file build. In the routed build the
-            link stays, because it is the only way back to the other tool. */}
-        {!standalone && (
-          <a href="#/" className="listing-elsewhere">
-            Brand content builder →
+        <nav className="listing-links">
+          <a href="#/angela" className="listing-elsewhere">
+            ← Home
           </a>
-        )}
+        </nav>
       </header>
 
       <div className="listing-body">
