@@ -80,9 +80,10 @@ test("the whole flow on a laptop, down to the saved file", async () => {
   assert.match(await heading(page), /Sold or pending/);
   await page.locator("#badge-sold").click();
   assert.equal(await page.locator("#badge-sold").getAttribute("aria-pressed"), "true");
-  await page.getByRole("button", { name: /Next: your photo/ }).click();
+  await page.getByRole("button", { name: /Next: your headshot/ }).click();
 
-  assert.match(await heading(page), /Which photo of you/);
+  assert.match(await heading(page), /Which headshot/);
+  assert.equal(await page.locator("#you-standing-close").getAttribute("aria-pressed"), "true", "starts on Hands in pockets");
   assert.equal(await page.locator("[id^=you-]").count(), 7, "every headshot is offered");
   await page.locator("#you-sitting").click();
   assert.equal(await page.locator("[id^=side-]").count(), 0, "the side was already chosen with the photo");
@@ -150,7 +151,7 @@ test("on a phone: every step fits, and saving falls back to press-and-hold", asy
   assert.ok(await fits(page), "step 2 fits");
   await page.getByRole("button", { name: /Next: sold or pending/ }).click();
   assert.ok(await fits(page), "step 3 fits");
-  await page.getByRole("button", { name: /Next: your photo/ }).click();
+  await page.getByRole("button", { name: /Next: your headshot/ }).click();
   assert.ok(await fits(page), "step 4 fits");
   await page.getByRole("button", { name: /Looks good/ }).click();
   await page.waitForSelector(".tb-held", { timeout: 10_000 });

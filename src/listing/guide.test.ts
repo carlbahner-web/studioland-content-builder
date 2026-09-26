@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { CONTACT_LINES, addressText, listingFilename, readDraft } from "./guide.ts";
+import { CONTACT_LINES, DEFAULT_HEADSHOT, addressText, listingFilename, readDraft } from "./guide.ts";
+import { HEADSHOTS } from "./template.ts";
 import { ADDRESS_SEED } from "./doc.ts";
 
 test("her contact lines are the seed's, and the typed lines go on top", () => {
@@ -24,4 +25,10 @@ test("a draft reads back only the fields it knows, and survives junk", () => {
   });
   assert.deepEqual(readDraft("not json"), {});
   assert.deepEqual(readDraft(null), {});
+});
+
+test("the default headshot is one that exists: Hands in pockets", () => {
+  const shot = HEADSHOTS.find((h) => h.key === DEFAULT_HEADSHOT);
+  assert.ok(shot, `${DEFAULT_HEADSHOT} is not a headshot`);
+  assert.equal(shot!.label, "Hands in pockets");
 });

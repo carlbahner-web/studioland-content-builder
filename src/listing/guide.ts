@@ -28,6 +28,12 @@ export function listingFilename(street: string, when: Date = new Date()): string
   return datedName("listing", nameWords(street, STREET_FILLER, 3), when);
 }
 
+/* The headshot a new post starts with, until she picks another (her choice is
+ * then kept in the draft). "Hands in pockets": chosen by the person who looks
+ * after these tools, and a key rather than a position in the list, so adding
+ * a headshot never changes it. */
+export const DEFAULT_HEADSHOT = "standing-close";
+
 /* A street over this many characters is set small enough in the address block
  * to be worth a word. The block still shrinks to fit; this is only kindness. */
 export const LONG_STREET = 26;
