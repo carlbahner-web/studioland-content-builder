@@ -1,0 +1,70 @@
+/* The guided listing flow, on top of the reel title builder's step styles
+   (title.css), so the two guided tools look and behave the same. */
+
+.lg-label {
+  font-size: 18px;
+  font-weight: 700;
+}
+.lg-line { resize: none; }
+
+.lg-preview {
+  width: 100%;
+  max-width: 520px;
+  align-self: center;
+  border-radius: 12px;
+}
+.lg-dropping {
+  outline: 3px dashed var(--teal);
+  outline-offset: 6px;
+}
+.lg-canvas {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
+  touch-action: none;
+  user-select: none;
+}
+.lg-grab { cursor: grab; }
+.lg-grab:active { cursor: grabbing; }
+
+.lg-move {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid var(--line);
+}
+.lg-move-how { margin: 0; font-size: 18px; }
+.lg-move-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.lg-reset { align-self: center; }
+
+.lg-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.lg-two { grid-template-columns: 1fr 1fr; }
+.lg-mini canvas { border-radius: 6px; }
+
+.lg-h3 {
+  margin: 16px 0 0;
+  font-size: 24px;
+}
+.lg-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.lg-tabs .tb-choice {
+  min-height: 56px;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+}

@@ -1,4 +1,5 @@
-/* The listing builder on its own, with no content builder behind it.
+/* The listing post builder on its own - the guided flow, the one Angela uses -
+ * with no content builder behind it.
  *
  * This is the entry point for `npm run build:single -- --only=listing`, which
  * makes the one-file copy that gets published as a Claude artifact. It exists
@@ -13,10 +14,10 @@
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import ListingBuilder from "./ListingBuilder.tsx";
+import ListingGuide from "./ListingGuide.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ListingBuilder standalone />
+    <ListingGuide standalone />
   </StrictMode>,
 );

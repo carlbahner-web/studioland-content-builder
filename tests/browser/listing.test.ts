@@ -39,7 +39,7 @@ import type { Page } from "playwright";
 
 after(stop);
 
-const URL = `${BASE}#/listing`;
+const URL = `${BASE}#/listing/advanced`;
 
 type Tool = {
   page: Page;

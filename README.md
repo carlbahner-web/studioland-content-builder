@@ -176,6 +176,33 @@ anything extra.
 
 ## The listing builder
 
+**Angela uses the guided version at `#/listing`**, five steps with one question
+each, built the same way as the reel title builder (`src/listing/ListingGuide.tsx`,
+styles shared from `src/title/title.css` plus `src/listing/guide.css`):
+
+1. **Which house is it?** Street, then town/state/ZIP. Her contact lines are
+   added for her (`CONTACT_LINES` in `src/listing/guide.ts`) and never shown
+   as editable. The address is always centred, as the design is.
+2. **Add the photo of the house.** One button, or drag a photo onto the
+   preview. It fills the space automatically; "Move the photo" offers drag,
+   Bigger/Smaller and "Put it back how it was" (no slider, no pinch).
+3. **Sold or pending?** Three small copies of her post to tap: just the house,
+   SOLD!, PENDING!, plus "Something else…" for her own words.
+4. **Which photo of you?** Every headshot, and left or right, as small copies of
+   the post. Then "Looks good — save it".
+5. **Saved!** The file name (`Sep26 listing 373 Meetinghouse.png`) and where it
+   went, then how to post it from the computer (instagram.com) or the phone.
+   Both lists are plain data (`POST_FROM_LAPTOP`, `POST_FROM_PHONE`).
+
+The street, town, sign, headshot and side are kept between visits; the photo
+can't be. **The full one-screen editor described below is still at
+`#/listing/advanced`**, drawing the same post with the same code, and
+`tests/browser/listing.test.ts` runs against it. The guided flow has its own
+`tests/browser/listing-guide.test.ts`. `npm run build:listing` now packs the
+guided version.
+
+### The full editor
+
 There are two tools in this bundle, told apart by the hash:
 
 | | |

@@ -16,6 +16,7 @@
  */
 import { CAP_RATIO, FONT_FAMILY, INK, OUTLINE, TRACKING as LISTING_TRACKING } from "../listing/template.ts";
 import type { Measure } from "../listing/template.ts";
+import { datedName, nameWords } from "../filenames.ts";
 
 /* The same Measure the listing builder uses, with one difference in contract:
  * here it returns the width WITHOUT the letter-space canvas adds after the last
@@ -287,17 +288,10 @@ export function layoutTitle(text: string, measure: Measure): TitleLayout {
  * Words keep the capitals she typed them with. Anything Windows refuses in a
  * file name never gets in, because only letters, digits, apostrophes and
  * hyphens survive from each word. */
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const FILLER = new Set([...DANGLERS].map((w) => w.toLowerCase()).concat(["but", "so", "are", "be"]));
 
 export function filenameFor(text: string, when: Date = new Date()): string {
-  const date = `${MONTHS[when.getMonth()]}${String(when.getDate()).padStart(2, "0")}`;
-  const words = text
-    .split(/\s+/)
-    .map((w) => w.replace(/[^\p{L}\p{N}'’-]/gu, "").replace(/^[-'’]+|[-'’]+$/g, ""))
-    .filter((w) => w && !FILLER.has(w.toLowerCase()))
-    .slice(0, 3);
-  return [date, "reel title", ...words].join(" ") + ".png";
+  return datedName("reel title", nameWords(text, FILLER, 3), when);
 }
 
 export const SEED = "Pet owners: to fence or not to fence?";
