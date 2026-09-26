@@ -471,6 +471,20 @@ silently re-breaks an address that was deliberately arranged into lines. So the
 because `measureText` is a real call and a keystroke should not cost hundreds of
 them.
 
+## Angela's home page
+
+`#/angela` is the one address Angela keeps: "What would you like to make?" and
+two big cards, **A listing post** and **A reel title**. Each tool's header has
+a "← Home" link back to it (the brand content builder is still at the site's
+root, just not linked from her tools).
+
+Every visit opens with a **Bookmark this page** reminder that tells her which
+keys to press on the machine she's on (Ctrl+D on Windows). "Skip for now" is
+not remembered, so the reminder comes back next visit; only "I bookmarked it"
+puts it away, kept in `localStorage`. If storage is blocked, it shows every
+time, which is the safe side to fail on. `tests/browser/home.test.ts` checks
+both.
+
 ## The reel title builder
 
 `#/title`, or `npm run build:title` for the one-file copy. Angela types a title;
@@ -530,8 +544,10 @@ involved. One thing to do per screen, big type and buttons, plain words
    preview. If the words split more than one way, up to three versions are
    shown to tap (`titleChoices`: the best split for each number of lines).
    A kind note appears if the title is long enough to make the letters small.
-3. **Saved!** The file name, as she typed it and safe for Windows
-   (`Reel title - Pet owners to fence or not to fence.png`), and where it went.
+3. **Saved!** The file name and where it went. Names start with the month and
+   day so a Downloads folder sorts by date, then "reel title", then the first
+   three words that aren't filler (a, the, to...): `Sep26 reel title Pet owners
+   fence.png`.
    On a phone this step shows the picture to press and hold instead.
 4. **Put it on your video in Descript.** Five numbered steps. They are plain
    data (`DESCRIPT_STEPS` in `TitleBuilder.tsx`) so the wording can follow

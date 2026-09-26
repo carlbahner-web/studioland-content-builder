@@ -283,9 +283,15 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
     <div className="title">
       <header className="listing-head">
         <h1>ANGELA RERA - REEL TITLES</h1>
-        <a href={standalone ? LISTING_ARTIFACT : "#/listing"} className="listing-elsewhere">
-          Listing posts →
-        </a>
+        {standalone ? (
+          <a href={LISTING_ARTIFACT} className="listing-elsewhere">
+            Listing posts →
+          </a>
+        ) : (
+          <a href="#/angela" className="listing-elsewhere">
+            ← Home
+          </a>
+        )}
       </header>
 
       <main className="tb">

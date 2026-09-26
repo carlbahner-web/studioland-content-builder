@@ -714,9 +714,11 @@ test("on a desktop the export downloads and shows no press-and-hold sheet", asyn
   await t.close();
 });
 
-test("the other tool is still reachable and still boots", async () => {
+test("Home leads to Angela's page, and the brand builder still boots at its own address", async () => {
   const t = await openTool();
-  await t.page.getByRole("link", { name: /Brand content builder/ }).click();
+  await t.page.getByRole("link", { name: /Home/ }).click();
+  await t.page.waitForSelector(".home-cards", { timeout: 20_000 });
+  await t.page.goto(BASE, { waitUntil: "domcontentloaded" });
   await t.page.waitForSelector("canvas.chrome", { timeout: 20_000 });
   clean(t);
   await t.close();

@@ -111,6 +111,7 @@ let css = [
   await readFile(path.join(ROOT, "src/studio.css"), "utf8"),
   await readFile(path.join(ROOT, "src/listing/listing.css"), "utf8"),
   await readFile(path.join(ROOT, "src/title/title.css"), "utf8"),
+  await readFile(path.join(ROOT, "src/home/home.css"), "utf8"),
   LISTING_ONLY || TITLE_ONLY ? ARTIFACT_SHIM : "",
 ].join("\n");
 css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`);

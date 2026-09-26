@@ -85,10 +85,13 @@ test("an empty title lays out nothing", () => {
   assert.equal(layoutTitle("   ", measure).lines.length, 0);
 });
 
-test("file names are the title as typed, safe for Windows", () => {
-  assert.equal(filenameFor(SEED), "Reel title - Pet owners to fence or not to fence.png");
-  assert.equal(filenameFor("Just\nlisted!"), "Reel title - Just listed!.png");
-  assert.equal(filenameFor(' <"?> '), "Reel title.png");
+test("file names: month and day, 'reel title', then the first three words that matter", () => {
+  const sep26 = new Date(2026, 8, 26);
+  assert.equal(filenameFor(SEED, sep26), "Sep26 reel title Pet owners fence.png");
+  assert.equal(filenameFor("The best time to sell a home", new Date(2026, 0, 5)), "Jan05 reel title best time sell.png");
+  assert.equal(filenameFor("Just\nlisted!", sep26), "Sep26 reel title Just listed.png");
+  assert.equal(filenameFor(' <"?> a the ', sep26), "Sep26 reel title.png");
+  assert.equal(filenameFor("Buyer's guide: 5 tips", sep26), "Sep26 reel title Buyer's guide 5.png");
 });
 
 test("layout choices start with the automatic one and differ in line count", () => {

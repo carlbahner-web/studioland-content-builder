@@ -402,16 +402,17 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
       )}
       <header className="listing-head">
         <h1>ANGELA RERA - LISTING POST BUILDER</h1>
-        {/* Her other tool, always. In the one-file build it is the reel title
-            artifact's own URL, because there is no router to hand a hash to;
-            the brand content builder is only reachable in the routed build. */}
+        {/* On the site, back to her home page, where both tools are. In the
+            one-file build there is no home page, so it links to the other
+            tool's own artifact URL instead. */}
         <nav className="listing-links">
-          <a href={standalone ? TITLE_ARTIFACT : "#/title"} className="listing-elsewhere">
-            Reel titles →
-          </a>
-          {!standalone && (
-            <a href="#/" className="listing-elsewhere">
-              Brand content builder →
+          {standalone ? (
+            <a href={TITLE_ARTIFACT} className="listing-elsewhere">
+              Reel titles →
+            </a>
+          ) : (
+            <a href="#/angela" className="listing-elsewhere">
+              ← Home
             </a>
           )}
         </nav>

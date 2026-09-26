@@ -59,9 +59,9 @@ test("the whole flow on a laptop, down to the saved file", async () => {
     page.waitForEvent("download"),
     page.getByRole("button", { name: /Looks good/ }).click(),
   ]);
-  assert.equal(download.suggestedFilename(), "Reel title - Pet owners to fence or not to fence.png");
+  assert.match(download.suggestedFilename(), /^[A-Z][a-z]{2}\d{2} reel title Pet owners fence\.png$/);
   assert.match(await heading(page), /Saved/);
-  assert.match(await page.locator(".tb-filename").innerText(), /Reel title - Pet owners/);
+  assert.match(await page.locator(".tb-filename").innerText(), /reel title Pet owners fence/);
 
   const file = await download.path();
   const img = decode(await readFile(file!));
@@ -73,7 +73,7 @@ test("the whole flow on a laptop, down to the saved file", async () => {
 
   await page.getByRole("button", { name: /put it on your video/ }).click();
   assert.match(await heading(page), /Descript/);
-  assert.match(await page.locator(".tb-howto").innerText(), /Reel title - Pet owners/);
+  assert.match(await page.locator(".tb-howto").innerText(), /reel title Pet owners fence/);
 
   await page.getByRole("button", { name: /Make another title/ }).click();
   assert.match(await heading(page), /What should your title say/);

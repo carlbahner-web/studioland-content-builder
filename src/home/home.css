@@ -1,0 +1,160 @@
+/* Angela's home page: two big choices, and the bookmark reminder over them. */
+
+.home {
+  min-height: 100vh;
+  background: var(--cream);
+  color: var(--charcoal);
+}
+
+.home-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+  box-sizing: border-box;
+}
+.home-question {
+  margin: 0 0 24px;
+  font-size: 32px;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.home-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 18px 22px;
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--charcoal);
+  text-decoration: none;
+}
+.home-card:hover { border-color: var(--teal); }
+.home-card:focus-visible {
+  outline: 3px solid var(--charcoal);
+  outline-offset: 3px;
+}
+.home-card-name {
+  font-size: 24px;
+  font-weight: 700;
+}
+.home-card-what {
+  font-size: 17px;
+  line-height: 1.45;
+  opacity: 0.8;
+}
+
+/* Little drawings of each thing, in the brand navy, so the two cards can be
+   told apart at a glance before a word is read. */
+.home-card-art {
+  position: relative;
+  display: block;
+  height: 150px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b1c40;
+}
+.home-card-post .home-card-arch {
+  position: absolute;
+  left: 12%;
+  bottom: 0;
+  width: 38%;
+  height: 72%;
+  border-radius: 999px 999px 0 0;
+  background: #e8d7d5;
+}
+.home-card-reel {
+  width: 50%;
+  margin-left: auto;
+  margin-right: auto;
+  background: linear-gradient(160deg, #cfc8b8, #9d968a);
+}
+.home-card-banner {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 30%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1c40;
+  color: #ffe6ea;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+
+/* ---- the bookmark reminder ---- */
+
+.home-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(44 44 42 / 55%);
+}
+.home-dialog {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 24px 24px;
+  border-radius: 18px;
+  background: var(--cream);
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.5;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
+}
+.home-dialog h2 {
+  margin: 0;
+  font-size: 28px;
+}
+.home-dialog p { margin: 0; }
+.home-dialog-star {
+  font-size: 40px;
+  line-height: 1;
+  color: var(--teal);
+}
+.home-dialog-how {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid var(--line);
+  font-weight: 700;
+}
+.home-primary,
+.home-secondary {
+  width: 100%;
+  min-height: 58px;
+  font: inherit;
+  font-size: 20px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.home-primary {
+  margin-top: 8px;
+  border: none;
+  background: var(--teal);
+  color: #fff;
+}
+.home-secondary {
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--charcoal);
+}
+.home-primary:focus-visible,
+.home-secondary:focus-visible {
+  outline: 3px solid var(--charcoal);
+  outline-offset: 3px;
+}

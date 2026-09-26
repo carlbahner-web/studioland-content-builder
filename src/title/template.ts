@@ -277,19 +277,27 @@ export function layoutTitle(text: string, measure: Measure): TitleLayout {
   };
 }
 
-/* A title turned into a file name someone can recognise in their Downloads
- * folder: "Reel title - Pet owners to fence or not to fence.png". Written as
- * typed rather than slugged, because a person looks for their own words, and
- * with the characters Windows refuses in a file name taken out. */
-export function filenameFor(text: string): string {
+/* A file name that sorts by date and says what it is:
+ * "Sep26 reel title Pet owners fence.png".
+ *
+ * Month and day first, so a Downloads folder full of them lines up in the order
+ * they were made; then "reel title", so it is obvious what it is next to a
+ * listing post; then the first three words that carry the meaning, skipping the
+ * small ones (a, the, to, or...) that would make every name start the same way.
+ * Words keep the capitals she typed them with. Anything Windows refuses in a
+ * file name never gets in, because only letters, digits, apostrophes and
+ * hyphens survive from each word. */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const FILLER = new Set([...DANGLERS].map((w) => w.toLowerCase()).concat(["but", "so", "are", "be"]));
+
+export function filenameFor(text: string, when: Date = new Date()): string {
+  const date = `${MONTHS[when.getMonth()]}${String(when.getDate()).padStart(2, "0")}`;
   const words = text
-    .replace(/[\\/:*?"<>|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 60)
-    .trim()
-    .replace(/[. ]+$/, "");
-  return words ? `Reel title - ${words}.png` : "Reel title.png";
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}'’-]/gu, "").replace(/^[-'’]+|[-'’]+$/g, ""))
+    .filter((w) => w && !FILLER.has(w.toLowerCase()))
+    .slice(0, 3);
+  return [date, "reel title", ...words].join(" ") + ".png";
 }
 
 export const SEED = "Pet owners: to fence or not to fence?";
