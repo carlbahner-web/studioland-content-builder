@@ -25,7 +25,6 @@ import {
   titleChoices,
 } from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
-import { LISTING_ARTIFACT } from "../links.ts";
 import "../listing/listing.css";
 import "./title.css";
 
@@ -179,9 +178,9 @@ function Choice(props: {
 
 type Step = 1 | 2 | 3 | 4;
 
-/** `standalone` is the one-file build, which links out to the listing builder
- *  artifact rather than to a route. */
-export default function TitleBuilder({ standalone = false }: { standalone?: boolean }) {
+/** `onHome` is for the one-file build, which has no router: Home is a state
+ *  change there rather than a link to #/angela. */
+export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
   const [step, setStep] = useState<Step>(1);
   const [text, setText] = useState(readDraft);
   const [choice, setChoice] = useState(0);
@@ -283,10 +282,10 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
     <div className="title">
       <header className="listing-head">
         <h1>ANGELA RERA - REEL TITLES</h1>
-        {standalone ? (
-          <a href={LISTING_ARTIFACT} className="listing-elsewhere">
-            Listing posts →
-          </a>
+        {onHome ? (
+          <button type="button" className="listing-elsewhere listing-home-btn" onClick={onHome}>
+            ← Home
+          </button>
         ) : (
           <a href="#/angela" className="listing-elsewhere">
             ← Home

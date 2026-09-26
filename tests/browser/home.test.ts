@@ -62,7 +62,7 @@ test("the two cards open the two tools, and each comes back home", async () => {
   await page.getByRole("link", { name: /Home/ }).click();
   await page.waitForSelector(".home-cards");
 
-  await page.keyboard.press("Escape"); // the reminder again; Escape is "skip"
+  assert.equal(await reminder(page).count(), 0, "skipping lasts the whole visit");
   await page.getByRole("link", { name: /A listing post/ }).click();
   await page.waitForSelector("#post-street", { timeout: 20_000 });
 

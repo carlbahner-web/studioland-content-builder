@@ -22,7 +22,6 @@ import type { PhotoFit, Point, TextAlign, TextBlock } from "./template.ts";
 import { addressBlock, badgeBlock, emptyDoc, withLayout } from "./doc.ts";
 import type { Doc, Photo } from "./doc.ts";
 import { drawDoc, renderFull } from "./draw.ts";
-import { TITLE_ARTIFACT } from "../links.ts";
 import { useArt, useFontReady } from "./art.ts";
 import "./listing.css";
 
@@ -46,9 +45,7 @@ const COARSE =
 const PREVIEW_W = 540;
 const PREVIEW_SCALE = PREVIEW_W / CANVAS.w;
 
-/** `standalone` is the one-file build, which links out to the reel title
- *  artifact rather than to a route. */
-export default function ListingBuilder({ standalone = false }: { standalone?: boolean }) {
+export default function ListingBuilder() {
   const [doc, setDoc] = useState<Doc>(emptyDoc);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -331,19 +328,10 @@ export default function ListingBuilder({ standalone = false }: { standalone?: bo
       )}
       <header className="listing-head">
         <h1>ANGELA RERA - LISTING POST BUILDER</h1>
-        {/* On the site, back to her home page, where both tools are. In the
-            one-file build there is no home page, so it links to the other
-            tool's own artifact URL instead. */}
         <nav className="listing-links">
-          {standalone ? (
-            <a href={TITLE_ARTIFACT} className="listing-elsewhere">
-              Reel titles →
-            </a>
-          ) : (
-            <a href="#/angela" className="listing-elsewhere">
-              ← Home
-            </a>
-          )}
+          <a href="#/angela" className="listing-elsewhere">
+            ← Home
+          </a>
         </nav>
       </header>
 

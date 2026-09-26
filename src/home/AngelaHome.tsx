@@ -5,7 +5,9 @@
  * until she says she has done it, a reminder to bookmark the page sits over
  * the top - the whole point of having one page is that she can always get
  * back to it. "Skip for now" really is for now: it is not remembered, so the
- * reminder comes back next visit. Only "I bookmarked it" puts it away for good.
+ * reminder comes back next visit (but not when she comes back to this page from
+ * one of the tools during the same one). Only "I bookmarked it" puts it away
+ * for good.
  */
 import { useEffect, useRef, useState } from "react";
 import "../listing/listing.css";
@@ -78,8 +80,28 @@ function BookmarkReminder({ onDone, onSkip }: { onDone: () => void; onSkip: () =
   );
 }
 
-export default function AngelaHome() {
-  const [asking, setAsking] = useState(() => !bookmarked());
+export type Tool = "listing" | "title";
+
+/** `onOpen` is for the one-file build, which has no router: the cards switch
+ *  tools in place there instead of linking to #/listing and #/title. */
+/* "Skip for now" lasts for this visit: coming back to the home page from one of
+ * the tools must not ask again. Kept in the module, so it lives exactly as long
+ * as the page does and a fresh visit starts without it. */
+let skippedThisVisit = false;
+
+export default function AngelaHome({ onOpen }: { onOpen?: (tool: Tool) => void }) {
+  const card = (tool: Tool, body: React.ReactNode) =>
+    onOpen ? (
+      <button type="button" className="home-card" onClick={() => onOpen(tool)}>
+        {body}
+      </button>
+    ) : (
+      <a className="home-card" href={`#/${tool}`}>
+        {body}
+      </a>
+    );
+
+  const [asking, setAsking] = useState(() => !skippedThisVisit && !bookmarked());
 
   return (
     <div className="home">
@@ -89,7 +111,10 @@ export default function AngelaHome() {
             rememberBookmarked();
             setAsking(false);
           }}
-          onSkip={() => setAsking(false)}
+          onSkip={() => {
+            skippedThisVisit = true;
+            setAsking(false);
+          }}
         />
       )}
       <header className="listing-head">
@@ -98,20 +123,26 @@ export default function AngelaHome() {
       <main className="home-main" aria-hidden={asking || undefined}>
         <h2 className="home-question">What would you like to make?</h2>
         <div className="home-cards">
-          <a className="home-card" href="#/listing">
-            <span className="home-card-art home-card-post" aria-hidden>
-              <span className="home-card-arch" />
-            </span>
-            <span className="home-card-name">A listing post</span>
-            <span className="home-card-what">A picture for a house: sold, pending or just listed.</span>
-          </a>
-          <a className="home-card" href="#/title">
-            <span className="home-card-art home-card-reel" aria-hidden>
-              <span className="home-card-banner">TITLE</span>
-            </span>
-            <span className="home-card-name">A reel title</span>
-            <span className="home-card-what">The banner that goes across the top of a video.</span>
-          </a>
+          {card(
+            "listing",
+            <>
+              <span className="home-card-art home-card-post" aria-hidden>
+                <span className="home-card-arch" />
+              </span>
+              <span className="home-card-name">A listing post</span>
+              <span className="home-card-what">A picture for a house: sold, pending or just listed.</span>
+            </>,
+          )}
+          {card(
+            "title",
+            <>
+              <span className="home-card-art home-card-reel" aria-hidden>
+                <span className="home-card-banner">TITLE</span>
+              </span>
+              <span className="home-card-name">A reel title</span>
+              <span className="home-card-what">The banner that goes across the top of a video.</span>
+            </>,
+          )}
         </div>
       </main>
     </div>

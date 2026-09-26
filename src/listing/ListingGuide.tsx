@@ -21,7 +21,6 @@ import type { Art } from "./draw.ts";
 import { useArt, useFontReady } from "./art.ts";
 import { LONG_STREET, addressText, listingFilename, readDraft } from "./guide.ts";
 import type { Draft } from "./guide.ts";
-import { TITLE_ARTIFACT } from "../links.ts";
 import "./listing.css";
 import "../title/title.css";
 import "./guide.css";
@@ -148,9 +147,9 @@ function MiniPost(props: {
   );
 }
 
-/** `standalone` is the one-file build, which links out to the reel title
- *  artifact rather than to a route. */
-export default function ListingGuide({ standalone = false }: { standalone?: boolean }) {
+/** `onHome` is for the one-file build, which has no router: Home is a state
+ *  change there rather than a link to #/angela. */
+export default function ListingGuide({ onHome }: { onHome?: () => void }) {
   const draft = useMemo(loadDraft, []);
   const [step, setStep] = useState<Step>(1);
   const [street, setStreet] = useState(draft.street ?? "");
@@ -368,10 +367,10 @@ export default function ListingGuide({ standalone = false }: { standalone?: bool
     <div className="title">
       <header className="listing-head">
         <h1>ANGELA RERA - LISTING POSTS</h1>
-        {standalone ? (
-          <a href={TITLE_ARTIFACT} className="listing-elsewhere">
-            Reel titles →
-          </a>
+        {onHome ? (
+          <button type="button" className="listing-elsewhere listing-home-btn" onClick={onHome}>
+            ← Home
+          </button>
         ) : (
           <a href="#/angela" className="listing-elsewhere">
             ← Home

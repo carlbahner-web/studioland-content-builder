@@ -21,24 +21,18 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 
 /* Two one-file builds, because they are for two different errands.
  *
- * The default packs the whole bundle - both tools behind the hash router. The
- * --only=listing build packs the listing builder alone, and is what gets
- * published as a Claude artifact: there is no router there, no way to reach the
- * layer editor, and no reason to make someone download 250kB of it plus every
- * brand asset before a page they opened to change an address can paint. */
+ * The default packs the whole bundle - every tool behind the hash router. The
+ * --only=angela build packs Angela's page alone - her home page and the two
+ * guided tools, switched by state - and is what gets published as her Claude
+ * artifact: there is no router there, no way to reach the layer editor, and
+ * no reason to make someone download 250kB of it plus every brand asset
+ * before the page she opened can paint. The listing artwork covers both of
+ * her tools: the reel titles' peony paper is cut from the listing frame. */
 const args = process.argv.slice(2);
-const LISTING_ONLY = args.includes("--only=listing");
-/* --only=title is the reel title builder alone, for the same reason. It needs
- * one image - the listing frame, which its peony paper is cut from - and the
- * one font. */
-const TITLE_ONLY = args.includes("--only=title");
+const ANGELA_ONLY = args.includes("--only=angela");
 const OUT =
   args.find((a) => !a.startsWith("--")) ??
-  path.join(
-    ROOT,
-    "dist-single",
-    TITLE_ONLY ? "reel-title-builder.html" : LISTING_ONLY ? "listing-builder.html" : "content-builder.html",
-  );
+  path.join(ROOT, "dist-single", ANGELA_ONLY ? "angela.html" : "content-builder.html");
 
 const MIME = {
   ".woff2": "font/woff2",
@@ -65,9 +59,7 @@ const LISTING_ASSETS = [
 ];
 
 /** Everything the running app asks for by path, as data URIs. */
-const ASSETS = TITLE_ONLY
-  ? ["/fonts/TAYWingman.woff2", "/listing/frame.png"]
-  : LISTING_ONLY
+const ASSETS = ANGELA_ONLY
   ? LISTING_ASSETS
   : [
       "/brand/grain.webp",
@@ -113,7 +105,7 @@ let css = [
   await readFile(path.join(ROOT, "src/title/title.css"), "utf8"),
   await readFile(path.join(ROOT, "src/home/home.css"), "utf8"),
   await readFile(path.join(ROOT, "src/listing/guide.css"), "utf8"),
-  LISTING_ONLY || TITLE_ONLY ? ARTIFACT_SHIM : "",
+  ANGELA_ONLY ? ARTIFACT_SHIM : "",
 ].join("\n");
 css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`);
 
@@ -121,7 +113,7 @@ css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`)
  * this app deliberately does not use, so nothing has to be stubbed. */
 const bundled = await build({
   entryPoints: [
-    path.join(ROOT, TITLE_ONLY ? "src/title/main.tsx" : LISTING_ONLY ? "src/listing/main.tsx" : "src/main.tsx"),
+    path.join(ROOT, ANGELA_ONLY ? "src/home/main.tsx" : "src/main.tsx"),
   ],
   bundle: true,
   format: "iife",
@@ -145,11 +137,7 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text;
 
-const TITLE = TITLE_ONLY
-  ? "Angela Rera Reel Titles"
-  : LISTING_ONLY
-    ? "Angela Rera Listing Builder"
-    : "StudioLand content builder";
+const TITLE = ANGELA_ONLY ? "Angela Rera Tools" : "StudioLand content builder";
 const html = `<title>${TITLE}</title>
 <style>
 ${css}

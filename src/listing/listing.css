@@ -249,3 +249,13 @@
   border-radius: 6px;
   background: #fff;
 }
+
+/* "← Home" as a button in the one-file build, looking like the link it is on the site. */
+.listing-home-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}

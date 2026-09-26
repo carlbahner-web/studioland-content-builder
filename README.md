@@ -17,8 +17,7 @@ npm test         # the pure logic: brand rules, boil, layers, history, snapping,
 npm run test:browser   # both tools, driven in a real Chromium
 npm run build    # typecheck + dist/
 npm run art      # re-key the listing artwork from assets/listing-src/
-npm run build:listing   # the listing builder alone, as one file (the artifact copy)
-npm run build:title     # the reel title builder alone, as one file (the artifact copy)
+npm run build:angela    # Angela's page alone - home, listing posts, reel titles - as one file (the artifact copy)
 ```
 
 Chrome or Edge. The MP4 export needs WebCodecs and the artwork folder needs the
@@ -198,8 +197,8 @@ The street, town, sign, headshot and side are kept between visits; the photo
 can't be. **The full one-screen editor described below is still at
 `#/listing/advanced`**, drawing the same post with the same code, and
 `tests/browser/listing.test.ts` runs against it. The guided flow has its own
-`tests/browser/listing-guide.test.ts`. `npm run build:listing` now packs the
-guided version.
+`tests/browser/listing-guide.test.ts`. `npm run build:angela` packs the guided
+version, not this one.
 
 ### The full editor
 
@@ -224,12 +223,15 @@ to get it wrong, so there is no layer list, no format picker and no undo stack.
 
 ### Two one-file builds
 
-`npm run build:single` packs both tools behind the hash router.
-`npm run build:listing` packs the listing builder alone, from its own entry at
-`src/listing/main.tsx`, and that is what gets published as a Claude artifact —
-there is no router there, no way to reach the layer editor, and no reason to
-make someone download 250kB of it plus every brand asset before a page they
-opened to change an address can paint. 2.8MB against 3.2MB, and no dead code.
+`npm run build:single` packs every tool behind the hash router.
+`npm run build:angela` packs Angela's page alone, from its own entry at
+`src/home/main.tsx`: it opens on her home page with the bookmark reminder, and
+the cards switch to the guided listing and reel title tools by state, not by
+address, because an artifact frame routes on nothing but a plain `#anchor`.
+That is what gets published as her Claude artifact, to both of her existing
+artifact links, so whichever she opens starts with "What would you like to
+make?". There is no way to reach the layer editor or the full listing editor
+from it, and no reason to make someone download them first.
 
 Two things that build has to get right, both invisible until they are wrong:
 
@@ -514,7 +516,7 @@ both.
 
 ## The reel title builder
 
-`#/title`, or `npm run build:title` for the one-file copy. Angela types a title;
+`#/title` on the site, or "A reel title" on her home page. Angela types a title;
 it comes back as a **1080×1920 transparent PNG** with the navy peony banner
 across the top of the frame and the title set on it, and nothing anywhere else.
 

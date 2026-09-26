@@ -158,3 +158,10 @@
   outline: 3px solid var(--charcoal);
   outline-offset: 3px;
 }
+
+/* The cards are buttons in the one-file build; look the same as the links. */
+button.home-card {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
