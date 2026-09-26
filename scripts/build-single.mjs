@@ -137,7 +137,7 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text;
 
-const TITLE = ANGELA_ONLY ? "Angela Rera Tools" : "StudioLand content builder";
+const TITLE = ANGELA_ONLY ? "Angela's Post Builder" : "StudioLand content builder";
 const html = `<title>${TITLE}</title>
 <style>
 ${css}
