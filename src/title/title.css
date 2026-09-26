@@ -56,12 +56,23 @@
   align-items: start;
   margin-top: 8px;
 }
-.title-banner {
-  display: block;
+.title-banner-frame {
+  position: relative;
   width: 100%;
   border-radius: 10px;
+  overflow: hidden;
   box-shadow: 0 6px 20px rgb(44 44 42 / 16%);
 }
+
+/* The safe zone: every letter of the title lands inside this line. A light
+   teal that reads on the navy banner and on the checkerboard alike. */
+.title-safe {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px dashed rgb(127 212 193 / 90%);
+  pointer-events: none;
+}
+.title-reel .title-safe { border-width: 1px; }
 .title-reel {
   margin: 0;
   display: flex;

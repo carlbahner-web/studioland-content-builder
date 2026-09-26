@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../assets.ts";
 import { canSaveFile, saveFile } from "../save.ts";
-import { BANNER_BOTTOM, CANVAS, SEED, filenameFor, layoutTitle } from "./template.ts";
+import { BANNER_BOTTOM, CANVAS, SAFE_BOX, SEED, filenameFor, layoutTitle } from "./template.ts";
 import { drawTitle, makePaper, renderFull, titleMeasurer } from "./draw.ts";
 import "../listing/listing.css";
 import "./title.css";
@@ -78,6 +78,26 @@ function useArt(): { paper: HTMLCanvasElement | null; ready: boolean; failed: bo
     };
   }, []);
   return state;
+}
+
+/* The safe box, drawn over a preview as a dashed outline. Preview only - it is
+ * HTML over the canvas, so it cannot reach the export. Positioned in percent of
+ * whatever part of the frame the preview shows, which is the whole reel for the
+ * small preview and the top BANNER_BOTTOM px for the banner. */
+function SafeZone({ frameH }: { frameH: number }) {
+  const pct = (v: number, of: number) => `${(v / of) * 100}%`;
+  return (
+    <div
+      className="title-safe"
+      aria-hidden
+      style={{
+        left: pct(SAFE_BOX.x, CANVAS.w),
+        width: pct(SAFE_BOX.w, CANVAS.w),
+        top: pct(SAFE_BOX.y, frameH),
+        height: pct(SAFE_BOX.h, frameH),
+      }}
+    />
+  );
 }
 
 /** `standalone` is the one-file build, where there is no other tool to link to. */
@@ -190,16 +210,15 @@ export default function TitleBuilder({ standalone = false }: { standalone?: bool
         <p className="title-hint">Press Enter to start a new line where you want one.</p>
 
         <div className="title-previews">
-          <canvas
-            ref={bannerRef}
-            className="title-banner"
-            style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}
-            aria-label="The banner"
-          />
+          <div className="title-banner-frame" style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}>
+            <canvas ref={bannerRef} className="title-canvas" aria-label="The banner" />
+            <SafeZone frameH={BANNER_BOTTOM} />
+          </div>
           <figure className="title-reel">
             <div className={`title-reel-frame${backdrop ? "" : " title-checker"}`}>
               {backdrop && <img className="title-backdrop" src={backdrop} alt="" />}
               <canvas ref={reelRef} className="title-canvas" aria-label="The whole reel" />
+              <SafeZone frameH={CANVAS.h} />
             </div>
             <figcaption>Whole reel</figcaption>
           </figure>
