@@ -43,12 +43,15 @@
   gap: 6px 16px;
 }
 .listing-elsewhere {
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 700;
   white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
   color: var(--teal);
-  text-decoration: none;
 }
-.listing-elsewhere:hover { text-decoration: underline; }
+.listing-elsewhere:hover { text-decoration-thickness: 3px; }
 
 .listing-body {
   flex: 1;
@@ -256,6 +259,11 @@
   border: none;
   background: none;
   font: inherit;
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--teal);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
   cursor: pointer;
 }

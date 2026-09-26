@@ -3,6 +3,8 @@
    header and cream workbench so the two tools look like one product. */
 
 .title {
+  /* The pale teal every instruction sits on. */
+  --instruct: #e3eeec;
   min-height: 100vh;
   background: var(--cream);
   color: var(--charcoal);
@@ -55,11 +57,55 @@
   margin: 0;
   font-size: 19px;
 }
+/* ---- the three kinds of thing on a page, each with one look ----
+   Buttons are big boxes (below). Links are teal, bold and underlined.
+   Instructions sit in a pale teal panel with an "i" or numbered circles:
+   never boxed like a button, never underlined like a link. */
+
 .tb-hint {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   margin: 0;
-  font-size: 16px;
-  opacity: 0.75;
+  padding: 10px 14px;
+  font-size: 17px;
+  line-height: 1.45;
+  border-radius: 10px;
+  background: var(--instruct);
+  color: var(--charcoal);
 }
+.tb-hint::before {
+  content: "i";
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  font: 700 14px/1 Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.tb-link {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 2px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  background: none;
+  color: var(--teal);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.tb-link:hover { color: #264248; text-decoration-thickness: 3px; }
 .tb-note {
   margin: 0;
   padding: 12px 16px;
@@ -139,22 +185,12 @@
 .tb-secondary:hover:not(:disabled) { border-color: #b9b099; }
 .tb-primary:focus-visible,
 .tb-secondary:focus-visible,
-.tb-back:focus-visible,
+.tb-link:focus-visible,
 .tb-choice:focus-visible {
   outline: 3px solid var(--charcoal);
   outline-offset: 3px;
 }
-.tb-back {
-  align-self: flex-start;
-  min-height: 44px;
-  padding: 8px 4px;
-  font: inherit;
-  font-size: 18px;
-  border: none;
-  background: none;
-  color: var(--teal);
-  cursor: pointer;
-}
+
 
 /* ---- the previews ---- */
 
@@ -239,12 +275,15 @@
   padding: 8px;
   font: inherit;
   font-size: 16px;
-  border: 3px solid transparent;
+  /* A visible edge even when not picked, so every choice reads as something
+     to tap rather than a picture on the page. */
+  border: 3px solid var(--line);
   border-radius: 12px;
   background: #fff;
   color: var(--charcoal);
   cursor: pointer;
 }
+.tb-choice:hover { border-color: #b9b099; }
 .tb-choice canvas {
   display: block;
   width: 100%;
@@ -259,12 +298,11 @@
 
 .tb-filename {
   margin: 0;
-  padding: 14px 16px;
+  padding: 12px 16px;
   font-size: 18px;
   font-weight: 700;
   border-radius: 10px;
-  background: #fff;
-  border: 2px dashed var(--line);
+  background: var(--instruct);
   overflow-wrap: anywhere;
 }
 .tb-held {
@@ -280,15 +318,35 @@
 
 .tb-howto {
   margin: 0;
-  padding-left: 1.4em;
+  padding: 18px 18px 18px 16px;
+  list-style: none;
+  counter-reset: howto;
   display: flex;
   flex-direction: column;
   gap: 14px;
   font-size: 19px;
+  border-radius: 12px;
+  background: var(--instruct);
 }
-.tb-howto li::marker {
+.tb-howto li {
+  counter-increment: howto;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.tb-howto li::before {
+  content: counter(howto);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  font-size: 16px;
   font-weight: 700;
-  color: var(--teal);
 }
 
 @media (max-width: 480px) {

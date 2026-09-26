@@ -320,7 +320,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
   /* ---------------------------------------------------------- the page */
 
   const back = (to: Step) => (
-    <button type="button" className="tb-back" onClick={() => setStep(to)}>
+    <button type="button" className="tb-link" onClick={() => setStep(to)}>
       ← Back
     </button>
   );
@@ -461,7 +461,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
                   </button>
                 ) : (
                   <div className="lg-move">
-                    <p className="lg-move-how">
+                    <p className="tb-hint lg-move-how">
                       {COARSE ? "Drag the photo with your finger to move it." : "Drag the photo with your mouse to move it."}
                     </p>
                     <div className="lg-move-row">
@@ -474,7 +474,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
                     </div>
                     <button
                       type="button"
-                      className="tb-back lg-reset"
+                      className="tb-link lg-reset"
                       onClick={() => setFit(() => ({ zoom: 1, offsetX: 0, offsetY: 0 }))}
                     >
                       Put it back how it was
@@ -518,7 +518,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
             {!ownWords ? (
               <button
                 type="button"
-                className="tb-back"
+                className="tb-link"
                 onClick={() => {
                   setOwnWords(true);
                   setBadge("");
@@ -592,7 +592,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
             </button>
             {problemNote}
             {failed.length > 0 && (
-              <p className="tb-hint">Some of the artwork didn't load. Please reload the page and try again.</p>
+              <p className="tb-problem">Some of the artwork didn't load. Please reload the page and try again.</p>
             )}
           </section>
         )}

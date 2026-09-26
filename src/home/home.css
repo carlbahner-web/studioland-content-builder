@@ -126,12 +126,31 @@
   line-height: 1;
   color: var(--teal);
 }
+/* An instruction, so it looks like the tools' instructions: pale teal, an "i",
+   never a white box with a border that could be taken for a button. */
 .home-dialog-how {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   padding: 14px 16px;
   border-radius: 12px;
-  background: #fff;
-  border: 2px solid var(--line);
+  background: #e3eeec;
+  text-align: left;
   font-weight: 700;
+}
+.home-dialog-how::before {
+  content: "i";
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  font: italic 700 15px/1 Georgia, "Times New Roman", serif;
 }
 .home-primary,
 .home-secondary {

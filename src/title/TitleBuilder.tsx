@@ -273,7 +273,7 @@ export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
   };
 
   const back = (to: Step) => (
-    <button type="button" className="tb-back" onClick={() => setStep(to)}>
+    <button type="button" className="tb-link" onClick={() => setStep(to)}>
       ← Back
     </button>
   );
@@ -396,7 +396,7 @@ export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
               </p>
             )}
             {failed && (
-              <p className="tb-hint">The flower pattern didn't load, so the banner is plain navy. It still works.</p>
+              <p className="tb-note">The flower pattern didn't load, so the banner is plain navy. It still works.</p>
             )}
           </section>
         )}
