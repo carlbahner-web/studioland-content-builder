@@ -19,7 +19,7 @@ import type { Doc, Photo } from "./doc.ts";
 import { drawDoc, renderFull } from "./draw.ts";
 import type { Art } from "./draw.ts";
 import { useArt, useFontReady } from "./art.ts";
-import { LONG_STREET, addressText, listingFilename, readDraft } from "./guide.ts";
+import { DEFAULT_HEADSHOT, LONG_STREET, addressText, listingFilename, readDraft } from "./guide.ts";
 import type { Draft } from "./guide.ts";
 import "./listing.css";
 import "../title/title.css";
@@ -157,7 +157,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
   const [badge, setBadge] = useState(draft.badge ?? "");
   const [ownWords, setOwnWords] = useState(() => !!draft.badge && !BADGES.some((b) => b.text === draft.badge));
   const [headshot, setHeadshot] = useState(
-    HEADSHOTS.some((h) => h.key === draft.headshot) ? draft.headshot! : HEADSHOTS[0].key,
+    HEADSHOTS.some((h) => h.key === draft.headshot) ? draft.headshot! : DEFAULT_HEADSHOT,
   );
   const [layout, setLayout] = useState<LayoutKey>(draft.layout === "mirrored" ? "mirrored" : "standard");
   const [photo, setPhoto] = useState<Photo | null>(null);
@@ -459,8 +459,8 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
                     arch covers the bottom corner of the house photo on
                     whichever side it sits, so the photo has to be framed with
                     the arch where it will really be. */}
-                <p className="lg-question">Which side should your photo go on?</p>
-                <div className="lg-tabs" role="group" aria-label="Which side should your photo go on?">
+                <p className="lg-question">Which side should your headshot go on?</p>
+                <div className="lg-tabs" role="group" aria-label="Which side should your headshot go on?">
                   {LAYOUTS.map((l) => (
                     <button
                       key={l.key}
@@ -562,7 +562,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
             )}
             {preview}
             <button type="button" className="tb-primary" onClick={() => setStep(4)}>
-              Next: your photo
+              Next: your headshot
             </button>
           </section>
         )}
@@ -571,7 +571,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
           <section className="tb-step">
             {back(3)}
             <h2 ref={headingRef} tabIndex={-1}>
-              Which photo of you?
+              Which headshot?
             </h2>
             <p className="tb-lead">Tap the one you like.</p>
             <div className="lg-choices">
