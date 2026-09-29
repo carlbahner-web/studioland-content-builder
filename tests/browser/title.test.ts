@@ -45,7 +45,17 @@ test("the whole flow on a laptop, down to the saved file", async () => {
   const next = page.getByRole("button", { name: /Next: see how it looks/ });
   assert.equal(await next.isDisabled(), true, "Next is off until something is typed");
 
+  assert.equal(await page.locator(".tb-banner").count(), 0, "no banner until there are words");
   await page.fill("#title-text", "Pet owners: to fence or not to fence?");
+  // The banner shows while she types, painted, not just an empty box.
+  await page.waitForTimeout(200);
+  const painted = await page.evaluate(() => {
+    const c = document.querySelector(".tb-banner canvas") as HTMLCanvasElement | null;
+    if (!c) return 0;
+    const px = c.getContext("2d")!.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data;
+    return px[3];
+  });
+  assert.ok(painted > 0, "the banner is drawn on step 1");
   await next.click();
   assert.match(await heading(page), /Here's your title/);
 

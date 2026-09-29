@@ -72,8 +72,11 @@ test("the whole flow on a laptop, down to the saved file", async () => {
   // The side is picked while framing the photo, where the arch's overlap shows.
   await page.locator("#side-mirrored").click();
   assert.equal(await page.locator("#side-mirrored").getAttribute("aria-pressed"), "true");
-  await page.getByRole("button", { name: "Move the photo" }).click();
+  // Bigger and smaller are right there with the photo, not behind a button.
   await page.getByRole("button", { name: /Bigger/ }).click();
+  // On a laptop the post sits beside the questions, not above them.
+  const [pic, next] = await Promise.all([page.locator(".lg-preview").boundingBox(), next2.boundingBox()]);
+  assert.ok(pic && next && next.x > pic.x + pic.width, "the post is on the left, the questions on the right");
   await page.getByRole("button", { name: /Put it back/ }).click();
   await next2.click();
 
