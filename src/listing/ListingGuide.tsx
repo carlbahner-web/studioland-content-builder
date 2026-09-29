@@ -8,7 +8,9 @@
  * (#/listing/advanced), from the same Doc, so the two cannot disagree.
  *
  * Written for a laptop first, where she edits; on a phone saving falls back to
- * press-and-hold, as everywhere else in these tools.
+ * press-and-hold, as everywhere else in these tools. On a wide screen the
+ * steps with a picture put it on the left and the questions on the right, so
+ * every choice shows up in the post beside it instead of a scroll away.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { canSaveFile, saveFile } from "../save.ts";
@@ -161,7 +163,6 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
   );
   const [layout, setLayout] = useState<LayoutKey>(draft.layout === "mirrored" ? "mirrored" : "standard");
   const [photo, setPhoto] = useState<Photo | null>(null);
-  const [moving, setMoving] = useState(false);
   const [dropping, setDropping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -198,7 +199,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
   );
 
   useEffect(() => {
-    if (step >= 2 && step <= 4) paint(previewRef.current, 520, doc, art, photoRef.current);
+    if (step >= 2 && step <= 4) paint(previewRef.current, previewRef.current?.clientWidth || 520, doc, art, photoRef.current);
   }, [step, doc, art, fontReady]);
 
   /* ---------------------------------------------------------- the photo */
@@ -263,6 +264,29 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
     if (drag.current?.id === e.pointerId) drag.current = null;
   };
 
+  /* Pinching on a laptop's trackpad, over the house photo, makes it bigger or
+   * smaller around the fingers. The browser reports a pinch as a wheel event
+   * with ctrlKey set, and would zoom the whole page if it were not stopped, so
+   * the listener is added by hand: React's own wheel listener is passive and
+   * cannot stop it. A plain scroll is left alone and scrolls the page. */
+  const setFitRef = useRef(setFit);
+  setFitRef.current = setFit;
+  useEffect(() => {
+    const canvas = previewRef.current;
+    if (step !== 2 || !photo || !canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      const r = canvas.getBoundingClientRect();
+      const at = { x: ((e.clientX - r.left) / r.width) * CANVAS.w, y: ((e.clientY - r.top) / r.height) * CANVAS.h };
+      if (at.y > PHOTO_BAND.h) return;
+      e.preventDefault();
+      const k = Math.exp(-e.deltaY / 100);
+      setFitRef.current((fit) => zoomAt(fit, fit.zoom * k, at, PHOTO_BAND));
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [step, !!photo]);
+
   useEffect(
     () => () => {
       const url = photoRef.current?.src;
@@ -310,7 +334,6 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
     setTown("");
     setBadge("");
     setOwnWords(false);
-    setMoving(false);
     setHeld(null);
     setSavedName(null);
     setProblem(null);
@@ -378,7 +401,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
         )}
       </header>
 
-      <main className="tb">
+      <main className={step >= 2 && step <= 4 ? "tb tb-wide" : "tb"}>
         <p className="tb-progress" aria-label={`Step ${step} of ${STEPS}`}>
           {Array.from({ length: STEPS }, (_, i) => (
             <span key={i} className={i < step ? "tb-dot tb-dot-on" : "tb-dot"} aria-hidden />
@@ -432,7 +455,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
         )}
 
         {step === 2 && (
-          <section className="tb-step">
+          <section className="tb-step lg-split">
             {back(1)}
             <h2 ref={headingRef} tabIndex={-1}>
               Add the photo of the house
@@ -475,32 +498,31 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
                     </button>
                   ))}
                 </div>
-                {!moving ? (
-                  <button type="button" className="tb-secondary" onClick={() => setMoving(true)}>
-                    Move the photo
-                  </button>
-                ) : (
-                  <div className="lg-move">
-                    <p className="tb-hint lg-move-how">
-                      {COARSE ? "Drag the photo with your finger to move it." : "Drag the photo with your mouse to move it."}
-                    </p>
-                    <div className="lg-move-row">
-                      <button type="button" className="tb-secondary" onClick={() => zoomBy(1.15)}>
-                        + Bigger
-                      </button>
-                      <button type="button" className="tb-secondary" onClick={() => zoomBy(1 / 1.15)}>
-                        − Smaller
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      className="tb-link lg-reset"
-                      onClick={() => setFit(() => ({ zoom: 1, offsetX: 0, offsetY: 0 }))}
-                    >
-                      Put it back how it was
+                {/* Always shown once there is a photo, never behind a "Move the
+                    photo" button: tucked away, they got missed. */}
+                <div className="lg-move">
+                  <p className="lg-question">Move the photo or change its size</p>
+                  <p className="tb-hint lg-move-how">
+                    {COARSE
+                      ? "Drag the photo with your finger to move it. Use the buttons to make it bigger or smaller."
+                      : "Drag the photo with your mouse to move it. Use the buttons to make it bigger or smaller, or pinch on your trackpad."}
+                  </p>
+                  <div className="lg-move-row">
+                    <button type="button" className="tb-secondary" onClick={() => zoomBy(1.15)}>
+                      + Bigger
+                    </button>
+                    <button type="button" className="tb-secondary" onClick={() => zoomBy(1 / 1.15)}>
+                      − Smaller
                     </button>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    className="tb-link lg-reset"
+                    onClick={() => setFit(() => ({ zoom: 1, offsetX: 0, offsetY: 0 }))}
+                  >
+                    Put it back how it was
+                  </button>
+                </div>
               </>
             )}
             <button type="button" className="tb-primary" disabled={!photo} onClick={() => setStep(3)}>
@@ -511,7 +533,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
         )}
 
         {step === 3 && (
-          <section className="tb-step">
+          <section className="tb-step lg-split">
             {back(2)}
             <h2 ref={headingRef} tabIndex={-1}>
               Sold or pending?
@@ -568,7 +590,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
         )}
 
         {step === 4 && (
-          <section className="tb-step">
+          <section className="tb-step lg-split">
             {back(3)}
             <h2 ref={headingRef} tabIndex={-1}>
               Which headshot?
@@ -589,7 +611,7 @@ export default function ListingGuide({ onHome }: { onHome?: () => void }) {
                 />
               ))}
             </div>
-            <p className="tb-lead">Here's your post:</p>
+            <p className="tb-lead lg-narrow">Here's your post:</p>
             {preview}
             <button type="button" className="tb-primary" onClick={save} disabled={busy}>
               {busy ? "Saving…" : "Looks good — save it"}

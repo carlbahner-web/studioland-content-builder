@@ -1,6 +1,7 @@
 /* The reel title builder.
  *
- * Four steps, one thing to do on each: type the words, check how they look,
+ * Four steps, one thing to do on each: type the words (seen as a banner while
+ * they are typed), check how they look,
  * save the picture, put it on the video. The person using it never positions,
  * sizes or configures anything - the layout engine in template.ts does all of
  * that - so every screen can be a single question with a single big button.
@@ -229,11 +230,13 @@ export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
   const layout = useMemo(() => layoutTitle(finalText, measure), [finalText, measure]);
   const empty = !text.trim();
 
+  /* Painted on step 1 too, as she types, so the words are seen as a banner
+   * before she has to decide she is done with them. */
   useEffect(() => {
-    if (step !== 2) return;
+    if (step !== 1 && step !== 2) return;
     paint(bannerRef.current, BANNER_PREVIEW_W, BANNER_BOTTOM, layout, paper);
     paint(reelRef.current, REEL_PREVIEW_W, CANVAS.h, layout, paper);
-  }, [step, layout, paper]);
+  }, [step, layout, paper, empty]);
 
   const filename = filenameFor(text);
 
@@ -271,6 +274,24 @@ export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
     setProblem(null);
     setStep(1);
   };
+
+  const previews = (
+    <div className="tb-previews">
+      <div className="tb-banner" style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}>
+        <canvas ref={bannerRef} className="title-canvas" aria-label={`Your title: ${picked.join(" ")}`} />
+        {GUIDES && <SafeZone frameH={BANNER_BOTTOM} />}
+      </div>
+      <figure className="tb-reel">
+        <div className="tb-reel-frame">
+          <span className="tb-reel-video" aria-hidden>
+            Your video
+          </span>
+          <canvas ref={reelRef} className="title-canvas" aria-hidden />
+        </div>
+        <figcaption>On your video</figcaption>
+      </figure>
+    </div>
+  );
 
   const back = (to: Step) => (
     <button type="button" className="tb-link" onClick={() => setStep(to)}>
@@ -322,6 +343,12 @@ export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
                 setChoice(0);
               }}
             />
+            {!empty && ready && (
+              <>
+                <p className="tb-lead">It will look like this:</p>
+                {previews}
+              </>
+            )}
             <button
               type="button"
               className="tb-primary"
@@ -342,21 +369,7 @@ export default function TitleBuilder({ onHome }: { onHome?: () => void }) {
             </h2>
             <p className="tb-lead">This is the banner that will sit across the top of your video.</p>
 
-            <div className="tb-previews">
-              <div className="tb-banner" style={{ aspectRatio: `${CANVAS.w} / ${BANNER_BOTTOM}` }}>
-                <canvas ref={bannerRef} className="title-canvas" aria-label={`Your title: ${picked.join(" ")}`} />
-                {GUIDES && <SafeZone frameH={BANNER_BOTTOM} />}
-              </div>
-              <figure className="tb-reel">
-                <div className="tb-reel-frame">
-                  <span className="tb-reel-video" aria-hidden>
-                    Your video
-                  </span>
-                  <canvas ref={reelRef} className="title-canvas" aria-hidden />
-                </div>
-                <figcaption>On your video</figcaption>
-              </figure>
-            </div>
+            {previews}
 
             {layout.size < SMALL_TYPE && (
               <p className="tb-note">
