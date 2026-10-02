@@ -1,67 +1,41 @@
-import { StrictMode, lazy, Suspense, useEffect, useState } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 
-/* Two tools, one bundle, told apart by the hash.
+/* The layer editor, and forwarding for Angela's old addresses.
  *
- * The hash rather than a path because this is served by GitHub Pages, which has
- * no rewrites: a real route would 404 on reload and on anyone opening a shared
- * link, which is most of what a link is for. It also keeps the single-file
- * build working, where there is no server to rewrite anything.
- *
- *   (nothing)   the brand content builder - the general layer editor
- *   #/listing   the listing post, one guided step at a time (Angela's)
- *   #/listing/advanced  the full listing editor, every control on one screen
- *   #/title     the reel title builder - type a title, get a transparent PNG
- *   #/angela    Angela's home page - the address she bookmarks, and the
- *               choice between the listing builder and the reel title builder
- *
- * The listing builder is lazy so that the artwork manifest and its module graph
- * cost nothing to whoever only wanted the other tool.
+ * Angela's tools - her home page, the guided listing post, the reel title and
+ * the full listing editor - used to live here behind #/angela, #/listing,
+ * #/title and #/listing/advanced. They moved to her own site
+ * (carlbahner-web/angelarerarealestate, at /builder/), so those hashes send the
+ * browser there rather than to a page that no longer exists. replace(), not an
+ * assignment, so the old address does not sit in the back-button history.
  */
-const ListingBuilder = lazy(() => import("./listing/ListingBuilder.tsx"));
-const ListingGuide = lazy(() => import("./listing/ListingGuide.tsx"));
-const TitleBuilder = lazy(() => import("./title/TitleBuilder.tsx"));
-const AngelaHome = lazy(() => import("./home/AngelaHome.tsx"));
+const ANGELA = "https://carlbahner-web.github.io/angelarerarealestate/builder/";
 
-function route(): string {
-  return window.location.hash.replace(/^#/, "") || "/";
+function movedTo(hash: string): string | null {
+  const path = hash.replace(/^#/, "");
+  if (path.startsWith("/listing/advanced")) return `${ANGELA}advanced/`;
+  if (/^\/(angela|listing|title)/.test(path)) return ANGELA;
+  return null;
 }
 
 function Router() {
-  const [path, setPath] = useState(route);
+  const [moved, setMoved] = useState(() => movedTo(window.location.hash));
   useEffect(() => {
-    const onHash = () => setPath(route());
+    const onHash = () => setMoved(movedTo(window.location.hash));
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+  useEffect(() => {
+    if (moved) window.location.replace(moved);
+  }, [moved]);
 
-  if (path.startsWith("/listing/advanced")) {
+  if (moved) {
     return (
-      <Suspense fallback={<p className="boot-msg">Loading the listing builder…</p>}>
-        <ListingBuilder />
-      </Suspense>
-    );
-  }
-  if (path.startsWith("/listing")) {
-    return (
-      <Suspense fallback={<p className="boot-msg">Loading…</p>}>
-        <ListingGuide />
-      </Suspense>
-    );
-  }
-  if (path.startsWith("/angela")) {
-    return (
-      <Suspense fallback={<p className="boot-msg">Loading…</p>}>
-        <AngelaHome />
-      </Suspense>
-    );
-  }
-  if (path.startsWith("/title")) {
-    return (
-      <Suspense fallback={<p className="boot-msg">Loading the reel title builder…</p>}>
-        <TitleBuilder />
-      </Suspense>
+      <p className="boot-msg">
+        Angela's Post Builder has moved to <a href={moved}>{moved}</a>.
+      </p>
     );
   }
   return <App />;

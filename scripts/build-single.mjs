@@ -14,25 +14,10 @@
 import { build } from "esbuild";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import layers from "../src/listing/layers.json" with { type: "json" };
-import photos from "../src/listing/photos.json" with { type: "json" };
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
-/* Two one-file builds, because they are for two different errands.
- *
- * The default packs the whole bundle - every tool behind the hash router. The
- * --only=angela build packs Angela's page alone - her home page and the two
- * guided tools, switched by state - and is what gets published as her Claude
- * artifact: there is no router there, no way to reach the layer editor, and
- * no reason to make someone download 250kB of it plus every brand asset
- * before the page she opened can paint. The listing artwork covers both of
- * her tools: the reel titles' peony paper is cut from the listing frame. */
-const args = process.argv.slice(2);
-const ANGELA_ONLY = args.includes("--only=angela");
-const OUT =
-  args.find((a) => !a.startsWith("--")) ??
-  path.join(ROOT, "dist-single", ANGELA_ONLY ? "angela.html" : "content-builder.html");
+const OUT = process.argv[2] ?? path.join(ROOT, "dist-single", "content-builder.html");
 
 const MIME = {
   ".woff2": "font/woff2",
@@ -41,36 +26,18 @@ const MIME = {
   ".jpg": "image/jpeg",
 };
 
-// The listing template's keyed layers. Taken from the manifest rather than
-// listed by hand, so adding artwork to assets/listing-src/ and re-running
-// `npm run art` cannot leave either build silently one layer short.
-const LISTING_ASSETS = [
-  "/fonts/TAYWingman.woff2",
-  ...Object.keys(layers).map((name) => `/listing/${name}.png`),
-  // Each arch's alpha, which a photographed headshot is clipped by. Written
-  // beside its layer by chroma-key.mjs and recorded in the same manifest, so a
-  // second layout cannot arrive with a mask this build does not know about.
-  ...Object.values(layers).map((l) => l.mask).filter(Boolean),
-  // The photographs and the mattes that key their backdrop out. Neither is a
-  // keyed layer, so neither is in layers.json. De-duplicated the same way
-  // template.ts does it: two crops of one photograph share a file and a matte,
-  // and inlining a megabyte of JPEG twice would show up in the download.
-  ...new Set(photos.shots.flatMap((s) => [s.file, s.matte].filter(Boolean))),
-];
-
 /** Everything the running app asks for by path, as data URIs. */
-const ASSETS = ANGELA_ONLY
-  ? LISTING_ASSETS
-  : [
-      "/brand/grain.webp",
-      "/brand/studioland-wordmark-cream.png",
-      "/brand/studioland-wordmark-charcoal.png",
-      "/brand/buzz-wave.webp",
-      "/brand/buzz-ride.webp",
-      "/fonts/DWFairfield.woff2",
-      "/fonts/DWFairfield-Narrow.woff2",
-      ...LISTING_ASSETS,
-    ];
+const ASSETS = [
+  "/brand/grain.webp",
+  "/brand/studioland-wordmark-cream.png",
+  "/brand/studioland-wordmark-charcoal.png",
+  "/brand/buzz-wave.webp",
+  "/brand/buzz-ride.webp",
+  "/fonts/DWFairfield.woff2",
+  "/fonts/DWFairfield-Narrow.woff2",
+  // The panel's own webfont, from studio.css.
+  "/fonts/TAYWingman.woff2",
+];
 
 async function dataUri(publicPath) {
   const file = path.join(ROOT, "public", publicPath.replace(/^\//, ""));
@@ -82,39 +49,14 @@ async function dataUri(publicPath) {
 const inline = {};
 for (const p of ASSETS) inline[p] = await dataUri(p);
 
-/* The artifact viewer wraps this fragment in its own skeleton, which pads the
- * root element by the phone's safe-area insets so a page can run edge to edge.
- * A child sized in vh ignores that padding and overflows by exactly the inset -
- * enough to put a scrollbar on a page that fits. So the one-screen measurements
- * are restated against the element rather than the viewport. */
-const ARTIFACT_SHIM = `
-html, body { height: 100%; }
-.listing, .title { min-height: 100%; }
-.listing-panel { max-height: 100dvh; }
-.listing-canvas { max-height: calc(100dvh - 140px); }
-@media (max-width: 900px) {
-  .listing-panel { max-height: none; }
-  .listing-canvas { max-height: none; }
-}
-`;
-
 // The panel's own webfont is referenced from CSS, so swap that URL too.
-let css = [
-  await readFile(path.join(ROOT, "src/studio.css"), "utf8"),
-  await readFile(path.join(ROOT, "src/listing/listing.css"), "utf8"),
-  await readFile(path.join(ROOT, "src/title/title.css"), "utf8"),
-  await readFile(path.join(ROOT, "src/home/home.css"), "utf8"),
-  await readFile(path.join(ROOT, "src/listing/guide.css"), "utf8"),
-  ANGELA_ONLY ? ARTIFACT_SHIM : "",
-].join("\n");
+let css = await readFile(path.join(ROOT, "src/studio.css"), "utf8");
 css = css.replace(/url\("(\/fonts\/[^"]+)"\)/g, (_, p) => `url("${inline[p]}")`);
 
 /* esbuild rather than Vite: one IIFE, no module graph, no import.meta - which
  * this app deliberately does not use, so nothing has to be stubbed. */
 const bundled = await build({
-  entryPoints: [
-    path.join(ROOT, ANGELA_ONLY ? "src/home/main.tsx" : "src/main.tsx"),
-  ],
+  entryPoints: [path.join(ROOT, "src/main.tsx")],
   bundle: true,
   format: "iife",
   minify: true,
@@ -122,8 +64,7 @@ const bundled = await build({
   target: ["es2022"],
   write: false,
   loader: { ".css": "empty", ".json": "json" }, // the CSS is inlined above, not imported
-  // One file means one script, so the listing builder's lazy import has to be
-  // folded back in rather than emitted as a chunk nothing will be there to fetch.
+  // One file means one script: nothing may be emitted as a separate chunk.
   splitting: false,
   define: {
     "process.env.NODE_ENV": '"production"',
@@ -137,8 +78,7 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text;
 
-const TITLE = ANGELA_ONLY ? "Angela's Post Builder" : "StudioLand content builder";
-const html = `<title>${TITLE}</title>
+const html = `<title>StudioLand content builder</title>
 <style>
 ${css}
 </style>
