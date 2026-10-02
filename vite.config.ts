@@ -17,9 +17,10 @@ import { resolve } from "node:path";
 // `npm run build` and the single-file build all leave it unset and get "/",
 // which is what they want; only the Pages workflow sets it.
 //
-// Two pages. index.html is every tool behind the hash router; angela/index.html
-// is Angela's own address - her home page and the two guided tools - with its
-// own title and link preview, because a link preview never sees past a #.
+// Two pages. index.html is the layer editor; angela/index.html is only a
+// redirect now - Angela's Post Builder moved to her own site
+// (carlbahner-web/angelarerarealestate, at /builder/) and the old address
+// forwards there so her bookmark keeps working.
 export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   plugins: [react()],
